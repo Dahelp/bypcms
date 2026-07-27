@@ -157,6 +157,25 @@ export default function AdminPage() {
     }
   }
 
+  async function changePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    try {
+      await api("auth.password", {
+        method: "POST",
+        body: JSON.stringify({
+          current_password: form.get("current_password"),
+          new_password: form.get("new_password"),
+          new_password_confirmation: form.get("new_password_confirmation"),
+        }),
+      }, csrf);
+      event.currentTarget.reset();
+      setNotice("Пароль успешно изменён");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось изменить пароль");
+    }
+  }
+
   const pageTitle = useMemo(
     () => navigation.find(([key]) => key === active)?.[2] ?? "Обзор",
     [active],
@@ -301,6 +320,13 @@ export default function AdminPage() {
                 <article><span>◇</span><div><strong>API и интеграции</strong><small>Токены, webhooks и внешние сервисы</small></div></article>
                 <article><span>↻</span><div><strong>Обновления</strong><small>Ядро, модули и резервные копии</small></div></article>
               </div>
+              <form className="adminPasswordForm" onSubmit={changePassword}>
+                <div><p>БЕЗОПАСНОСТЬ</p><h2>Сменить пароль</h2><small>Минимум 12 символов. После изменения используйте новый пароль при следующем входе.</small></div>
+                <label>Текущий пароль<input name="current_password" type="password" autoComplete="current-password" required /></label>
+                <label>Новый пароль<input name="new_password" type="password" minLength={12} autoComplete="new-password" required /></label>
+                <label>Повторите пароль<input name="new_password_confirmation" type="password" minLength={12} autoComplete="new-password" required /></label>
+                <button type="submit">Изменить пароль</button>
+              </form>
             </section>
           )}
         </div>

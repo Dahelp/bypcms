@@ -2,24 +2,17 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-
-const products = [
-  { name: "Business", price: 24900, note: "Компания, услуги и корпоративный сайт", modules: ["Контент", "Формы", "SEO"] },
-  { name: "Commerce", price: 49900, note: "Каталог, заказы, оплата и доставка", modules: ["Каталог", "Корзина", "Заказы", "Платежи"] },
-  { name: "Content", price: 19900, note: "Блог, медиа и база знаний", modules: ["Публикации", "Рубрики", "Редакция"] },
-];
-
-const extras = [
-  ["Интернет-магазин", 14900],
-  ["Мультиязычность", 7900],
-  ["CRM и обращения", 9900],
-  ["Аналитика", 5900],
-];
+import { publicEditions, publicModules } from "./modules/data";
 
 export default function Home() {
   const [selected, setSelected] = useState(1);
-  const [extrasSelected, setExtrasSelected] = useState<string[]>(["Аналитика"]);
-  const total = useMemo(() => products[selected].price + extras.filter(([name]) => extrasSelected.includes(String(name))).reduce((sum, item) => sum + Number(item[1]), 0), [selected, extrasSelected]);
+  const [term, setTerm] = useState<"annual"|"lifetime">("annual");
+  const [extrasSelected, setExtrasSelected] = useState<string[]>(["analytics"]);
+  const selectedEdition=publicEditions[selected];
+  const compatibleExtras=publicModules.filter(module=>!selectedEdition.modules.includes(module.slug as never)&&(
+    selectedEdition.name==="Commerce"||!["commerce","payments"].includes(module.slug)
+  ));
+  const total = useMemo(() => selectedEdition[term] + compatibleExtras.filter(module=>extrasSelected.includes(module.slug)).reduce((sum,module)=>sum+module.price,0), [selectedEdition,term,compatibleExtras,extrasSelected]);
 
   return (
     <main>
@@ -67,24 +60,27 @@ export default function Home() {
       <section className="editions shell" id="products">
         <div className="sectionIntro"><p className="sectionLabel">01 / РЕДАКЦИИ</p><h2>Готовая основа.<br />Ваши возможности.</h2><p>Выберите редакцию и дополните её модулями, дизайном и услугами разработки.</p></div>
         <div className="editionCards">
-          {products.map((product,index)=><article className={`editionCard ${["violet","lime","blue"][index]} ${selected===index?"selected":""}`} key={product.name} onClick={()=>setSelected(index)}>
+          {publicEditions.map((product,index)=><article className={`editionCard ${["violet","lime","blue"][index]} ${selected===index?"selected":""}`} key={product.name} onClick={()=>setSelected(index)}>
             <span className="cardIndex">0{index+1}</span><p>BYPCMS</p><h3>{product.name}</h3><div className="editionVisual"><i/><i/><i/><strong>{product.name[0]}</strong></div>
-            <p className="editionText">{product.note}</p><ul>{product.modules.map(item=><li key={item}>✓ {item}</li>)}</ul>
-            <div className="editionPrice"><span>{product.price.toLocaleString("ru-RU")} ₽</span><small> / лицензия</small></div>
+            <p className="editionText">{product.note}</p><ul>{product.modules.map(item=><li key={item}>✓ {publicModules.find(module=>module.slug===item)?.name}</li>)}</ul>
+            <div className="editionPrice"><span>{product[term].toLocaleString("ru-RU")} ₽</span><small> / {term==="annual"?"год":"пожизненно"}</small></div>
           </article>)}
         </div>
       </section>
 
       <section className="modules" id="builder"><div className="shell">
         <div className="sectionIntro light"><p className="sectionLabel">02 / КОНСТРУКТОР</p><h2>Соберите свою BYPCMS.</h2><p>Итоговая стоимость прозрачна: редакция, выбранные модули и услуги.</p></div>
+        <div className="publicTermSelect"><button className={term==="annual"?"active":""} onClick={()=>setTerm("annual")}><b>Лицензия на 1 год</b><span>Доступная цена и ежегодное продление</span></button><button className={term==="lifetime"?"active":""} onClick={()=>setTerm("lifetime")}><b>Пожизненная лицензия</b><span>Без обязательного ежегодного платежа</span></button></div>
         <div className="priceBuilder">
-          <div className="builderOptions">{extras.map(([name,price])=><label key={name}><input type="checkbox" checked={extrasSelected.includes(String(name))} onChange={()=>setExtrasSelected(list=>list.includes(String(name))?list.filter(x=>x!==name):[...list,String(name)])}/><span><strong>{name}</strong><small>+{Number(price).toLocaleString("ru-RU")} ₽</small></span></label>)}</div>
-          <aside><small>ВАША СБОРКА</small><h3>BYPCMS {products[selected].name}</h3><p>{products[selected].modules.concat(extrasSelected).join(" · ")}</p><strong>{total.toLocaleString("ru-RU")} ₽</strong><a href="mailto:hello@bypcms.ru">Заказать сборку →</a></aside>
+          <div className="builderOptions">{compatibleExtras.map(module=><label key={module.slug}><input type="checkbox" checked={extrasSelected.includes(module.slug)} onChange={()=>setExtrasSelected(list=>list.includes(module.slug)?list.filter(x=>x!==module.slug):[...list,module.slug])}/><span><strong>{module.name}</strong><small>+{module.price.toLocaleString("ru-RU")} ₽ · <Link href={`/modules/${module.slug}`}>подробнее</Link></small></span></label>)}</div>
+          <aside><small>ВАША СБОРКА</small><h3>BYPCMS {selectedEdition.name}</h3><p>{selectedEdition.modules.map(key=>publicModules.find(module=>module.slug===key)?.name).concat(extrasSelected.map(key=>publicModules.find(module=>module.slug===key)?.name)).filter(Boolean).join(" · ")}</p><strong>{total.toLocaleString("ru-RU")} ₽</strong><Link href={`/order?edition=${selectedEdition.name}&term=${term}&modules=${extrasSelected.join(",")}`}>Оформить заказ →</Link></aside>
         </div>
       </div></section>
 
+      <section className="publicModuleCatalog shell"><div className="sectionIntro"><p className="sectionLabel">03 / МОДУЛИ</p><h2>Каждая возможность<br/>описана подробно.</h2></div><div>{publicModules.map(module=><Link href={`/modules/${module.slug}`} key={module.slug}><small>{module.category}</small><h3>{module.name}</h3><p>{module.lead}</p><span>{module.price?`${module.price.toLocaleString("ru-RU")} ₽`:"Включён"} →</span></Link>)}</div></section>
+
       <section className="architecture shell" id="services">
-        <div className="architectureCopy"><p className="sectionLabel">03 / УСЛУГИ</p><h2>Проект под ключ<br />на одной платформе.</h2><p>Помимо лицензии можно заказать прототипирование, уникальный UX/UI, адаптивный frontend, интеграции, перенос данных, запуск и сопровождение.</p><a className="primaryButton dark" href="mailto:hello@bypcms.ru">Обсудить проект <span>→</span></a></div>
+        <div className="architectureCopy"><p className="sectionLabel">04 / УСЛУГИ</p><h2>Проект под ключ<br />на одной платформе.</h2><p>Помимо лицензии можно заказать прототипирование, уникальный UX/UI, адаптивный frontend, интеграции, перенос данных, запуск и сопровождение.</p><a className="primaryButton dark" href="mailto:hello@bypcms.ru">Обсудить проект <span>→</span></a></div>
         <div className="layerStack">
           <div className="layer projectLayer"><span>04</span><div><strong>Разработка и запуск</strong><small>Frontend · интеграции · перенос · обучение</small></div><b>Под ключ</b></div>
           <div className="layer moduleLayer"><span>03</span><div><strong>Индивидуальный дизайн</strong><small>UX-исследование · UI-kit · адаптивный шаблон</small></div><b>Уникально</b></div>

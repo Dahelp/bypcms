@@ -148,4 +148,6 @@ return [
         ("Commerce","content","included"), ("Commerce","forms","included"), ("Commerce","seo","included"),
         ("Commerce","commerce","included"), ("Commerce","payments","included"), ("Commerce","analytics","optional"),
         ("Content","content","included"), ("Content","seo","included"), ("Content","analytics","optional")',
+    'ALTER TABLE byp_license_registry ADD COLUMN IF NOT EXISTS license_term VARCHAR(30) NOT NULL DEFAULT "annual" AFTER edition',
+    'ALTER TABLE byp_license_registry ADD COLUMN IF NOT EXISTS purchase_price DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER license_term',
 ];

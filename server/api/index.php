@@ -58,6 +58,24 @@ try {
         $auth->verifyCsrf();
     }
 
+    if ($action === 'auth.password' && $method === 'POST') {
+        $current = (string)($input['current_password'] ?? '');
+        $next = (string)($input['new_password'] ?? '');
+        $confirmation = (string)($input['new_password_confirmation'] ?? '');
+        $stored = $db->one('SELECT password_hash FROM byp_users WHERE id=:id', ['id'=>$user['id']]);
+        if (!$stored || !password_verify($current, (string)$stored['password_hash'])) {
+            Response::error('Текущий пароль указан неверно', 422);
+        }
+        if (strlen($next) < 12 || $next !== $confirmation) {
+            Response::error('Новый пароль должен содержать минимум 12 символов, а подтверждение должно совпадать', 422);
+        }
+        $db->execute('UPDATE byp_users SET password_hash=:hash, updated_at=NOW() WHERE id=:id', [
+            'hash'=>password_hash($next, PASSWORD_DEFAULT), 'id'=>$user['id'],
+        ]);
+        byp_audit($db,$user,'auth.password','user',(int)$user['id']);
+        Response::ok();
+    }
+
     if (str_starts_with($action, 'owner.')) {
         if (($user['role'] ?? '') !== 'owner') {
             Response::error('Доступ разрешён только владельцу платформы', 403);
@@ -127,7 +145,7 @@ try {
                  FROM byp_clients c ORDER BY c.updated_at DESC'
             );
             $licenses = $db->all(
-                'SELECT l.id,l.client_id,l.license_hint,l.domain,l.edition,l.core_version,l.installed_version,
+                'SELECT l.id,l.client_id,l.license_hint,l.domain,l.edition,l.license_term,l.purchase_price,l.core_version,l.installed_version,
                         l.entitlements,l.status,l.activated_at,l.valid_until,l.last_seen_at,l.created_at,l.updated_at,
                         COALESCE(c.company,c.name,"Без клиента") AS client_name
                  FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id ORDER BY l.updated_at DESC'
@@ -222,18 +240,30 @@ try {
             $client=(int)($input['client_id'] ?? 0);
             $edition=(string)($input['edition'] ?? 'Business');
             if($client<1 || !in_array($edition,['Business','Commerce','Content'],true)) Response::error('Выберите клиента и редакцию',422);
-            $entitlements=array_values(array_filter((array)($input['entitlements'] ?? [])));
-            $params=['client'=>$client,'domain'=>trim((string)($input['domain'] ?? '')),'edition'=>$edition,
+            $domain=mb_strtolower(trim((string)($input['domain'] ?? '')));
+            if($domain!=='' && !preg_match('/^(?=.{4,190}$)(?!https?:\\/\\/)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i',$domain)){
+                Response::error('Укажите домен без протокола и пути, например example.ru',422);
+            }
+            $term=($input['license_term'] ?? '')==='lifetime'?'lifetime':'annual';
+            $annualPrices=['Business'=>9900,'Commerce'=>19900,'Content'=>7900];
+            $lifetimePrices=['Business'=>24900,'Commerce'=>49900,'Content'=>19900];
+            $price=(float)($term==='lifetime'?$lifetimePrices[$edition]:$annualPrices[$edition]);
+            $includedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability="included"',['edition'=>$edition]);
+            $allowedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',['edition'=>$edition]);
+            $includedKeys=array_column($includedRows,'module_key');
+            $allowedKeys=array_column($allowedRows,'module_key');
+            $entitlements=array_values(array_unique(array_merge($includedKeys,array_intersect(array_values(array_filter((array)($input['entitlements'] ?? []))),$allowedKeys))));
+            $params=['client'=>$client,'domain'=>$domain,'edition'=>$edition,'term'=>$term,'price'=>$price,
                 'core'=>(string)($input['core_version'] ?? '2.1.0'),'installed'=>(string)($input['installed_version'] ?? ''),
                 'entitlements'=>json_encode($entitlements,JSON_UNESCAPED_UNICODE),'status'=>(string)($input['status'] ?? 'active'),
-                'until'=>!empty($input['valid_until'])?(string)$input['valid_until']:null];
-            if($id>0){$params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,core_version=:core,
+                'until'=>$term==='lifetime'?null:(!empty($input['valid_until'])?(string)$input['valid_until']:date('Y-m-d',strtotime('+1 year')))];
+            if($id>0){$params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,license_term=:term,purchase_price=:price,core_version=:core,
                 installed_version=:installed,entitlements=:entitlements,status=:status,valid_until=:until,updated_at=NOW() WHERE id=:id',$params);}
             else{
                 $plain='BYP-'.strtoupper(substr($edition,0,3)).'-'.strtoupper(bin2hex(random_bytes(6)));
                 $params['hash']=hash('sha256',$plain);$params['hint']=substr($plain,0,11).'••••';
-                $id=$db->insert('INSERT INTO byp_license_registry (client_id,license_key_hash,license_hint,domain,edition,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at)
-                    VALUES (:client,:hash,:hint,:domain,:edition,:core,:installed,:entitlements,:status,NOW(),:until,NOW(),NOW())',$params);
+                $id=$db->insert('INSERT INTO byp_license_registry (client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at)
+                    VALUES (:client,:hash,:hint,:domain,:edition,:term,:price,:core,:installed,:entitlements,:status,NOW(),:until,NOW(),NOW())',$params);
             }
             byp_audit($db,$user,'owner.license.save','license',$id);
             Response::ok(['id'=>$id]);
@@ -281,6 +311,7 @@ try {
             Response::error('На сервере не включено расширение PHP ZipArchive', 501);
         }
         $edition = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_GET['edition'] ?? 'Business'));
+        $licenseTerm = (string)($_GET['term'] ?? '') === 'lifetime' ? 'lifetime' : 'annual';
         $requested = array_values(array_filter(explode(',', (string)($_GET['modules'] ?? 'content'))));
         $editionRows = $db->all(
             'SELECT module_key, availability FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',
@@ -309,6 +340,7 @@ try {
         $zip->addFromString('build-manifest.json', json_encode([
             'product' => 'BYPCMS',
             'edition' => $edition,
+            'license_term' => $licenseTerm,
             'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
             'modules' => $selected,
             'created_at' => date(DATE_ATOM),
@@ -322,12 +354,14 @@ try {
         ) : [];
         $optionalKeys = array_values(array_diff($selected,$included));
         $moduleTotal = array_reduce($moduleRows, fn(float $sum,array $row): float => $sum + (in_array($row['module_key'],$optionalKeys,true) ? (float)$row['price'] : 0), 0.0);
-        $corePrices=['Business'=>24900,'Commerce'=>49900,'Content'=>19900];
+        $corePrices=$licenseTerm==='lifetime'
+            ? ['Business'=>24900,'Commerce'=>49900,'Content'=>19900]
+            : ['Business'=>9900,'Commerce'=>19900,'Content'=>7900];
         $buildKey='BLD-'.strtoupper(bin2hex(random_bytes(5)));
         $db->execute(
             'INSERT INTO byp_builds (build_key,name,edition,core_version,modules,services,total,archive_path,status,created_at,updated_at)
              VALUES (:key,:name,:edition,:core,:modules,"[]",:total,:archive,"ready",NOW(),NOW())',
-            ['key'=>$buildKey,'name'=>$buildId,'edition'=>$edition,'core'=>(string)($config['app']['version'] ?? '2.1.0'),
+            ['key'=>$buildKey,'name'=>$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>(string)($config['app']['version'] ?? '2.1.0'),
              'modules'=>json_encode($selected,JSON_UNESCAPED_UNICODE),'total'=>(float)($corePrices[$edition] ?? 24900)+$moduleTotal,'archive'=>$buildId.'.zip']
         );
         byp_audit($db, $user, 'build.download', 'build', null, ['edition' => $edition, 'modules' => $selected]);

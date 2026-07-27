@@ -39,3 +39,31 @@
 .ownerModalShade{position:fixed;inset:0;background:#13150f99;display:grid;place-items:center;z-index:30;padding:25px}.ownerModal{width:min(720px,100%);max-height:calc(100vh - 50px);overflow:auto;background:white;border-radius:12px;padding:24px;box-shadow:0 30px 90px #0004}.ownerModal header{display:flex;justify-content:space-between;align-items:start;border-bottom:1px solid #e5e6e1;padding-bottom:16px;margin-bottom:18px}.ownerModal header h2{font-size:25px;margin:5px 0}.ownerModal header button{border:0;background:#f0f1ed;width:34px;height:34px;border-radius:7px}.ownerModal>label,.ownerModal .formGrid label,.compatibilityEditor label{display:grid;gap:7px;font-size:14px;font-weight:750;margin-top:13px}.ownerModal input,.ownerModal select,.ownerModal textarea{width:100%;border:1px solid #d7d9d2;border-radius:7px;padding:11px;background:#fff}.ownerModal textarea{resize:vertical}.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:0 13px}.compatibilityEditor{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.ownerModal footer{display:flex;justify-content:flex-end;gap:9px;border-top:1px solid #e5e6e1;margin-top:20px;padding-top:16px}.ownerModal footer button{border:1px solid #d8dad3;background:#f5f6f2;border-radius:7px;padding:11px 17px}.ownerModal footer button:last-child{background:#725ee0;color:#fff;border-color:#725ee0}
 @media(max-width:900px){.taskRow{min-width:1000px}.taskManager{overflow:auto}.ownerSettings{grid-template-columns:1fr}.taskOverviewRow{grid-template-columns:1fr 100px}.taskOverviewRow .taskProgress{display:none}}
 @media(max-width:700px){.formGrid,.compatibilityEditor{grid-template-columns:1fr}.ownerModalShade{padding:10px}.ownerModal{max-height:calc(100vh - 20px);padding:18px}}
+
+/* Final typography scale. These rules intentionally win over legacy compact selectors. */
+.ownerApp *{font-size:16px!important}
+.ownerApp small,.ownerApp code,.ownerApp time,.ownerApp em,.ownerApp .ownerSidebar>p,.ownerApp .ownerHeading small{font-size:14px!important;line-height:1.5}
+.ownerApp h1,.ownerApp .ownerHeading h1{font-size:38px!important;line-height:1.12}
+.ownerApp h2,.ownerApp .ownerModal h2{font-size:24px!important;line-height:1.2}
+.ownerApp h3{font-size:20px!important}
+.ownerApp .ownerBrand>b{font-size:22px!important}.ownerApp .ownerAvatar{font-size:15px!important}
+.ownerApp .ownerKpis strong,.ownerApp .salesTotals strong{font-size:28px!important}
+.ownerApp .chartTotal strong{font-size:30px!important}
+.ownerApp .ownerSidebar nav button{font-size:16px!important;min-height:50px}
+.ownerApp .ownerContent{padding:42px 42px 58px}
+.ownerApp .ownerHeading{margin-bottom:30px}
+.ownerApp .buildLayout{grid-template-columns:minmax(0,1fr) 380px;gap:22px}
+.ownerApp .buildSteps{gap:20px}.ownerApp .buildBlock{padding:28px;gap:18px}
+.ownerApp .buildBlock h2{margin:8px 0 22px}
+.ownerApp .buildBlock>span{width:36px;height:36px}
+.ownerApp .editionSelect{gap:12px;margin-top:12px}.ownerApp .editionSelect button{padding:18px 14px;min-height:122px}
+.ownerApp .buildModules{gap:12px;margin-top:12px}.ownerApp .buildModules label{padding:17px;min-height:104px;gap:12px}
+.ownerApp .buildSummary{padding:28px}.ownerApp .buildSummary li,.ownerApp .buildSummary>div,.ownerApp .buildSummary>strong{padding:15px 0}
+.ownerApp .servicesManager>div{grid-template-columns:minmax(360px,1fr) 220px 120px 150px;gap:16px;min-height:78px}
+.ownerApp .servicesManager>div>button{min-height:44px;padding:0 16px;white-space:nowrap}
+.ownerApp .ownerModal{width:min(800px,100%);padding:30px}.ownerApp .ownerModal input,.ownerApp .ownerModal select{min-height:50px}.ownerApp .ownerModal textarea{min-height:110px}
+@media(max-width:1050px){.ownerApp .ownerContent{padding:30px 24px 50px}.ownerApp .buildLayout{grid-template-columns:1fr}.ownerApp .buildSummary{position:static}}
+.ownerApp .termSelect{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ownerApp .termSelect button{display:grid;gap:7px;text-align:left;padding:20px;border:1px solid #d8dad3;border-radius:9px;background:#f8f8f5}.ownerApp .termSelect button.active{border-color:#725ee0;background:#eeeaff;color:#5e48c0}.ownerApp .termSelect button strong{font-size:20px!important}
+.ownerApp .licenseModulePicker{border:1px solid #d8dad3;border-radius:9px;margin-top:20px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ownerApp .licenseModulePicker legend{padding:0 8px;font-weight:850}.ownerApp .licenseModulePicker label{display:flex;align-items:center;gap:10px;padding:12px;background:#f6f7f3;border-radius:7px}.ownerApp .licenseModulePicker label>span{display:grid}.ownerApp .licenseModulePicker input{width:18px!important;min-height:18px!important}
+@media(max-width:700px){.ownerApp .termSelect,.ownerApp .licenseModulePicker{grid-template-columns:1fr}}
+.ownerApp .settingsStack{display:grid;gap:18px}.ownerApp .passwordPanel{background:#fff;border:1px solid #dfe0da;border-radius:9px;padding:24px}.ownerApp .passwordPanel h2{margin:8px 0}.ownerApp .passwordPanel>p{color:#6f746a}.ownerApp .passwordPanel label{display:grid;gap:7px;font-weight:750;margin-top:12px}.ownerApp .passwordPanel input{height:50px;border:1px solid #d7d9d2;border-radius:7px;padding:0 12px}.ownerApp .passwordPanel>button{height:46px;background:#191b17;color:#fff;border:0;border-radius:7px;padding:0 18px;margin-top:18px;font-weight:850}

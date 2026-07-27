@@ -27,6 +27,16 @@ body small,body time,body code,
   font-size:14px!important;
   line-height:1.45;
 }
+
+/* Public-site typography: never render meaningful copy below 14px. */
+.statusPill,.navAction,.editionCard ul,.editionCard>a,
+.moduleList article>span,.moduleList p,.layer>b,.ctaButton,
+.miniApp aside span,.avatar,.updateToast b,.floatingTag i{
+  font-size:14px!important;
+  line-height:1.45;
+}
+.footer,.footer *{font-size:15px!important;line-height:1.5}
+.footer .brand{font-size:16px!important}
 a { color: inherit; text-decoration: none; }
 button { color: inherit; font: inherit; }
 .shell { width: min(1240px, calc(100% - 48px)); margin-inline: auto; }

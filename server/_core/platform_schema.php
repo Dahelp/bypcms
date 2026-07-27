@@ -98,4 +98,54 @@ return [
         updated_at DATETIME NOT NULL,
         INDEX idx_demo_expiry (expires_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_client_tasks (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        client_id INT UNSIGNED NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        description TEXT NULL,
+        contract_ref VARCHAR(120) NULL,
+        service_id INT UNSIGNED NULL,
+        assignee VARCHAR(190) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "planned",
+        progress TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        price DECIMAL(12,2) NOT NULL DEFAULT 0,
+        due_at DATETIME NULL,
+        completed_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_tasks_client (client_id),
+        INDEX idx_tasks_status (status),
+        INDEX idx_tasks_due (due_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_owner_notifications (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        notification_type VARCHAR(60) NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        message TEXT NULL,
+        entity_type VARCHAR(80) NULL,
+        entity_id INT UNSIGNED NULL,
+        severity VARCHAR(30) NOT NULL DEFAULT "info",
+        is_read TINYINT(1) NOT NULL DEFAULT 0,
+        created_at DATETIME NOT NULL,
+        read_at DATETIME NULL,
+        INDEX idx_notifications_read (is_read, created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_owner_settings (
+        setting_key VARCHAR(120) PRIMARY KEY,
+        setting_value LONGTEXT NULL,
+        updated_by INT UNSIGNED NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_edition_modules (
+        edition VARCHAR(80) NOT NULL,
+        module_key VARCHAR(120) NOT NULL,
+        availability VARCHAR(30) NOT NULL DEFAULT "optional",
+        PRIMARY KEY (edition, module_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'INSERT IGNORE INTO byp_edition_modules (edition, module_key, availability) VALUES
+        ("Business","content","included"), ("Business","forms","included"), ("Business","seo","included"),
+        ("Business","analytics","optional"),
+        ("Commerce","content","included"), ("Commerce","forms","included"), ("Commerce","seo","included"),
+        ("Commerce","commerce","included"), ("Commerce","payments","included"), ("Commerce","analytics","optional"),
+        ("Content","content","included"), ("Content","seo","included"), ("Content","analytics","optional")',
 ];

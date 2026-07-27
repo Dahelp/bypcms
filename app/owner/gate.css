@@ -14,4 +14,7 @@
 .ownerGate.loading{display:grid;place-content:center;text-align:center;background:#151712;color:white}
 .ownerGate.loading>b{width:55px;height:55px;display:grid;place-items:center;background:#caff3d;color:#171914;border-radius:13px;font-size:30px;margin:auto}
 .ownerGate.loading p{color:#8f9488;font-size:11px}
+.ownerGate small,.ownerGate form>small{font-size:13px}
+.ownerGate form label,.ownerGate form>a,.ownerGate form>em{font-size:14px}
+.ownerGate.loading p{font-size:14px}
 @media(max-width:700px){.ownerGate{grid-template-columns:1fr}.ownerGate>section{min-height:340px;padding:28px}.ownerGate h1{font-size:48px}.ownerGate form{padding:45px 0}}

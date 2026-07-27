@@ -73,7 +73,7 @@ $config = byp_config();
 $db = new Database($config);
 $auth = new Auth($db);
 
-$platformMarker = BYPCMS_STORAGE . '/platform-schema-v1.lock';
+$platformMarker = BYPCMS_STORAGE . '/platform-schema-v2.lock';
 if (!is_file($platformMarker)) {
     foreach (require __DIR__ . '/platform_schema.php' as $statement) {
         $db->execute($statement);

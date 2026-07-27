@@ -78,6 +78,13 @@ if (!is_file($platformMarker)) {
     foreach (require __DIR__ . '/platform_schema.php' as $statement) {
         $db->execute($statement);
     }
+    $licenseColumns = array_column($db->all('SHOW COLUMNS FROM byp_license_registry'), 'Field');
+    if (!in_array('license_term', $licenseColumns, true)) {
+        $db->execute('ALTER TABLE byp_license_registry ADD COLUMN license_term VARCHAR(30) NOT NULL DEFAULT "annual" AFTER edition');
+    }
+    if (!in_array('purchase_price', $licenseColumns, true)) {
+        $db->execute('ALTER TABLE byp_license_registry ADD COLUMN purchase_price DECIMAL(12,2) NOT NULL DEFAULT 0 AFTER license_term');
+    }
     @file_put_contents($platformMarker, date(DATE_ATOM));
 }
 

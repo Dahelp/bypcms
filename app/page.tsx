@@ -2,24 +2,25 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { publicEditions, publicModules } from "./modules/data";
+import { publicEditions, publicModules, publicServices } from "./modules/data";
 
 export default function Home() {
   const [selected, setSelected] = useState(1);
   const [term, setTerm] = useState<"annual"|"lifetime">("annual");
   const [extrasSelected, setExtrasSelected] = useState<string[]>(["analytics"]);
+  const [servicesSelected, setServicesSelected] = useState<string[]>([]);
   const selectedEdition=publicEditions[selected];
   const compatibleExtras=publicModules.filter(module=>!selectedEdition.modules.includes(module.slug as never)&&(
     selectedEdition.name==="Commerce"||!["commerce","payments"].includes(module.slug)
   ));
-  const total = useMemo(() => selectedEdition[term] + compatibleExtras.filter(module=>extrasSelected.includes(module.slug)).reduce((sum,module)=>sum+module.price,0), [selectedEdition,term,compatibleExtras,extrasSelected]);
+  const total = useMemo(() => selectedEdition[term] + compatibleExtras.filter(module=>extrasSelected.includes(module.slug)).reduce((sum,module)=>sum+module.price,0) + publicServices.filter(service=>servicesSelected.includes(service.slug)).reduce((sum,service)=>sum+service.price,0), [selectedEdition,term,compatibleExtras,extrasSelected,servicesSelected]);
 
   return (
     <main>
       <nav className="nav shell" aria-label="Основная навигация">
         <Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span><small>platform</small></Link>
         <div className="navLinks">
-          <a href="#products">Редакции</a><a href="#builder">Калькулятор</a><a href="#services">Услуги</a><a href="#platform">Платформа</a>
+          <a href="#products">Редакции</a><a href="#builder">Калькулятор</a><Link href="/services">Услуги</Link><Link href="/modules">Модули</Link>
         </div>
         <Link className="navAction" href="/demo">Открыть демо <span>↗</span></Link>
       </nav>
@@ -72,15 +73,15 @@ export default function Home() {
         <div className="sectionIntro light"><p className="sectionLabel">02 / КОНСТРУКТОР</p><h2>Соберите свою BYPCMS.</h2><p>Итоговая стоимость прозрачна: редакция, выбранные модули и услуги.</p></div>
         <div className="publicTermSelect"><button className={term==="annual"?"active":""} onClick={()=>setTerm("annual")}><b>Лицензия на 1 год</b><span>Доступная цена и ежегодное продление</span></button><button className={term==="lifetime"?"active":""} onClick={()=>setTerm("lifetime")}><b>Пожизненная лицензия</b><span>Без обязательного ежегодного платежа</span></button></div>
         <div className="priceBuilder">
-          <div className="builderOptions">{compatibleExtras.map(module=><label key={module.slug}><input type="checkbox" checked={extrasSelected.includes(module.slug)} onChange={()=>setExtrasSelected(list=>list.includes(module.slug)?list.filter(x=>x!==module.slug):[...list,module.slug])}/><span><strong>{module.name}</strong><small>+{module.price.toLocaleString("ru-RU")} ₽ · <Link href={`/modules/${module.slug}`}>подробнее</Link></small></span></label>)}</div>
-          <aside><small>ВАША СБОРКА</small><h3>BYPCMS {selectedEdition.name}</h3><p>{selectedEdition.modules.map(key=>publicModules.find(module=>module.slug===key)?.name).concat(extrasSelected.map(key=>publicModules.find(module=>module.slug===key)?.name)).filter(Boolean).join(" · ")}</p><strong>{total.toLocaleString("ru-RU")} ₽</strong><Link href={`/order?edition=${selectedEdition.name}&term=${term}&modules=${extrasSelected.join(",")}`}>Оформить заказ →</Link></aside>
+          <div><div className="builderOptions">{compatibleExtras.map(module=><label key={module.slug}><input type="checkbox" checked={extrasSelected.includes(module.slug)} onChange={()=>setExtrasSelected(list=>list.includes(module.slug)?list.filter(x=>x!==module.slug):[...list,module.slug])}/><span><strong>{module.name}</strong><small>+{module.price.toLocaleString("ru-RU")} ₽ · <Link href={`/modules/${module.slug}`}>подробнее</Link></small></span></label>)}</div><div className="optionalServices"><header><span>ДОПОЛНИТЕЛЬНЫЕ УСЛУГИ</span><Link href="/services">Все услуги →</Link></header>{publicServices.map(service=><label key={service.slug}><input type="checkbox" checked={servicesSelected.includes(service.slug)} onChange={()=>setServicesSelected(list=>list.includes(service.slug)?list.filter(x=>x!==service.slug):[...list,service.slug])}/><span><strong>{service.name}</strong><small>+{service.price.toLocaleString("ru-RU")} ₽ / {service.unit}</small></span></label>)}</div></div>
+          <aside><small>ВАША СБОРКА</small><h3>BYPCMS {selectedEdition.name}</h3><p>{selectedEdition.modules.map(key=>publicModules.find(module=>module.slug===key)?.name).concat(extrasSelected.map(key=>publicModules.find(module=>module.slug===key)?.name)).filter(Boolean).join(" · ")}</p>{servicesSelected.length>0&&<p>Услуги: {servicesSelected.map(key=>publicServices.find(service=>service.slug===key)?.name).join(" · ")}</p>}<strong>{total.toLocaleString("ru-RU")} ₽</strong><Link href={`/order?edition=${selectedEdition.name}&term=${term}&modules=${extrasSelected.join(",")}&services=${servicesSelected.join(",")}`}>Оформить заказ →</Link></aside>
         </div>
       </div></section>
 
       <section className="publicModuleCatalog shell"><div className="sectionIntro"><p className="sectionLabel">03 / МОДУЛИ</p><h2>Каждая возможность<br/>описана подробно.</h2></div><div>{publicModules.map(module=><Link href={`/modules/${module.slug}`} key={module.slug}><small>{module.category}</small><h3>{module.name}</h3><p>{module.lead}</p><span>{module.price?`${module.price.toLocaleString("ru-RU")} ₽`:"Включён"} →</span></Link>)}</div></section>
 
       <section className="architecture shell" id="services">
-        <div className="architectureCopy"><p className="sectionLabel">04 / УСЛУГИ</p><h2>Проект под ключ<br />на одной платформе.</h2><p>Помимо лицензии можно заказать прототипирование, уникальный UX/UI, адаптивный frontend, интеграции, перенос данных, запуск и сопровождение.</p><a className="primaryButton dark" href="mailto:hello@bypcms.ru">Обсудить проект <span>→</span></a></div>
+        <div className="architectureCopy"><p className="sectionLabel">04 / УСЛУГИ</p><h2>Проект под ключ<br />на одной платформе.</h2><p>Помимо лицензии можно заказать прототипирование, уникальный UX/UI, адаптивный frontend, интеграции, перенос данных, запуск и сопровождение.</p><Link className="primaryButton dark" href="/services">Смотреть все услуги <span>→</span></Link></div>
         <div className="layerStack">
           <div className="layer projectLayer"><span>04</span><div><strong>Разработка и запуск</strong><small>Frontend · интеграции · перенос · обучение</small></div><b>Под ключ</b></div>
           <div className="layer moduleLayer"><span>03</span><div><strong>Индивидуальный дизайн</strong><small>UX-исследование · UI-kit · адаптивный шаблон</small></div><b>Уникально</b></div>
@@ -90,7 +91,7 @@ export default function Home() {
       </section>
 
       <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><Link className="ctaButton" href="/demo">Открыть демо <span>↗</span></Link></div></section>
-      <footer className="footer shell"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>CMS, модули и веб-разработка.</p><div><a href="#products">Редакции</a><a href="#services">Услуги</a><Link href="/demo">Демо</Link></div><span>© {new Date().getFullYear()} BYPCMS</span></footer>
+      <footer className="footer shell"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>CMS, модули и веб-разработка.</p><div><a href="#products">Редакции</a><a href="#builder">Калькулятор</a><Link href="/modules">Модули</Link><Link href="/services">Услуги</Link><Link href="/demo">Демо</Link><Link href="/order">Заказать</Link></div><span>© {new Date().getFullYear()} BYPCMS</span></footer>
     </main>
   );
 }

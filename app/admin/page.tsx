@@ -6,8 +6,9 @@ import "./admin.css";
 import "./readable.css";
 
 type User = { id: number; email: string; name: string; role: string; role_name: string };
-type PageItem = { id: number; title: string; slug: string; status: string; updated_at: string };
-type ModuleItem = { module_key: string; name: string; version: string; status: string; updated_at: string };
+type PageItem = { id: number; title: string; slug: string; excerpt?: string; content?: string; template?: string; status: string; updated_at: string };
+type ModuleItem = { module_key: string; name: string; version: string; status: string; settings?: string | null; updated_at: string };
+type SettingItem = { setting_group: string; setting_key: string; setting_value: string; value_type: string; is_public: number };
 type DashboardData = {
   counts: { pages: number; published: number; users: number; modules: number; submissions: number };
   recent_pages: PageItem[];
@@ -52,9 +53,12 @@ export default function AdminPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [pages, setPages] = useState<PageItem[]>([]);
   const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [settings, setSettings] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingPage, setEditingPage] = useState<PageItem | null>(null);
+  const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -88,13 +92,27 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadConfiguration = useCallback(async () => {
+    try {
+      const [moduleResult, settingResult] = await Promise.all([
+        api<{ modules: ModuleItem[]; ok: true }>("modules.list"),
+        api<{ settings: SettingItem[]; ok: true }>("settings.list"),
+      ]);
+      setModules(moduleResult.modules);
+      setSettings(Object.fromEntries(settingResult.settings.map((item) => [`${item.setting_group}.${item.setting_key}`, item.setting_value ?? ""])));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось загрузить конфигурацию");
+    }
+  }, []);
+
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => {
     if (user) {
       void loadDashboard();
       void loadPages();
+      void loadConfiguration();
     }
-  }, [user, loadDashboard, loadPages]);
+  }, [user, loadDashboard, loadPages, loadConfiguration]);
 
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -154,6 +172,75 @@ export default function AdminPage() {
       setNotice(`${module.name}: ${nextStatus === "active" ? "включён" : "выключен"}`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Не удалось изменить модуль");
+    }
+  }
+
+  async function updatePage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingPage) return;
+    const form = new FormData(event.currentTarget);
+    try {
+      await api("pages.update", {
+        method: "POST",
+        body: JSON.stringify({
+          id: editingPage.id,
+          title: form.get("title"),
+          slug: form.get("slug"),
+          excerpt: form.get("excerpt"),
+          content: form.get("content"),
+          template: form.get("template"),
+          status: form.get("status"),
+        }),
+      }, csrf);
+      setEditingPage(null);
+      setNotice("Страница сохранена");
+      await Promise.all([loadPages(), loadDashboard()]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось сохранить страницу");
+    }
+  }
+
+  async function saveModuleSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingModule) return;
+    const form = new FormData(event.currentTarget);
+    const moduleSettings = {
+      notifications: form.get("notifications") === "on",
+      public_access: form.get("public_access") === "on",
+      records_per_page: Number(form.get("records_per_page") || 20),
+    };
+    try {
+      await api("modules.settings", {
+        method: "POST",
+        body: JSON.stringify({ module_key: editingModule.module_key, settings: moduleSettings }),
+      }, csrf);
+      setEditingModule(null);
+      setNotice(`${editingModule.name}: настройки сохранены`);
+      await loadConfiguration();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось сохранить настройки модуля");
+    }
+  }
+
+  async function saveSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const values = [
+      ["general", "site_name", form.get("site_name")],
+      ["general", "site_url", form.get("site_url")],
+      ["general", "locale", form.get("locale")],
+      ["general", "timezone", form.get("timezone")],
+      ["notifications", "admin_email", form.get("admin_email")],
+    ] as const;
+    try {
+      await Promise.all(values.map(([group, key, value]) => api("settings.save", {
+        method: "POST",
+        body: JSON.stringify({ group, key, value, type: "string", is_public: group === "general" }),
+      }, csrf)));
+      setNotice("Настройки сайта сохранены");
+      await loadConfiguration();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось сохранить настройки");
     }
   }
 
@@ -240,7 +327,7 @@ export default function AdminPage() {
         <div className="cmsContent">
           <div className="cmsHeading">
             <div><p>ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>{pageTitle}</h1><span>{notice || "Все системы работают штатно"}</span></div>
-            <button type="button" onClick={() => setCreateOpen(true)}>＋ Создать страницу</button>
+            {active === "content" && <button type="button" onClick={() => setCreateOpen(true)}>＋ Создать страницу</button>}
           </div>
           {error && <div className="systemError">{error}<button type="button" onClick={() => setError("")}>×</button></div>}
 
@@ -286,9 +373,9 @@ export default function AdminPage() {
             <section className="dataPanel">
               <header><div><p>СТРУКТУРА САЙТА</p><h2>Страницы</h2></div><span>{pages.length} материалов</span></header>
               <div className="contentTable">
-                <div className="tableHead"><span>Название</span><span>URL</span><span>Статус</span><span>Обновлено</span></div>
+                <div className="tableHead"><span>Название</span><span>URL</span><span>Статус</span><span>Управление</span></div>
                 {pages.map((page) => (
-                  <div key={page.id}><strong>{page.title}</strong><code>/{page.slug}</code><em className={page.status}>{page.status}</em><time>{new Date(page.updated_at).toLocaleString("ru-RU")}</time></div>
+                  <div key={page.id}><p><strong>{page.title}</strong><small>{page.excerpt || page.template}</small></p><code>/{page.slug}</code><em className={page.status}>{page.status}</em><button type="button" className="rowAction" onClick={() => setEditingPage(page)}>Редактировать</button></div>
                 ))}
               </div>
             </section>
@@ -302,9 +389,7 @@ export default function AdminPage() {
                   <article key={module.module_key}>
                     <span className="moduleIcon">{module.name[0]}</span>
                     <div><h3>{module.name}</h3><p>{module.module_key} · v{module.version}</p></div>
-                    <button type="button" className={module.status} onClick={() => void toggleModule(module)}>
-                      {module.status === "active" ? "Включён" : "Выключен"}
-                    </button>
+                    <div className="moduleActions"><button type="button" className={module.status} onClick={() => void toggleModule(module)}>{module.status === "active" ? "Включён" : "Выключен"}</button><button type="button" onClick={() => setEditingModule(module)}>Настроить</button></div>
                   </article>
                 ))}
               </div>
@@ -314,12 +399,14 @@ export default function AdminPage() {
           {active === "settings" && (
             <section className="dataPanel settingsIntro">
               <p>СИСТЕМА</p><h2>Настройки BYPCMS</h2>
-              <div className="settingsCards">
-                <article><span>⌘</span><div><strong>Основные</strong><small>Название, адрес, язык и часовой пояс</small></div></article>
-                <article><span>♙</span><div><strong>Пользователи и роли</strong><small>Доступы команды и журнал входов</small></div></article>
-                <article><span>◇</span><div><strong>API и интеграции</strong><small>Токены, webhooks и внешние сервисы</small></div></article>
-                <article><span>↻</span><div><strong>Обновления</strong><small>Ядро, модули и резервные копии</small></div></article>
-              </div>
+              <form className="siteSettingsForm" onSubmit={saveSettings}>
+                <label>Название сайта<input name="site_name" defaultValue={settings["general.site_name"] || "BYPCMS Platform"} /></label>
+                <label>Адрес сайта<input name="site_url" type="url" defaultValue={settings["general.site_url"] || "https://bypcms.ru"} /></label>
+                <label>Язык<select name="locale" defaultValue={settings["general.locale"] || "ru"}><option value="ru">Русский</option><option value="en">English</option></select></label>
+                <label>Часовой пояс<select name="timezone" defaultValue={settings["general.timezone"] || "Europe/Moscow"}><option>Europe/Moscow</option><option>Europe/Minsk</option><option>Asia/Almaty</option></select></label>
+                <label>Email уведомлений<input name="admin_email" type="email" defaultValue={settings["notifications.admin_email"] || user.email} /></label>
+                <button type="submit">Сохранить настройки</button>
+              </form>
               <form className="adminPasswordForm" onSubmit={changePassword}>
                 <div><p>БЕЗОПАСНОСТЬ</p><h2>Сменить пароль</h2><small>Минимум 12 символов. После изменения используйте новый пароль при следующем входе.</small></div>
                 <label>Текущий пароль<input name="current_password" type="password" autoComplete="current-password" required /></label>
@@ -341,6 +428,34 @@ export default function AdminPage() {
             <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
             <label>Статус<select name="status"><option value="draft">Черновик</option><option value="published">Опубликовать</option></select></label>
             <button type="submit" className="saveButton">Создать страницу →</button>
+          </form>
+        </div>
+      )}
+
+      {editingPage && (
+        <div className="modalShade" onMouseDown={() => setEditingPage(null)}>
+          <form className="createModal" onSubmit={updatePage} onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div><button type="button" onClick={() => setEditingPage(null)}>×</button></header>
+            <label>Заголовок<input name="title" required defaultValue={editingPage.title} /></label>
+            <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" defaultValue={editingPage.slug} /></label>
+            <label>Описание<textarea name="excerpt" rows={5} defaultValue={editingPage.excerpt || ""} /></label>
+            <label>Содержимое страницы<textarea name="content" rows={10} defaultValue={editingPage.content || ""} placeholder="Основной текст страницы. Можно использовать HTML-разметку." /></label>
+            <label>Шаблон<select name="template" defaultValue={editingPage.template || "default"}><option value="default">Стандартная</option><option value="landing">Лендинг</option><option value="catalog">Каталог</option><option value="services">Услуги</option><option value="order">Заказ</option><option value="demo">Демонстрация</option></select></label>
+            <label>Статус<select name="status" defaultValue={editingPage.status}><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="archived">Архив</option></select></label>
+            <button type="submit" className="saveButton">Сохранить изменения →</button>
+          </form>
+        </div>
+      )}
+
+      {editingModule && (
+        <div className="modalShade" onMouseDown={() => setEditingModule(null)}>
+          <form className="createModal" onSubmit={saveModuleSettings} onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div><button type="button" onClick={() => setEditingModule(null)}>×</button></header>
+            <p className="moduleMeta">Ключ: <code>{editingModule.module_key}</code> · версия {editingModule.version}</p>
+            <label className="checkSetting"><input name="notifications" type="checkbox" defaultChecked /> Системные уведомления модуля</label>
+            <label className="checkSetting"><input name="public_access" type="checkbox" /> Разрешить публичные API-методы</label>
+            <label>Записей на странице<input name="records_per_page" type="number" min="5" max="100" defaultValue="20" /></label>
+            <button type="submit" className="saveButton">Сохранить настройки →</button>
           </form>
         </div>
       )}

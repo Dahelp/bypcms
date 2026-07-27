@@ -56,7 +56,7 @@ export default function ModulesPage() {
           <span>BYPCMS<small>CMS, модули и разработка</small></span>
         </Link>
         <p>Модульная платформа для индивидуальных веб-проектов.</p>
-        <div><Link href="/">Главная</Link><Link href="/demo">Демо</Link><Link href="/order">Заказать проект</Link></div>
+        <div><Link href="/#products">Редакции</Link><Link href="/#builder">Калькулятор</Link><Link href="/modules">Модули</Link><Link href="/services">Услуги</Link><Link href="/demo">Демо</Link><Link href="/order">Заказать</Link></div>
         <small>© {new Date().getFullYear()} BYPCMS</small>
       </footer>
     </main>

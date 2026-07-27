@@ -394,8 +394,22 @@ try {
     }
 
     if ($action === 'pages.list' && $method === 'GET') {
+        $systemPages = [
+            ['modules', 'Модули', 'Каталог модулей BYPCMS', 'catalog'],
+            ['services', 'Услуги', 'Проектирование, дизайн, разработка, запуск и сопровождение', 'services'],
+            ['order', 'Оформление заказа', 'Заявка на лицензию, модули и дополнительные услуги', 'order'],
+            ['demo', 'Демонстрация', 'Безопасная демонстрационная панель BYPCMS', 'demo'],
+        ];
+        foreach ($systemPages as $systemPage) {
+            $db->execute(
+                'INSERT IGNORE INTO byp_pages
+                 (author_id,slug,title,excerpt,content,blocks,template,status,published_at,created_at,updated_at)
+                 VALUES (:author,:slug,:title,:excerpt,"","[]",:template,"published",NOW(),NOW(),NOW())',
+                ['author'=>$user['id'],'slug'=>$systemPage[0],'title'=>$systemPage[1],'excerpt'=>$systemPage[2],'template'=>$systemPage[3]]
+            );
+        }
         Response::ok(['pages' => $db->all(
-            'SELECT p.id, p.parent_id, p.slug, p.title, p.excerpt, p.template, p.status, p.published_at, p.created_at, p.updated_at,
+            'SELECT p.id, p.parent_id, p.slug, p.title, p.excerpt, p.content, p.template, p.status, p.published_at, p.created_at, p.updated_at,
                     u.name AS author_name
              FROM byp_pages p LEFT JOIN byp_users u ON u.id = p.author_id ORDER BY p.updated_at DESC'
         )]);
@@ -465,6 +479,21 @@ try {
         $db->execute('UPDATE byp_modules SET status=:status, updated_at=NOW() WHERE module_key=:key', ['status' => $status, 'key' => $key]);
         byp_audit($db, $user, 'module.toggle', 'module', null, ['module_key' => $key, 'status' => $status]);
         Response::ok();
+    }
+
+    if ($action === 'modules.settings' && $method === 'POST') {
+        $key = preg_replace('/[^a-z0-9_\-]/', '', (string)($input['module_key'] ?? ''));
+        $module = $db->one('SELECT id, settings FROM byp_modules WHERE module_key=:key', ['key'=>$key]);
+        if (!$module) {
+            Response::error('Модуль не найден', 404);
+        }
+        $settings = (array)($input['settings'] ?? []);
+        $db->execute(
+            'UPDATE byp_modules SET settings=:settings, updated_at=NOW() WHERE module_key=:key',
+            ['settings'=>json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'key'=>$key]
+        );
+        byp_audit($db, $user, 'module.settings', 'module', (int)$module['id'], ['module_key'=>$key]);
+        Response::ok(['settings'=>$settings]);
     }
 
     if ($action === 'settings.list' && $method === 'GET') {

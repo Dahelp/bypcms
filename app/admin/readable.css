@@ -1,15 +1,15 @@
-.cmsSidebar nav button{font-size:14px}
-.cmsUser strong{font-size:12px}.cmsUser small{font-size:10px}
-.cmsTopbar strong{font-size:13px}.cmsTopbar small{font-size:10px}.cmsTopbar a{font-size:11px}
-.cmsHeading p,.dataPanel>header p,.recentPanel header p,.licenseCard header p,.settingsIntro>p,.eyebrow{font-size:11px}
-.cmsHeading>div>span{font-size:12px}.cmsHeading>button{font-size:12px}
-.healthBar small,.healthBar div>span{font-size:10px}.healthBar strong{font-size:14px}
-.metrics article p{font-size:11px}.metrics small{font-size:10px}
-.recentPanel h2,.dataPanel h2,.licenseCard h2{font-size:18px}
-.recentPanel header button,.dataPanel>header>span{font-size:11px}
-.tableRows strong,.contentTable{font-size:12px}.tableRows small,.contentTable code,.contentTable time{font-size:10px}
-.tableRows em,.contentTable em{font-size:10px}.contentTable .tableHead{font-size:10px}
-.moduleGrid h3{font-size:14px}.moduleGrid p{font-size:10px;line-height:1.5}.moduleGrid button{font-size:10px}
-.licenseCard>p,.licenseCard>small{font-size:11px}
-.settingsCards strong{font-size:13px}.settingsCards small{font-size:11px}
-.loginStory p,.loginStory>small{font-size:11px}.loginForm>span{font-size:14px}.loginForm label,.createModal label{font-size:12px}.loginForm input,.createModal input,.createModal textarea,.createModal select{font-size:14px}
+.cmsSidebar nav button{font-size:16px}
+.cmsUser strong{font-size:15px}.cmsUser small{font-size:13px}
+.cmsTopbar strong{font-size:16px}.cmsTopbar small{font-size:13px}.cmsTopbar a{font-size:14px}
+.cmsHeading p,.dataPanel>header p,.recentPanel header p,.licenseCard header p,.settingsIntro>p,.eyebrow{font-size:13px}
+.cmsHeading>div>span{font-size:15px}.cmsHeading>button{font-size:15px}
+.healthBar small,.healthBar div>span{font-size:13px}.healthBar strong{font-size:17px}
+.metrics article p{font-size:14px}.metrics small{font-size:13px}
+.recentPanel h2,.dataPanel h2,.licenseCard h2{font-size:22px}
+.recentPanel header button,.dataPanel>header>span{font-size:14px}
+.tableRows strong,.contentTable{font-size:15px}.tableRows small,.contentTable code,.contentTable time{font-size:13px}
+.tableRows em,.contentTable em{font-size:13px}.contentTable .tableHead{font-size:13px}
+.moduleGrid h3{font-size:17px}.moduleGrid p{font-size:13px;line-height:1.55}.moduleGrid button{font-size:13px}
+.licenseCard>p,.licenseCard>small{font-size:14px}
+.settingsCards strong{font-size:16px}.settingsCards small{font-size:14px}
+.loginStory p,.loginStory>small{font-size:14px}.loginForm>span{font-size:16px}.loginForm label,.createModal label{font-size:15px}.loginForm input,.createModal input,.createModal textarea,.createModal select{font-size:16px}

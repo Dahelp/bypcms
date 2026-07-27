@@ -21,7 +21,7 @@ export default function Home() {
         <div className="navLinks">
           <a href="#products">Редакции</a><a href="#builder">Калькулятор</a><a href="#services">Услуги</a><a href="#platform">Платформа</a>
         </div>
-        <a className="navAction" href="https://demo.bypcms.ru">Открыть демо <span>↗</span></a>
+        <Link className="navAction" href="/demo">Открыть демо <span>↗</span></Link>
       </nav>
 
       <section className="hero shell" id="platform">
@@ -31,7 +31,7 @@ export default function Home() {
           <p>BYPCMS объединяет удобное управление контентом, мощные модули и индивидуальный дизайн. Вы получаете готовую систему, которую можно расширять вместе с вашим проектом.</p>
           <div className="heroActions">
             <a className="primaryButton" href="#builder">Рассчитать сборку <span>→</span></a>
-            <a className="textButton" href="https://demo.bypcms.ru">Посмотреть демо <span>↗</span></a>
+            <Link className="textButton" href="/demo">Посмотреть демо <span>↗</span></Link>
           </div>
           <div className="heroProof">
             <div><strong>15+</strong><span>лет веб-разработки</span></div>
@@ -89,8 +89,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><a className="ctaButton" href="https://demo.bypcms.ru">Открыть демо <span>↗</span></a></div></section>
-      <footer className="footer shell"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>CMS, модули и веб-разработка.</p><div><a href="#products">Редакции</a><a href="#services">Услуги</a><a href="https://demo.bypcms.ru">Демо</a></div><span>© {new Date().getFullYear()} BYPCMS</span></footer>
+      <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><Link className="ctaButton" href="/demo">Открыть демо <span>↗</span></Link></div></section>
+      <footer className="footer shell"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>CMS, модули и веб-разработка.</p><div><a href="#products">Редакции</a><a href="#services">Услуги</a><Link href="/demo">Демо</Link></div><span>© {new Date().getFullYear()} BYPCMS</span></footer>
     </main>
   );
 }

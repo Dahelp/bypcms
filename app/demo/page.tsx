@@ -17,6 +17,7 @@ export default function Demo() {
   const [pages, setPages] = useState(initialPages);
   const [modal, setModal] = useState(false);
   const [notice, setNotice] = useState("");
+  const [selectedModule, setSelectedModule] = useState("analytics");
 
   useEffect(() => {
     const raw = sessionStorage.getItem("bypcms_demo_pages");
@@ -55,11 +56,24 @@ export default function Demo() {
       {notice&&<div className="demoNotice">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
       {section==="overview"&&<><div className="demoMetrics">{[["24 892","Посетители","+18,4%"],["1 248","Заявки","+7,2%"],["5,01%","Конверсия","+1,6%"],["18","Страницы","3 черновика"]].map(item=><article key={item[1]}><small>{item[1]}</small><strong>{item[0]}</strong><span>{item[2]}</span></article>)}</div><div className="demoGrid"><article className="demoChart"><header><div><small>АНАЛИТИКА</small><h2>Активность сайта</h2></div><b>Последние 30 дней</b></header><div>{[42,55,47,63,58,78,66,83,76,93,71,88,80,98].map((v,i)=><i key={i} style={{height:`${v}%`}} />)}</div></article><article className="demoActivity"><small>ПОСЛЕДНИЕ ДЕЙСТВИЯ</small><h2>История проекта</h2>{["Опубликована страница «Главная»","Обновлён SEO-заголовок","Добавлено изображение","Создан черновик коллекции"].map((x,i)=><p key={x}><i>{i+1}</i><span>{x}<small>{i+1} ч назад</small></span></p>)}</article></div></>}
       {section==="content"&&<article className="demoTable"><header><div><small>СТРУКТУРА САЙТА</small><h2>Страницы</h2></div><span>{pages.length} записей</span></header><div className="tableHeader"><span>Название</span><span>Адрес</span><span>Статус</span><span>Изменено</span></div>{pages.map(page=><div className="tableRow" key={page.id}><b>{page.title}</b><code>{page.slug}</code><em className={page.status==="Опубликовано"?"published":""}>{page.status}</em><time>{page.created}</time></div>)}</article>}
-      {section==="modules"&&<div className="demoModules">{[["Контент","2.1.0","Страницы, блоки, меню и медиа"],["SEO","1.8.2","Метаданные, sitemap и редиректы"],["Формы","1.4.0","Конструктор форм и обращения"],["Commerce","2.0.1","Каталог, корзина и заказы"],["Аналитика","1.2.4","События, цели и отчёты"],["Интеграции","1.6.0","CRM, доставка и внешние API"]].map((m,i)=><article key={m[0]}><span>{["▤","◎","✦","◇","↗","⌁"][i]}</span><div><small>МОДУЛЬ · v{m[1]}</small><h3>{m[0]}</h3><p>{m[2]}</p></div><button onClick={()=>setNotice("В демо настройки модуля доступны только для просмотра")}>Настроить →</button></article>)}</div>}
+      {section==="modules"&&<div className="demoModuleWorkspace"><div className="demoModuleTabs">{[["content","Контент","2.1.0"],["seo","SEO Pro","1.8.2"],["forms","Формы и CRM","1.4.0"],["commerce","Commerce","2.0.1"],["analytics","Аналитика","1.2.4"],["payments","Платежи","1.3.0"]].map(([key,name,version])=><button className={selectedModule===key?"active":""} onClick={()=>setSelectedModule(key)} key={key}><span>{name}</span><small>v{version}</small></button>)}</div><DemoModulePanel moduleKey={selectedModule} onAction={setNotice}/></div>}
       {section==="design"&&<div className="demoSettings"><article><small>ШАБЛОН</small><h2>Northline / Corporate</h2><p>Адаптивный шаблон с библиотекой из 24 блоков.</p><button onClick={()=>setNotice("Предпросмотр темы открыт в демонстрационном режиме")}>Предпросмотр</button></article><article><small>ФИРМЕННЫЙ СТИЛЬ</small><h2>Цвета и типографика</h2><div className="swatches"><i/><i/><i/><i/></div><button>Изменить</button></article></div>}
       {section==="settings"&&<div className="demoSettings">{[["Основные данные","Название, домен и часовой пояс"],["Пользователи","Роли и права доступа"],["Уведомления","Email и системные события"],["Интеграции","API-ключи и вебхуки"]].map(s=><article key={s[0]}><small>НАСТРОЙКИ</small><h2>{s[0]}</h2><p>{s[1]}</p><button onClick={()=>setNotice("Изменения настроек отключены в публичном демо")}>Открыть →</button></article>)}</div>}
       </div>
     </section>
     {modal&&<div className="demoModal"><form onSubmit={addPage}><header><div><small>НОВАЯ ЗАПИСЬ</small><h2>Создать страницу</h2></div><button type="button" onClick={()=>setModal(false)}>×</button></header><label>Название<input name="title" required placeholder="Например, Наши услуги" /></label><label>Адрес страницы<input name="slug" required placeholder="/services" pattern="[/a-z0-9-]+" /></label><label>Статус<select name="status"><option>Черновик</option></select></label><p>Запись хранится только в этом браузере и исчезнет после завершения сессии.</p><button>Создать временную страницу</button></form></div>}
   </main>;
+}
+
+function DemoModulePanel({moduleKey,onAction}:{moduleKey:string;onAction:(message:string)=>void}){
+  const configs:Record<string,{name:string;metric:string;label:string;items:string[];action:string}>={
+    analytics:{name:"Аналитика",metric:"24 892",label:"событий за 30 дней",items:["Просмотры страниц","Отправки форм","Оформления заказов"],action:"Создан новый аналитический отчёт"},
+    commerce:{name:"Commerce",metric:"148",label:"заказов в этом месяце",items:["#1048 · Оплачен","#1047 · Новый","#1046 · Передан в доставку"],action:"Открыта демонстрационная карточка заказа"},
+    payments:{name:"Платежи",metric:"684 200 ₽",label:"успешных операций",items:["ЮKassa · 24 900 ₽","СБП · 9 900 ₽","Возврат · 5 900 ₽"],action:"Платёжная операция открыта только для просмотра"},
+    forms:{name:"Формы и CRM",metric:"87",label:"новых обращений",items:["Запрос расчёта","Обратный звонок","Консультация"],action:"Статус обращения изменён в демо-сессии"},
+    seo:{name:"SEO Pro",metric:"94 / 100",label:"оценка оптимизации",items:["Метаданные заполнены","Sitemap актуален","3 редиректа требуют проверки"],action:"SEO-проверка запущена"},
+    content:{name:"Контент",metric:"32",label:"опубликованные страницы",items:["Главная","Услуги","О компании"],action:"Открыт редактор демонстрационной страницы"},
+  };
+  const item=configs[moduleKey]||configs.analytics;
+  return <section className="demoModulePanel"><header><div><small>РАБОЧИЙ МОДУЛЬ</small><h2>{item.name}</h2><p>{item.label}</p></div><strong>{item.metric}</strong></header><div className="moduleDemoChart">{[36,52,44,68,59,81,70,92,78,88,96].map((height,index)=><i style={{height:`${height}%`}} key={index}/>)}</div><div className="moduleDemoRows">{item.items.map((row,index)=><button onClick={()=>onAction(item.action)} key={row}><span>{String(index+1).padStart(2,"0")}</span><b>{row}</b><em>{index===0?"Сейчас":`${index+1} ч назад`}</em></button>)}</div><footer><button onClick={()=>onAction(item.action)}>Открыть выбранный элемент</button><button onClick={()=>onAction("Изменения сохранены только в этой демо-сессии")}>Настройки модуля</button></footer></section>
 }

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import "./admin.css";
+import "./readable.css";
 
 type User = { id: number; email: string; name: string; role: string; role_name: string };
 type PageItem = { id: number; title: string; slug: string; status: string; updated_at: string };

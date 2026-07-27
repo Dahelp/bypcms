@@ -1,0 +1,101 @@
+<?php
+declare(strict_types=1);
+
+return [
+    'CREATE TABLE IF NOT EXISTS byp_clients (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(190) NOT NULL,
+        email VARCHAR(190) NULL,
+        phone VARCHAR(80) NULL,
+        company VARCHAR(190) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "lead",
+        notes LONGTEXT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_clients_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_license_registry (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        client_id INT UNSIGNED NULL,
+        license_key_hash CHAR(64) NOT NULL UNIQUE,
+        license_hint VARCHAR(40) NOT NULL,
+        domain VARCHAR(190) NULL,
+        edition VARCHAR(80) NOT NULL,
+        core_version VARCHAR(40) NOT NULL,
+        installed_version VARCHAR(40) NULL,
+        entitlements LONGTEXT NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "active",
+        activated_at DATETIME NULL,
+        valid_until DATETIME NULL,
+        last_seen_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_registry_status (status),
+        INDEX idx_registry_expiry (valid_until)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_module_catalog (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        module_key VARCHAR(120) NOT NULL UNIQUE,
+        name VARCHAR(190) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        description TEXT NULL,
+        current_version VARCHAR(40) NOT NULL,
+        price DECIMAL(12,2) NOT NULL DEFAULT 0,
+        compatibility VARCHAR(120) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "draft",
+        manifest LONGTEXT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_builds (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        build_key VARCHAR(80) NOT NULL UNIQUE,
+        client_id INT UNSIGNED NULL,
+        name VARCHAR(190) NOT NULL,
+        edition VARCHAR(80) NOT NULL,
+        core_version VARCHAR(40) NOT NULL,
+        modules LONGTEXT NOT NULL,
+        services LONGTEXT NULL,
+        total DECIMAL(12,2) NOT NULL DEFAULT 0,
+        archive_path VARCHAR(255) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "draft",
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_orders (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        order_number VARCHAR(80) NOT NULL UNIQUE,
+        client_id INT UNSIGNED NULL,
+        build_id INT UNSIGNED NULL,
+        order_type VARCHAR(60) NOT NULL,
+        amount DECIMAL(12,2) NOT NULL,
+        paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0,
+        status VARCHAR(40) NOT NULL DEFAULT "new",
+        paid_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_orders_status (status),
+        INDEX idx_orders_paid (paid_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_services (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        service_key VARCHAR(120) NOT NULL UNIQUE,
+        name VARCHAR(190) NOT NULL,
+        description TEXT NULL,
+        price_from DECIMAL(12,2) NOT NULL DEFAULT 0,
+        billing_unit VARCHAR(80) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "active",
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_demo_sessions (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        session_token_hash CHAR(64) NOT NULL UNIQUE,
+        payload LONGTEXT NULL,
+        ip_hash CHAR(64) NULL,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_demo_expiry (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+];

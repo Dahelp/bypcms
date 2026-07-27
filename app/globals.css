@@ -134,6 +134,7 @@ button { color: inherit; font: inherit; }
 .moduleList { border-top: 1px solid #383a35; }
 .moduleList article { display: grid; grid-template-columns: 90px 1fr 1fr 45px; align-items: center; min-height: 105px; border-bottom: 1px solid #383a35; transition: background .2s, padding .2s; }
 .moduleList article:hover { background: #20221d; padding-inline: 15px; }
+.priceBuilder{display:grid;grid-template-columns:1.25fr .75fr;gap:28px;margin-top:48px}.builderOptions{display:grid;grid-template-columns:1fr 1fr;gap:12px}.builderOptions label{border:1px solid #3a3d35;border-radius:12px;padding:20px;display:flex;align-items:center;gap:14px;cursor:pointer;background:#1d1f1a}.builderOptions input{width:20px;height:20px;accent-color:var(--acid)}.builderOptions span{display:flex;justify-content:space-between;gap:20px;width:100%}.builderOptions small{color:var(--acid)}.priceBuilder aside{background:var(--acid);color:#171814;padding:28px;border-radius:14px;display:flex;flex-direction:column;align-items:flex-start}.priceBuilder aside>small{letter-spacing:.15em;font-weight:800}.priceBuilder aside h3{font-size:25px;margin:16px 0 8px}.priceBuilder aside p{color:#4f563b;line-height:1.6;min-height:58px}.priceBuilder aside>strong{font-size:34px;margin-top:auto}.priceBuilder aside a{margin-top:20px;background:#171814;color:#fff;padding:13px 17px;border-radius:7px;font-weight:800}
 .moduleList article > span { color: var(--acid); font-size: 10px; }.moduleList h3 { font-size: 25px; margin: 0; letter-spacing: -.03em; }.moduleList p { color: #969991; font-size: 13px; }.moduleList button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid #4e5149; background: transparent; color: white; cursor: pointer; }
 
 .architecture { padding-block: 130px; display: grid; grid-template-columns: .82fr 1.18fr; gap: 90px; align-items: center; }
@@ -164,6 +165,7 @@ button { color: inherit; font: inherit; }
   .editionCards { overflow-x: auto; padding-block: 12px 25px; }.editionCard { min-width: 340px; }
   .architecture { grid-template-columns: 1fr; }.layerStack { max-width: 700px; width: 100%; margin: auto; }
   .footer { grid-template-columns: 1fr 1fr; gap: 20px; padding-block: 35px; }
+  .priceBuilder{grid-template-columns:1fr}
 }
 
 @media (max-width: 620px) {
@@ -180,6 +182,7 @@ button { color: inherit; font: inherit; }
   .architecture { padding-block: 80px; gap: 35px; }.projectLayer, .moduleLayer, .coreLayer { margin: 0; }.layer { grid-template-columns: 30px 1fr; }.layer > b { grid-column: 2; width: max-content; margin-top: 9px; }
   .ctaInner { align-items: start; flex-direction: column; gap: 45px; }.ctaButton { width: 145px; }
   .footer { grid-template-columns: 1fr; }.footer > div { flex-wrap: wrap; }
+  .builderOptions{grid-template-columns:1fr}
 }
 
 @media (prefers-reduced-motion: reduce) {

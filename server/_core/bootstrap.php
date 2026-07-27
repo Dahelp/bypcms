@@ -72,3 +72,15 @@ header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 $config = byp_config();
 $db = new Database($config);
 $auth = new Auth($db);
+
+$platformMarker = BYPCMS_STORAGE . '/platform-schema-v1.lock';
+if (!is_file($platformMarker)) {
+    foreach (require __DIR__ . '/platform_schema.php' as $statement) {
+        $db->execute($statement);
+    }
+    @file_put_contents($platformMarker, date(DATE_ATOM));
+}
+
+if (random_int(1, 100) === 1) {
+    $db->execute('DELETE FROM byp_demo_sessions WHERE expires_at < NOW()');
+}

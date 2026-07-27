@@ -58,6 +58,50 @@ try {
         $auth->verifyCsrf();
     }
 
+    if ($action === 'build.download' && $method === 'GET') {
+        if (!class_exists('ZipArchive')) {
+            Response::error('На сервере не включено расширение PHP ZipArchive', 501);
+        }
+        $edition = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_GET['edition'] ?? 'Business'));
+        $requested = array_values(array_filter(explode(',', (string)($_GET['modules'] ?? 'content'))));
+        $allowed = ['content', 'seo', 'forms', 'commerce', 'payments', 'analytics'];
+        $selected = array_values(array_intersect($requested, $allowed));
+        $buildId = 'bypcms-' . strtolower($edition) . '-' . date('Ymd-His');
+        $archivePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $buildId . '.zip';
+        $zip = new ZipArchive();
+        if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            Response::error('Не удалось создать архив сборки', 500);
+        }
+        $root = realpath(BYPCMS_ROOT);
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            if (!$file->isFile()) continue;
+            $full = $file->getRealPath();
+            $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
+            if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '.git/')) continue;
+            $zip->addFile($full, 'site/' . $relative);
+        }
+        $schema = require BYPCMS_ROOT . '/_core/schema.php';
+        $zip->addFromString('database.sql', implode(";\n\n", $schema) . ";\n");
+        $zip->addFromString('build-manifest.json', json_encode([
+            'product' => 'BYPCMS',
+            'edition' => $edition,
+            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+            'modules' => $selected,
+            'created_at' => date(DATE_ATOM),
+            'installer' => 'site/install/index.php',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $zip->addFromString('README.txt', "BYPCMS {$edition}\n\n1. Загрузите содержимое папки site на сервер.\n2. Откройте /install/.\n3. Укажите параметры MySQL и создайте владельца.\n");
+        $zip->close();
+        byp_audit($db, $user, 'build.download', 'build', null, ['edition' => $edition, 'modules' => $selected]);
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $buildId . '.zip"');
+        header('Content-Length: ' . filesize($archivePath));
+        readfile($archivePath);
+        @unlink($archivePath);
+        exit;
+    }
+
     if ($action === 'dashboard' && $method === 'GET') {
         $counts = [
             'pages' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_pages')['total'] ?? 0),

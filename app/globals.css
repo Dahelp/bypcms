@@ -18,6 +18,15 @@ body {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/* Project-wide readability floor for secondary and technical text. */
+body small,body time,body code,
+.sectionLabel,.cardIndex,.layer>span,.browserTop,.miniContent header small,
+.metricGrid span,.metricGrid em,.chartHeading,.updateToast strong,.updateToast small,
+.floatingTag span,.orbit>span,.editionCard>p:first-of-type,.heroProof span{
+  font-size:14px!important;
+  line-height:1.45;
+}
 a { color: inherit; text-decoration: none; }
 button { color: inherit; font: inherit; }
 .shell { width: min(1240px, calc(100% - 48px)); margin-inline: auto; }

@@ -1,0 +1,170 @@
+<?php
+declare(strict_types=1);
+
+return [
+    'CREATE TABLE IF NOT EXISTS byp_migrations (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        migration VARCHAR(190) NOT NULL UNIQUE,
+        batch INT UNSIGNED NOT NULL,
+        applied_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_roles (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        slug VARCHAR(64) NOT NULL UNIQUE,
+        name VARCHAR(120) NOT NULL,
+        permissions LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_users (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        role_id INT UNSIGNED NULL,
+        email VARCHAR(190) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        name VARCHAR(150) NOT NULL,
+        status ENUM("active","blocked","invited") NOT NULL DEFAULT "active",
+        locale VARCHAR(10) NOT NULL DEFAULT "ru",
+        last_login_at DATETIME NULL,
+        last_login_ip VARCHAR(45) NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        CONSTRAINT fk_byp_users_role FOREIGN KEY (role_id) REFERENCES byp_roles(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_settings (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        setting_group VARCHAR(80) NOT NULL DEFAULT "general",
+        setting_key VARCHAR(190) NOT NULL,
+        setting_value LONGTEXT NULL,
+        value_type VARCHAR(30) NOT NULL DEFAULT "string",
+        is_public TINYINT(1) NOT NULL DEFAULT 0,
+        updated_by INT UNSIGNED NULL,
+        updated_at DATETIME NOT NULL,
+        UNIQUE KEY uq_byp_setting (setting_group, setting_key),
+        CONSTRAINT fk_byp_settings_user FOREIGN KEY (updated_by) REFERENCES byp_users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_pages (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        parent_id INT UNSIGNED NULL,
+        author_id INT UNSIGNED NULL,
+        slug VARCHAR(190) NOT NULL UNIQUE,
+        title VARCHAR(255) NOT NULL,
+        excerpt TEXT NULL,
+        content LONGTEXT NULL,
+        blocks LONGTEXT NULL,
+        template VARCHAR(120) NOT NULL DEFAULT "default",
+        status ENUM("draft","published","scheduled","archived") NOT NULL DEFAULT "draft",
+        seo_title VARCHAR(255) NULL,
+        seo_description TEXT NULL,
+        published_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_byp_pages_status (status),
+        CONSTRAINT fk_byp_pages_parent FOREIGN KEY (parent_id) REFERENCES byp_pages(id) ON DELETE SET NULL,
+        CONSTRAINT fk_byp_pages_author FOREIGN KEY (author_id) REFERENCES byp_users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_page_revisions (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        page_id INT UNSIGNED NOT NULL,
+        user_id INT UNSIGNED NULL,
+        snapshot LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        INDEX idx_byp_revision_page (page_id, created_at),
+        CONSTRAINT fk_byp_revision_page FOREIGN KEY (page_id) REFERENCES byp_pages(id) ON DELETE CASCADE,
+        CONSTRAINT fk_byp_revision_user FOREIGN KEY (user_id) REFERENCES byp_users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_media (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NULL,
+        disk VARCHAR(50) NOT NULL DEFAULT "local",
+        path VARCHAR(500) NOT NULL,
+        filename VARCHAR(255) NOT NULL,
+        mime_type VARCHAR(120) NOT NULL,
+        size_bytes BIGINT UNSIGNED NOT NULL DEFAULT 0,
+        width INT UNSIGNED NULL,
+        height INT UNSIGNED NULL,
+        alt_text VARCHAR(500) NULL,
+        metadata LONGTEXT NULL,
+        created_at DATETIME NOT NULL,
+        UNIQUE KEY uq_byp_media_path (path(190)),
+        CONSTRAINT fk_byp_media_user FOREIGN KEY (user_id) REFERENCES byp_users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_modules (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        module_key VARCHAR(120) NOT NULL UNIQUE,
+        name VARCHAR(190) NOT NULL,
+        version VARCHAR(40) NOT NULL,
+        status ENUM("active","inactive","error") NOT NULL DEFAULT "inactive",
+        manifest LONGTEXT NULL,
+        settings LONGTEXT NULL,
+        installed_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_licenses (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        license_key_hash CHAR(64) NULL,
+        edition VARCHAR(80) NOT NULL DEFAULT "business",
+        domain VARCHAR(190) NULL,
+        status ENUM("trial","active","expired","suspended") NOT NULL DEFAULT "trial",
+        entitlements LONGTEXT NULL,
+        valid_until DATETIME NULL,
+        last_checked_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_forms (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        form_key VARCHAR(120) NOT NULL UNIQUE,
+        name VARCHAR(190) NOT NULL,
+        schema_json LONGTEXT NOT NULL,
+        settings LONGTEXT NULL,
+        status ENUM("active","inactive") NOT NULL DEFAULT "active",
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_form_submissions (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        form_id INT UNSIGNED NOT NULL,
+        payload LONGTEXT NOT NULL,
+        status ENUM("new","processing","done","spam") NOT NULL DEFAULT "new",
+        ip_address VARCHAR(45) NULL,
+        created_at DATETIME NOT NULL,
+        INDEX idx_byp_submission (form_id, status, created_at),
+        CONSTRAINT fk_byp_submission_form FOREIGN KEY (form_id) REFERENCES byp_forms(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_api_tokens (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NULL,
+        name VARCHAR(190) NOT NULL,
+        token_hash CHAR(64) NOT NULL UNIQUE,
+        abilities LONGTEXT NULL,
+        last_used_at DATETIME NULL,
+        expires_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        CONSTRAINT fk_byp_token_user FOREIGN KEY (user_id) REFERENCES byp_users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_jobs (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        queue VARCHAR(100) NOT NULL DEFAULT "default",
+        payload LONGTEXT NOT NULL,
+        attempts TINYINT UNSIGNED NOT NULL DEFAULT 0,
+        available_at DATETIME NOT NULL,
+        reserved_at DATETIME NULL,
+        failed_at DATETIME NULL,
+        created_at DATETIME NOT NULL,
+        INDEX idx_byp_jobs_queue (queue, available_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_audit_logs (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NULL,
+        action VARCHAR(120) NOT NULL,
+        entity_type VARCHAR(120) NOT NULL,
+        entity_id BIGINT UNSIGNED NULL,
+        ip_address VARCHAR(45) NULL,
+        user_agent VARCHAR(255) NULL,
+        metadata LONGTEXT NULL,
+        created_at DATETIME NOT NULL,
+        INDEX idx_byp_audit_entity (entity_type, entity_id),
+        INDEX idx_byp_audit_created (created_at),
+        CONSTRAINT fk_byp_audit_user FOREIGN KEY (user_id) REFERENCES byp_users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+];

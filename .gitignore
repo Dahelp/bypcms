@@ -40,3 +40,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+
+# production runtime configuration
+/server/_storage/config.php
+/server/_storage/installed.lock

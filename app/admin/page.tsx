@@ -1,196 +1,320 @@
 "use client";
 
-import { useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import "./admin.css";
 
-const navItems = [
-  ["⌂", "Обзор"],
-  ["▤", "Контент"],
-  ["◇", "Модули"],
-  ["⌁", "Автоматизация"],
-  ["◎", "Аналитика"],
+type User = { id: number; email: string; name: string; role: string; role_name: string };
+type PageItem = { id: number; title: string; slug: string; status: string; updated_at: string };
+type ModuleItem = { module_key: string; name: string; version: string; status: string; updated_at: string };
+type DashboardData = {
+  counts: { pages: number; published: number; users: number; modules: number; submissions: number };
+  recent_pages: PageItem[];
+  modules: ModuleItem[];
+  license: { edition: string; domain: string; status: string; valid_until: string | null } | null;
+  health: { score: number; core: string; environment: string };
+};
+
+const navigation = [
+  ["overview", "⌂", "Обзор"],
+  ["content", "▤", "Контент"],
+  ["modules", "◇", "Модули"],
+  ["settings", "⚙", "Настройки"],
 ];
 
-const projects = [
-  { name: "Мануфактура", type: "Business", status: "production", health: 98 },
-  { name: "Nord Market", type: "Commerce", status: "staging", health: 91 },
-  { name: "Insight Journal", type: "Content", status: "development", health: 100 },
-];
+async function api<T>(
+  action: string,
+  options: RequestInit = {},
+  csrf = "",
+): Promise<T> {
+  const response = await fetch(`/api/index.php?action=${encodeURIComponent(action)}`, {
+    credentials: "same-origin",
+    headers: {
+      "Content-Type": "application/json",
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
+      ...(options.headers ?? {}),
+    },
+    ...options,
+  });
+  const payload = await response.json().catch(() => ({ ok: false, error: "Некорректный ответ сервера" }));
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.error || "Ошибка запроса");
+  }
+  return payload as T;
+}
 
 export default function AdminPage() {
-  const [active, setActive] = useState("Обзор");
-  const [project, setProject] = useState(projects[0]);
-  const [commandOpen, setCommandOpen] = useState(false);
-  const [notice, setNotice] = useState("Все системы работают штатно");
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [csrf, setCsrf] = useState("");
+  const [active, setActive] = useState("overview");
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [pages, setPages] = useState<PageItem[]>([]);
+  const [modules, setModules] = useState<ModuleItem[]>([]);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
 
-  function runUpdate() {
-    setNotice("Проверка совместимости завершена — обновление безопасно");
+  const loadSession = useCallback(async () => {
+    setLoading(true);
+    try {
+      const session = await api<{ user: User; csrf: string; ok: true }>("auth.me");
+      setUser(session.user);
+      setCsrf(session.csrf);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDashboard = useCallback(async () => {
+    try {
+      const result = await api<DashboardData & { ok: true }>("dashboard");
+      setDashboard(result);
+      setModules(result.modules);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось загрузить панель");
+    }
+  }, []);
+
+  const loadPages = useCallback(async () => {
+    try {
+      const result = await api<{ pages: PageItem[]; ok: true }>("pages.list");
+      setPages(result.pages);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось загрузить страницы");
+    }
+  }, []);
+
+  useEffect(() => { void loadSession(); }, [loadSession]);
+  useEffect(() => {
+    if (user) {
+      void loadDashboard();
+      void loadPages();
+    }
+  }, [user, loadDashboard, loadPages]);
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const form = new FormData(event.currentTarget);
+    try {
+      const result = await api<{ user: User; csrf: string; ok: true }>("auth.login", {
+        method: "POST",
+        body: JSON.stringify({ email: form.get("email"), password: form.get("password") }),
+      });
+      setUser(result.user);
+      setCsrf(result.csrf);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Ошибка входа");
+    }
+  }
+
+  async function logout() {
+    try {
+      await api("auth.logout", { method: "POST", body: "{}" }, csrf);
+    } finally {
+      setUser(null);
+      setDashboard(null);
+    }
+  }
+
+  async function createPage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setError("");
+    try {
+      await api("pages.create", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.get("title"),
+          slug: form.get("slug"),
+          excerpt: form.get("excerpt"),
+          status: form.get("status"),
+        }),
+      }, csrf);
+      setCreateOpen(false);
+      setNotice("Страница создана");
+      await Promise.all([loadPages(), loadDashboard()]);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось создать страницу");
+    }
+  }
+
+  async function toggleModule(module: ModuleItem) {
+    const nextStatus = module.status === "active" ? "inactive" : "active";
+    try {
+      await api("modules.toggle", {
+        method: "POST",
+        body: JSON.stringify({ module_key: module.module_key, status: nextStatus }),
+      }, csrf);
+      setModules((items) => items.map((item) => item.module_key === module.module_key ? { ...item, status: nextStatus } : item));
+      setNotice(`${module.name}: ${nextStatus === "active" ? "включён" : "выключен"}`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Не удалось изменить модуль");
+    }
+  }
+
+  const pageTitle = useMemo(
+    () => navigation.find(([key]) => key === active)?.[2] ?? "Обзор",
+    [active],
+  );
+
+  if (loading) {
+    return <main className="adminLoading"><span>B</span><p>Проверяем BYPCMS…</p></main>;
+  }
+
+  if (!user) {
+    return (
+      <main className="loginScreen">
+        <section className="loginStory">
+          <Link href="/" className="loginLogo"><span>B</span>BYPCMS</Link>
+          <div>
+            <p>ПАНЕЛЬ УПРАВЛЕНИЯ 2.0</p>
+            <h1>Сайт под<br />полным контролем.</h1>
+            <span>Контент, модули, лицензия и состояние системы — в одном пространстве.</span>
+          </div>
+          <small>Стабильное ядро · независимые модули · безопасные обновления</small>
+        </section>
+        <section className="loginFormWrap">
+          <form onSubmit={login} className="loginForm">
+            <p className="eyebrow">ДОБРО ПОЖАЛОВАТЬ</p>
+            <h2>Войти в BYPCMS</h2>
+            <span>Используйте данные владельца, созданные при установке.</span>
+            {error && <div className="formError">{error}</div>}
+            <label>Email<input type="email" name="email" autoComplete="username" required /></label>
+            <label>Пароль<input type="password" name="password" autoComplete="current-password" required /></label>
+            <button type="submit">Войти в панель <b>→</b></button>
+            <a href="/install/">Установщик системы</a>
+          </form>
+        </section>
+      </main>
+    );
   }
 
   return (
-    <main className="adminApp">
-      <aside className="adminSidebar">
-        <Link className="adminBrand" href="/">
-          <span>B</span><strong>BYPCMS</strong>
-        </Link>
-        <nav aria-label="Разделы панели">
-          {navItems.map(([icon, label]) => (
-            <button
-              type="button"
-              key={label}
-              className={active === label ? "active" : ""}
-              onClick={() => setActive(label)}
-              title={label}
-            >
+    <main className="cms">
+      <aside className="cmsSidebar">
+        <Link href="/" className="cmsBrand"><span>B</span><strong>BYPCMS</strong></Link>
+        <nav aria-label="Разделы CMS">
+          {navigation.map(([key, icon, label]) => (
+            <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => setActive(key)}>
               <i>{icon}</i><span>{label}</span>
             </button>
           ))}
         </nav>
-        <div className="sideBottom">
-          <button type="button"><i>?</i><span>Поддержка</span></button>
-          <button type="button"><i>⚙</i><span>Настройки</span></button>
-          <div className="sideUser">
-            <span>ДА</span>
-            <div><strong>Дмитрий</strong><small>Владелец</small></div>
-            <b>•••</b>
-          </div>
+        <div className="cmsUser">
+          <span>{user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>
+          <div><strong>{user.name}</strong><small>{user.role_name}</small></div>
+          <button type="button" onClick={logout} aria-label="Выйти">↗</button>
         </div>
       </aside>
 
-      <section className="adminMain">
-        <header className="adminTopbar">
-          <div className="projectSwitcher">
-            <span className="projectIcon">{project.name.charAt(0)}</span>
-            <button type="button" onClick={() => {
-              const index = (projects.indexOf(project) + 1) % projects.length;
-              setProject(projects[index]);
-            }}>
-              <strong>{project.name}</strong>
-              <small>{project.type} · нажмите для смены</small>
-            </button>
-          </div>
-          <div className="topActions">
-            <button className="commandButton" type="button" onClick={() => setCommandOpen(true)}>
-              Быстрый поиск <kbd>⌘ K</kbd>
-            </button>
-            <button type="button" aria-label="Уведомления" className="iconButton">♢<i /></button>
-            <a href="/" target="_blank" className="siteButton">Открыть сайт ↗</a>
-          </div>
+      <section className="cmsMain">
+        <header className="cmsTopbar">
+          <div><span className="projectBadge">B</span><p><strong>BYPCMS Platform</strong><small>production · core {dashboard?.health.core ?? "2.0.0"}</small></p></div>
+          <div><a href="/" target="_blank">Открыть сайт ↗</a></div>
         </header>
 
-        <div className="adminContent">
-          <div className="welcomeRow">
-            <div>
-              <p>ПОНЕДЕЛЬ, 27 ИЮЛЯ</p>
-              <h1>{active === "Обзор" ? "Доброе утро, Дмитрий." : active}</h1>
-              <span>{notice}</span>
-            </div>
-            <button type="button" className="createButton" onClick={() => setNotice("Черновик новой страницы создан")}>＋ Создать</button>
+        <div className="cmsContent">
+          <div className="cmsHeading">
+            <div><p>ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>{pageTitle}</h1><span>{notice || "Все системы работают штатно"}</span></div>
+            <button type="button" onClick={() => setCreateOpen(true)}>＋ Создать страницу</button>
           </div>
+          {error && <div className="systemError">{error}<button type="button" onClick={() => setError("")}>×</button></div>}
 
-          <div className="healthStrip">
-            <div className="healthScore">
-              <div style={{ "--score": `${project.health * 3.6}deg` } as React.CSSProperties}>
-                <span>{project.health}</span>
+          {active === "overview" && (
+            <>
+              <div className="healthBar">
+                <div className="healthRing"><span>{dashboard?.health.score ?? 0}</span></div>
+                <div><small>Здоровье системы</small><strong>Отличное состояние</strong><span>API и база доступны</span></div>
+                <div><small>Версия ядра</small><strong>{dashboard?.health.core ?? "—"}</strong><span>актуальна</span></div>
+                <div><small>Лицензия</small><strong>{dashboard?.license?.edition ?? "—"}</strong><span>{dashboard?.license?.status ?? "не настроена"}</span></div>
+                <div><small>Окружение</small><strong>{dashboard?.health.environment ?? "—"}</strong><span>PHP backend</span></div>
               </div>
-              <p><strong>Здоровье проекта</strong><small>Отличное состояние</small></p>
-            </div>
-            <div><small>Версия ядра</small><strong>2.0.0</strong><span className="successDot">актуальна</span></div>
-            <div><small>Окружение</small><strong>{project.status}</strong><span>EU · 42 ms</span></div>
-            <div><small>Последний бэкап</small><strong>Сегодня, 04:10</strong><span>1.2 GB · успешно</span></div>
-            <button type="button" onClick={runUpdate}>Проверить систему →</button>
-          </div>
 
-          <div className="dashboardGrid">
-            <article className="analyticsPanel">
-              <div className="panelHeading">
-                <div><p>ПОКАЗАТЕЛИ</p><h2>Активность сайта</h2></div>
-                <select aria-label="Период">
-                  <option>30 дней</option><option>7 дней</option><option>Год</option>
-                </select>
+              <div className="metrics">
+                <article><span>▤</span><p>Всего страниц<strong>{dashboard?.counts.pages ?? 0}</strong><small>{dashboard?.counts.published ?? 0} опубликовано</small></p></article>
+                <article><span>◇</span><p>Активные модули<strong>{dashboard?.counts.modules ?? 0}</strong><small>из {modules.length} установленных</small></p></article>
+                <article><span>◎</span><p>Новые обращения<strong>{dashboard?.counts.submissions ?? 0}</strong><small>требуют обработки</small></p></article>
+                <article><span>♙</span><p>Пользователи<strong>{dashboard?.counts.users ?? 0}</strong><small>активных аккаунтов</small></p></article>
               </div>
-              <div className="bigMetrics">
-                <div><small>Посетители</small><strong>24 892</strong><span>↑ 18.4%</span></div>
-                <div><small>Целевые действия</small><strong>1 248</strong><span>↑ 7.2%</span></div>
-                <div><small>Конверсия</small><strong>5.01%</strong><span>↑ 1.6%</span></div>
-              </div>
-              <div className="adminChart">
-                <div className="chartScale"><span>3K</span><span>2K</span><span>1K</span><span>0</span></div>
-                <div className="chartPlot">
-                  <i className="gridLine one" /><i className="gridLine two" /><i className="gridLine three" />
-                  <div className="areaShape" />
-                  {[22, 38, 31, 50, 44, 61, 58, 75, 67, 83, 72, 90].map((value, index) => (
-                    <b key={index} style={{ left: `${index * 9}%`, bottom: `${value}%` }} />
-                  ))}
-                </div>
-              </div>
-              <div className="chartDates"><span>1 июл</span><span>8 июл</span><span>15 июл</span><span>22 июл</span><span>27 июл</span></div>
-            </article>
 
-            <article className="licensePanel">
-              <div className="panelHeading">
-                <div><p>ЛИЦЕНЗИЯ</p><h2>BYPCMS Business</h2></div>
-                <span className="activeBadge">Активна</span>
+              <div className="dashboardPanels">
+                <article className="recentPanel">
+                  <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><button type="button" onClick={() => setActive("content")}>Все страницы →</button></header>
+                  <div className="tableRows">
+                    {(dashboard?.recent_pages ?? []).length === 0 && <div className="emptyRow">Создайте первую страницу</div>}
+                    {(dashboard?.recent_pages ?? []).map((page) => (
+                      <div key={page.id}><span className="pageGlyph">{page.title[0]}</span><p><strong>{page.title}</strong><small>/{page.slug}</small></p><em className={page.status}>{page.status}</em><time>{new Date(page.updated_at).toLocaleDateString("ru-RU")}</time></div>
+                    ))}
+                  </div>
+                </article>
+                <article className="licenseCard">
+                  <header><p>ЛИЦЕНЗИЯ</p><span className={dashboard?.license?.status ?? "trial"}>{dashboard?.license?.status ?? "trial"}</span></header>
+                  <div className="licenseSymbol"><i>B</i></div>
+                  <h2>BYPCMS {dashboard?.license?.edition ?? "Business"}</h2>
+                  <p>{dashboard?.license?.domain || "Домен определяется при установке"}</p>
+                  <small>Действует до: {dashboard?.license?.valid_until ? new Date(dashboard.license.valid_until).toLocaleDateString("ru-RU") : "не задано"}</small>
+                </article>
               </div>
-              <div className="licenseVisual">
-                <div className="licenseOrb"><span>B</span></div>
-                <i /><i /><i />
-              </div>
-              <div className="licenseMeta">
-                <div><small>Домен</small><strong>manufactura.ru</strong></div>
-                <div><small>Действует до</small><strong>14 июня 2027</strong></div>
-              </div>
-              <button type="button" onClick={() => setNotice("Раздел управления лицензией открыт")}>Управление лицензией →</button>
-            </article>
+            </>
+          )}
 
-            <article className="contentPanel">
-              <div className="panelHeading">
-                <div><p>КОНТЕНТ</p><h2>Требует внимания</h2></div>
-                <button type="button">Все материалы ↗</button>
+          {active === "content" && (
+            <section className="dataPanel">
+              <header><div><p>СТРУКТУРА САЙТА</p><h2>Страницы</h2></div><span>{pages.length} материалов</span></header>
+              <div className="contentTable">
+                <div className="tableHead"><span>Название</span><span>URL</span><span>Статус</span><span>Обновлено</span></div>
+                {pages.map((page) => (
+                  <div key={page.id}><strong>{page.title}</strong><code>/{page.slug}</code><em className={page.status}>{page.status}</em><time>{new Date(page.updated_at).toLocaleString("ru-RU")}</time></div>
+                ))}
               </div>
-              <div className="contentRows">
-                <div><span className="fileType violet">A</span><div><strong>Новая коллекция осень—зима</strong><small>Черновик · обновлено 12 мин назад</small></div><b>Продолжить →</b></div>
-                <div><span className="fileType green">P</span><div><strong>О компании</strong><small>Изменения ожидают публикации</small></div><b>Проверить →</b></div>
-                <div><span className="fileType blue">M</span><div><strong>12 изображений без alt</strong><small>Рекомендация SEO-модуля</small></div><b>Исправить →</b></div>
-              </div>
-            </article>
+            </section>
+          )}
 
-            <article className="modulePanel">
-              <div className="panelHeading">
-                <div><p>МОДУЛИ</p><h2>Состояние системы</h2></div>
-                <button type="button">Каталог ↗</button>
+          {active === "modules" && (
+            <section className="dataPanel">
+              <header><div><p>ЭКОСИСТЕМА</p><h2>Установленные модули</h2></div><span>{modules.length} пакетов</span></header>
+              <div className="moduleGrid">
+                {modules.map((module) => (
+                  <article key={module.module_key}>
+                    <span className="moduleIcon">{module.name[0]}</span>
+                    <div><h3>{module.name}</h3><p>{module.module_key} · v{module.version}</p></div>
+                    <button type="button" className={module.status} onClick={() => void toggleModule(module)}>
+                      {module.status === "active" ? "Включён" : "Выключен"}
+                    </button>
+                  </article>
+                ))}
               </div>
-              <div className="moduleStatus">
-                <div className="moduleCount"><strong>12</strong><span>активных<br />модулей</span></div>
-                <div className="moduleDots">
-                  {Array.from({ length: 12 }).map((_, index) => <i key={index} className={index === 10 ? "update" : ""} />)}
-                </div>
-              </div>
-              <div className="updateRow"><span>↻</span><div><strong>Доступно 1 обновление</strong><small>SEO Toolkit 3.4.1 · совместимо</small></div><button type="button" onClick={runUpdate}>Обновить</button></div>
-            </article>
-          </div>
+            </section>
+          )}
 
-          <footer className="adminFooter">
-            <span>BYPCMS Core 2.0.0</span>
-            <i />
-            <span>API: работает</span>
-            <span>Последняя синхронизация: только что</span>
-          </footer>
+          {active === "settings" && (
+            <section className="dataPanel settingsIntro">
+              <p>СИСТЕМА</p><h2>Настройки BYPCMS</h2>
+              <div className="settingsCards">
+                <article><span>⌘</span><div><strong>Основные</strong><small>Название, адрес, язык и часовой пояс</small></div></article>
+                <article><span>♙</span><div><strong>Пользователи и роли</strong><small>Доступы команды и журнал входов</small></div></article>
+                <article><span>◇</span><div><strong>API и интеграции</strong><small>Токены, webhooks и внешние сервисы</small></div></article>
+                <article><span>↻</span><div><strong>Обновления</strong><small>Ядро, модули и резервные копии</small></div></article>
+              </div>
+            </section>
+          )}
         </div>
       </section>
 
-      {commandOpen && (
-        <div className="commandOverlay" role="dialog" aria-modal="true" aria-label="Быстрый поиск" onMouseDown={() => setCommandOpen(false)}>
-          <div className="commandPalette" onMouseDown={(event) => event.stopPropagation()}>
-            <div className="commandInput"><span>⌕</span><input autoFocus placeholder="Найдите страницу, модуль или действие…" /><kbd>ESC</kbd></div>
-            <p>БЫСТРЫЕ ДЕЙСТВИЯ</p>
-            {["Создать страницу", "Открыть каталог модулей", "Проверить обновления", "Настроить лицензию"].map((item, index) => (
-              <button type="button" key={item} onClick={() => { setNotice(`${item}: готово`); setCommandOpen(false); }}>
-                <span>{["＋", "◇", "↻", "⌘"][index]}</span>{item}<kbd>↵</kbd>
-              </button>
-            ))}
-          </div>
+      {createOpen && (
+        <div className="modalShade" onMouseDown={() => setCreateOpen(false)}>
+          <form className="createModal" onSubmit={createPage} onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div><button type="button" onClick={() => setCreateOpen(false)}>×</button></header>
+            <label>Заголовок<input name="title" required placeholder="Например, О компании" /></label>
+            <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" placeholder="about" /></label>
+            <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
+            <label>Статус<select name="status"><option value="draft">Черновик</option><option value="published">Опубликовать</option></select></label>
+            <button type="submit" className="saveButton">Создать страницу →</button>
+          </form>
         </div>
       )}
     </main>

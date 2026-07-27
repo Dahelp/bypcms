@@ -1,0 +1,12 @@
+Options -Indexes
+DirectoryIndex index.html index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^api/?$ api/index.php [L,QSA]
+  RewriteRule ^install/?$ install/index.php [L,QSA]
+</IfModule>
+
+<FilesMatch "(^\.|composer\.(json|lock)|phpunit|README|\.sql$)">
+  Require all denied
+</FilesMatch>

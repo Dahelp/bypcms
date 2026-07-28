@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "build:ftp": "next build && node scripts/prepare-deploy.mjs",
+    "build:ftp": "next build --webpack && node scripts/prepare-deploy.mjs",
     "prepare:demo": "node scripts/prepare-demo-deploy.mjs",
     "start": "vinext start",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",

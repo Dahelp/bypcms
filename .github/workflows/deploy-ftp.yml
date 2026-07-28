@@ -63,6 +63,6 @@ jobs:
           protocol: ftp
           local-dir: ./demo-dist/
           server-dir: ../demo.bypcms.ru/
-          state-name: .ftp-deploy-demo-state.json
+          state-name: .ftp-deploy-demo-state-v2.json
           log-level: minimal
-          timeout: 60000
+          timeout: 120000

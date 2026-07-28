@@ -54,18 +54,16 @@ jobs:
       - name: Prepare standalone demo package
         run: pnpm prepare:demo
 
-      - name: Install reliable FTP mirror
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
-
-      - name: Mirror demo.bypcms.ru
-        env:
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-        run: |
-          lftp -u "$FTP_USERNAME","$FTP_PASSWORD" grass.gohost.ru <<'LFTP'
-          set ftp:ssl-allow no
-          set net:timeout 30
-          set net:max-retries 3
-          mirror --reverse --delete --delete-first --transfer-all --parallel=4 --verbose ./demo-dist/ ../demo.bypcms.ru/
-          bye
-          LFTP
+      - name: Deploy standalone demo cleanly
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: grass.gohost.ru
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./demo-dist/
+          server-dir: ../demo.bypcms.ru/
+          state-name: .ftp-deploy-sync-state-demo.json
+          dangerous-clean-slate: true
+          log-level: standard
+          timeout: 120000

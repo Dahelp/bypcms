@@ -66,6 +66,6 @@ jobs:
           set ftp:ssl-allow no
           set net:timeout 30
           set net:max-retries 3
-          mirror --reverse --delete --parallel=4 --verbose ./demo-dist/ ../demo.bypcms.ru/
+          mirror --reverse --delete --delete-first --transfer-all --parallel=4 --verbose ./demo-dist/ ../demo.bypcms.ru/
           bye
           LFTP

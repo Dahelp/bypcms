@@ -50,3 +50,19 @@ jobs:
           server-dir: ./
           log-level: minimal
           timeout: 60000
+
+      - name: Prepare standalone demo package
+        run: pnpm prepare:demo
+
+      - name: Deploy demo.bypcms.ru
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: grass.gohost.ru
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./demo-dist/
+          server-dir: ../demo.bypcms.ru/
+          state-name: .ftp-deploy-demo-state.json
+          log-level: minimal
+          timeout: 60000

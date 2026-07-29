@@ -3,6 +3,8 @@ DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteCond %{HTTP_HOST} ^(?:www\.)?bypcms\.ru$ [NC]
+  RewriteRule ^demo(?:/.*)?$ https://demo.bypcms.ru/ [R=301,L]
   RewriteCond %{HTTP_HOST} ^demo\.bypcms\.ru$ [NC]
   RewriteRule ^$ demo/ [R=302,L]
   RewriteRule ^api/?$ api/index.php [L,QSA]

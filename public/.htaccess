@@ -1,5 +1,0 @@
-RewriteEngine On
-
-# Canonical demo lives on an isolated subdomain.
-RewriteCond %{HTTP_HOST} ^(?:www\.)?bypcms\.ru$ [NC]
-RewriteRule ^demo(?:/.*)?$ https://demo.bypcms.ru/ [R=301,L]

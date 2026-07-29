@@ -3,6 +3,9 @@ DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  # Every portfolio case has a clean permanent URL while its content is loaded
+  # from MySQL by the shared portfolio application.
+  RewriteRule ^portfolio/([^/]+)/?$ portfolio/index.html?project=$1 [L,QSA]
   RewriteCond %{HTTP_HOST} ^(?:www\.)?bypcms\.ru$ [NC]
   RewriteRule ^demo(?:/.*)?$ https://demo.bypcms.ru/ [R=301,L]
   RewriteCond %{HTTP_HOST} ^demo\.bypcms\.ru$ [NC]

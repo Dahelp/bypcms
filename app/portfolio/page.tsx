@@ -9,7 +9,11 @@ import "./portfolio.css";
 export default function PortfolioPage() {
   const [projects,setProjects]=useState(portfolioProjects);
   const [selectedSlug,setSelectedSlug]=useState("");
-  useEffect(()=>{setSelectedSlug(new URLSearchParams(window.location.search).get("project")||"")},[]);
+  useEffect(()=>{
+    const querySlug=new URLSearchParams(window.location.search).get("project")||"";
+    const pathParts=window.location.pathname.split("/").filter(Boolean);
+    setSelectedSlug(querySlug||(pathParts[0]==="portfolio"&&pathParts[1]?decodeURIComponent(pathParts[1]):""));
+  },[]);
   useEffect(()=>{fetch("/api/index.php?action=portfolio.public").then(response=>response.ok?response.json():null).then(payload=>{
     if(!payload?.projects?.length)return;
     setProjects(payload.projects.map((item:Record<string,unknown>)=>({
@@ -30,7 +34,7 @@ export default function PortfolioPage() {
       <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length}<small>проекта в подборке</small></b></div>
     </section>
     <section className="portfolioGrid publicContainer">
-      {projects.map((project, index) => <Link href={`/portfolio/?project=${encodeURIComponent(project.slug)}`} className="portfolioCard" key={project.slug}>
+      {projects.map((project, index) => <Link href={`/portfolio/${encodeURIComponent(project.slug)}/`} className="portfolioCard" key={project.slug}>
         <div className="portfolioVisual" style={{"--project-accent":project.accent} as React.CSSProperties}>
           <span>{String(index + 1).padStart(2, "0")}</span><img src={project.image} alt={`Макет проекта ${project.title}`} />
         </div>

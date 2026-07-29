@@ -1,26 +1,12 @@
 import Link from "next/link";
 import { publicModules } from "./data";
+import { BackToTop, PublicFooter, PublicHeader } from "../components/PublicChrome";
 import "./modules.css";
 
 export default function ModulesPage() {
   return (
     <main className="modulesCatalog">
-      <header className="catalogHeader">
-        <Link className="catalogBrand" href="/">
-          <b>B</b>
-          <span>BYPCMS<small>platform</small></span>
-        </Link>
-        <nav>
-          <Link href="/#products">Редакции</Link>
-          <Link href="/#builder">Калькулятор</Link>
-          <Link href="/#services">Услуги</Link>
-          <Link className="active" href="/modules">Модули</Link>
-        </nav>
-        <div>
-          <Link href="/demo">Демо ↗</Link>
-          <Link href="/order">Оформить заказ</Link>
-        </div>
-      </header>
+      <PublicHeader active="modules" />
 
       <section className="catalogHero">
         <p>ЭКОСИСТЕМА BYPCMS</p>
@@ -50,15 +36,7 @@ export default function ModulesPage() {
         <Link href="/#builder">Открыть калькулятор →</Link>
       </section>
 
-      <footer className="catalogFooter">
-        <Link className="catalogBrand" href="/">
-          <b>B</b>
-          <span>BYPCMS<small>CMS, модули и разработка</small></span>
-        </Link>
-        <p>Модульная платформа для индивидуальных веб-проектов.</p>
-        <div><Link href="/#products">Редакции</Link><Link href="/#builder">Калькулятор</Link><Link href="/modules">Модули</Link><Link href="/services">Услуги</Link><Link href="/demo">Демо</Link><Link href="/order">Заказать</Link></div>
-        <small>© {new Date().getFullYear()} BYPCMS</small>
-      </footer>
+      <PublicFooter /><BackToTop />
     </main>
   );
 }

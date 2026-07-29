@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { publicEditions, publicModules, publicServices } from "./modules/data";
+import { BackToTop, DEMO_URL, PublicFooter, PublicHeader } from "./components/PublicChrome";
 
 export default function Home() {
   const [selected, setSelected] = useState(1);
@@ -17,13 +18,7 @@ export default function Home() {
 
   return (
     <main>
-      <nav className="nav shell" aria-label="Основная навигация">
-        <Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span><small>platform</small></Link>
-        <div className="navLinks">
-          <a href="#products">Редакции</a><a href="#builder">Калькулятор</a><Link href="/services">Услуги</Link><Link href="/modules">Модули</Link>
-        </div>
-        <Link className="navAction" href="/demo">Открыть демо <span>↗</span></Link>
-      </nav>
+      <PublicHeader />
 
       <section className="hero shell" id="platform">
         <div className="heroCopy">
@@ -32,7 +27,7 @@ export default function Home() {
           <p>BYPCMS объединяет удобное управление контентом, мощные модули и индивидуальный дизайн. Вы получаете готовую систему, которую можно расширять вместе с вашим проектом.</p>
           <div className="heroActions">
             <a className="primaryButton" href="#builder">Рассчитать сборку <span>→</span></a>
-            <Link className="textButton" href="/demo">Посмотреть демо <span>↗</span></Link>
+            <a className="textButton" href={DEMO_URL}>Посмотреть демо <span>↗</span></a>
           </div>
           <div className="heroProof">
             <div><strong>15+</strong><span>лет веб-разработки</span></div>
@@ -90,8 +85,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><Link className="ctaButton" href="/demo">Открыть демо <span>↗</span></Link></div></section>
-      <footer className="footer shell"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>CMS, модули и веб-разработка.</p><div><a href="#products">Редакции</a><a href="#builder">Калькулятор</a><Link href="/modules">Модули</Link><Link href="/services">Услуги</Link><Link href="/demo">Демо</Link><Link href="/order">Заказать</Link></div><span>© {new Date().getFullYear()} BYPCMS</span></footer>
+      <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><a className="ctaButton" href={DEMO_URL}>Открыть демо <span>↗</span></a></div></section>
+      <PublicFooter /><BackToTop />
     </main>
   );
 }

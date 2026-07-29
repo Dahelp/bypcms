@@ -97,7 +97,7 @@ export default function DemoPage() {
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
     <aside className="realSidebar">
-      <Link href="/" className="demoBrand"><b>B</b><span>BYPCMS</span><i>{current.name}</i></Link>
+      <a href="https://bypcms.ru/" className="demoBrand"><b>B</b><span>BYPCMS</span><i>{current.name}</i></a>
       <ProjectBadge edition={edition} project={settings.siteName} />
       <nav>{currentMenu.map((item, index) => {
         const showGroup = item.group && currentMenu[index - 1]?.group !== item.group;
@@ -138,7 +138,7 @@ function Login({ onLogin, notice, flash }: { onLogin: () => void; notice: string
     if (data.get("login") === "demo" && data.get("password") === "demo") onLogin();
     else flash("Используйте логин demo и пароль demo");
   }
-  return <main className="demoLogin realLogin"><section><Link href="/" className="demoBrand"><b>B</b> BYPCMS <span>DEMO</span></Link><div><small>ТРИ ПОЛНОЦЕННЫЕ АДМИН-ПАНЕЛИ</small><h1>Посмотрите,<br />как работает сайт.</h1><p>Не презентация функций, а настоящая панель покупателя. Управляйте материалами, услугами, заявками, товарами, заказами, SEO и дизайном.</p><div className="loginEditions">{Object.entries(editions).map(([key, item]) => <span key={key}><b>{item.name}</b>{item.note}<small>{item.menu.length} рабочих разделов</small></span>)}</div></div></section><form onSubmit={submit}><small>БЕЗОПАСНАЯ ДЕМО-СЕССИЯ</small><h2>Войти в панель</h2><p>Создавайте, изменяйте, удаляйте и просматривайте записи. Изменения останутся только в этом браузере.</p><label>Логин<input name="login" defaultValue="demo" /></label><label>Пароль<input name="password" type="password" defaultValue="demo" /></label>{notice && <em>{notice}</em>}<button>Открыть админ-панель →</button><Link href="/">← Вернуться на BYPCMS</Link></form></main>;
+  return <main className="demoLogin realLogin"><section><a href="https://bypcms.ru/" className="demoBrand"><b>B</b> BYPCMS <span>DEMO</span></a><div><small>ТРИ ПОЛНОЦЕННЫЕ АДМИН-ПАНЕЛИ</small><h1>Посмотрите,<br />как работает сайт.</h1><p>Не презентация функций, а настоящая панель покупателя. Управляйте материалами, услугами, заявками, товарами, заказами, SEO и дизайном.</p><div className="loginEditions">{Object.entries(editions).map(([key, item]) => <span key={key}><b>{item.name}</b>{item.note}<small>{item.menu.length} рабочих разделов</small></span>)}</div></div></section><form onSubmit={submit}><small>БЕЗОПАСНАЯ ДЕМО-СЕССИЯ</small><h2>Войти в панель</h2><p>Создавайте, изменяйте, удаляйте и просматривайте записи. Изменения останутся только в этом браузере.</p><label>Логин<input name="login" defaultValue="demo" /></label><label>Пароль<input name="password" type="password" defaultValue="demo" /></label>{notice && <em>{notice}</em>}<button>Открыть админ-панель →</button><a href="https://bypcms.ru/">← Вернуться на BYPCMS</a></form></main>;
 }
 
 function ProjectBadge({ edition, project }: { edition: EditionKey; project: string }) {

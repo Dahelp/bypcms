@@ -5,11 +5,16 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { defaultInstalledModules, DemoEntity, DemoModule, EditionKey, EntityKind, editions, entityTitles, mediaItems, moduleRegistry, seedEntities } from "./demo-data";
 import "./demo.css";
 
-type ThemeState = { template: string; accent: string; background: string; font: string; headingFont?: string; customFont?: string; radius: number; header: string; container: number; menuPosition?: "left" | "center" | "right" | "drawer" };
+type ThemeState = { template: string; editionTemplates?: Partial<Record<EditionKey, string>>; accent: string; background: string; font: string; headingFont?: string; customFont?: string; radius: number; header: string; container: number; menuPosition?: "left" | "center" | "right" | "drawer"; customTemplateName?: string; customTemplateSource?: string };
 type SettingsState = { siteName: string; slogan?: string; logo?: string; domain: string; email: string; phone: string; address: string; language: string; timezone: string; notifications: boolean; maintenance: boolean };
 type EditorTab = "content" | "seo" | "settings" | `module:${string}`;
 
-const initialTheme: ThemeState = { template: "Editorial", accent: "#557a25", background: "#f3f3ef", font: "Inter", headingFont: "Manrope", customFont: "", radius: 12, header: "Светлая", container: 1280, menuPosition: "center" };
+const templateCatalog: Record<EditionKey, { id: string; name: string; note: string }[]> = {
+  content: [{ id: "journal", name: "Journal", note: "Журнальная сетка и крупные истории" }, { id: "chronicle", name: "Chronicle", note: "Строгая редакционная колонка" }, { id: "focus", name: "Focus", note: "Современная медиа-витрина" }],
+  business: [{ id: "atelier", name: "Atelier", note: "Имиджевый сайт студии" }, { id: "corporate", name: "Corporate", note: "Услуги, цифры и доверие" }, { id: "mono", name: "Mono", note: "Минималистичная презентация" }],
+  commerce: [{ id: "gallery", name: "Gallery", note: "Каталог как дизайн-галерея" }, { id: "market", name: "Market", note: "Конверсионный интернет-магазин" }, { id: "luxe", name: "Luxe", note: "Премиальная товарная витрина" }],
+};
+const initialTheme: ThemeState = { template: "atelier", editionTemplates: { content: "journal", business: "atelier", commerce: "gallery" }, accent: "#557a25", background: "#f3f3ef", font: "Inter", headingFont: "Manrope", customFont: "", radius: 12, header: "Светлая", container: 1280, menuPosition: "center", customTemplateName: "", customTemplateSource: "" };
 const initialSettings: SettingsState = { siteName: "Northline Studio", slogan: "Дизайн и цифровые продукты для бизнеса", logo: "", domain: "demo.bypcms.ru", email: "hello@northline.demo", phone: "+7 495 100-20-30", address: "Москва, ул. Тверская, 12", language: "Русский", timezone: "Europe/Moscow", notifications: true, maintenance: false };
 
 export default function DemoPage() {
@@ -31,7 +36,10 @@ export default function DemoPage() {
     try {
       const saved = JSON.parse(raw);
       if (saved.entities) setEntities(saved.entities);
-      if (saved.theme) setTheme(saved.theme);
+      if (saved.theme) {
+        const known = [...templateCatalog.content, ...templateCatalog.business, ...templateCatalog.commerce].some(item => item.id === saved.theme.template) || saved.theme.template === "custom";
+        setTheme({ ...initialTheme, ...saved.theme, template: known ? saved.theme.template : initialTheme.template, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } });
+      }
       if (saved.settings) setSettings(saved.settings);
       if (saved.installedModules) setInstalledModules(saved.installedModules);
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
@@ -60,7 +68,7 @@ export default function DemoPage() {
     setView("overview");
     setEditing(null);
     setSettings(value => ({ ...value, siteName: editions[next].project }));
-    setTheme(value => ({ ...value, accent: editions[next].accent, template: next === "commerce" ? "Commerce" : next === "content" ? "Editorial" : "Studio" }));
+    setTheme(value => ({ ...value, accent: editions[next].accent, template: value.editionTemplates?.[next] || templateCatalog[next][0].id }));
     flash(`Открыта полноценная редакция BYPCMS ${editions[next].name}`);
   }
   function startCreate(kind: EntityKind) {
@@ -279,6 +287,7 @@ const fontChoices = ["Inter", "Manrope", "Roboto", "Montserrat", "Open Sans", "P
 
 function DesignStudioV2({ edition, theme, setTheme, settings, setSettings, flash }: { edition: EditionKey; theme: ThemeState; setTheme: React.Dispatch<React.SetStateAction<ThemeState>>; settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; flash: (message: string) => void }) {
   const updateTheme = <K extends keyof ThemeState>(key: K, value: ThemeState[K]) => setTheme(old => ({ ...old, [key]: value }));
+  const chooseTemplate = (template: string) => setTheme(old => ({ ...old, template, editionTemplates: { ...old.editionTemplates, [edition]: template } }));
   const updateSettings = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => setSettings(old => ({ ...old, [key]: value }));
   function loadLogo(file?: File) {
     if (!file) return;
@@ -286,8 +295,16 @@ function DesignStudioV2({ edition, theme, setTheme, settings, setSettings, flash
     reader.onload = () => { updateSettings("logo", String(reader.result)); flash("Логотип загружен и показан в предпросмотре"); };
     reader.readAsDataURL(file);
   }
+  function loadTemplate(file?: File) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setTheme(old => ({ ...old, template: "custom", editionTemplates: { ...old.editionTemplates, [edition]: "custom" }, customTemplateName: file.name, customTemplateSource: String(reader.result) }));
+    reader.readAsText(file);
+    flash("Шаблон загружен в безопасный редактор предпросмотра");
+  }
   return <><PageHeading eyebrow="ДИЗАЙН САЙТА" title="Визуальные настройки" description="Типографика, логотип, меню и оформление с живым предпросмотром" actions={<button onClick={() => flash("Настройки дизайна опубликованы")}>Опубликовать дизайн</button>} /><div className="designEditor designEditorV2"><aside>
-    <section><small>ШАБЛОН</small>{["Studio", "Editorial", "Commerce"].map(name => <button className={theme.template === name ? "active" : ""} onClick={() => updateTheme("template", name)} key={name}><i className={`miniTemplate ${name.toLowerCase()}`} /><span><b>{name}</b><small>{name === "Commerce" ? "Каталог и магазин" : name === "Editorial" ? "Журнал и медиа" : "Компания и услуги"}</small></span>✓</button>)}</section>
+    <section className="templateChooser"><small>3 ШАБЛОНА ДЛЯ BYPCMS {editions[edition].name.toUpperCase()}</small>{templateCatalog[edition].map(item => <button className={theme.template === item.id ? "active" : ""} onClick={() => chooseTemplate(item.id)} key={item.id}><i className={`miniTemplate ${item.id}`} /><span><b>{item.name}</b><small>{item.note}</small></span>{theme.template === item.id ? "✓" : "→"}</button>)}</section>
+    <section className="templateDeveloper"><small>СВОЙ ШАБЛОН</small><h3>Редактор разработчика</h3><p className="fieldHelp">Загрузите HTML-шаблон. Скрипты и опасные атрибуты удаляются, а переменные заменяются данными проекта.</p><div className="templateVariables">{["{{site.name}}","{{site.slogan}}","{{page.title}}","{{page.excerpt}}","{{page.image}}","{{product.price}}"].map(variable => <code key={variable}>{variable}</code>)}</div><label className="uploadButton">Загрузить HTML-шаблон<input type="file" accept=".html,.htm,.txt" onChange={event => loadTemplate(event.target.files?.[0])} /></label>{theme.customTemplateSource !== undefined && <><label>Название шаблона<input value={theme.customTemplateName || ""} onChange={event => updateTheme("customTemplateName", event.target.value)} /></label><label>Разметка<textarea rows={10} spellCheck={false} value={theme.customTemplateSource || ""} onChange={event => updateTheme("customTemplateSource", event.target.value)} placeholder="<section><h1>{{page.title}}</h1></section>" /></label><button className="primary" onClick={() => chooseTemplate("custom")}>Применить свой шаблон</button></>}</section>
     <section><small>ЛОГОТИП И СЛОГАН</small><div className="logoControl">{settings.logo ? <img src={settings.logo} alt="Логотип сайта" /> : <b>{settings.siteName.slice(0, 1)}</b>}<span><strong>{settings.siteName}</strong><small>{settings.slogan}</small></span></div><label className="uploadButton">Загрузить логотип<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={event => loadLogo(event.target.files?.[0])} /></label>{settings.logo && <button onClick={() => updateSettings("logo", "")}>Удалить логотип</button>}<label>Слоган<input value={settings.slogan || ""} onChange={event => updateSettings("slogan", event.target.value)} placeholder="Короткая фраза о компании" /></label></section>
     <section><small>ТИПОГРАФИКА</small><label>Основной текст<select value={theme.font} onChange={event => updateTheme("font", event.target.value)}>{fontChoices.map(font => <option key={font}>{font}</option>)}</select></label><label>Заголовки<select value={theme.headingFont || theme.font} onChange={event => updateTheme("headingFont", event.target.value)}>{fontChoices.map(font => <option key={font}>{font}</option>)}</select></label><label>Свой шрифт<input value={theme.customFont || ""} onChange={event => updateTheme("customFont", event.target.value)} placeholder="Название, например MyBrand Sans" /></label><p className="fieldHelp">В рабочей CMS сюда также загружаются WOFF2/WOFF. В демо название сразу применяется, если шрифт установлен в системе.</p></section>
     <section><small>ШПАКА И МЕНЮ</small><label>Расположение меню<select value={theme.menuPosition || "center"} onChange={event => updateTheme("menuPosition", event.target.value as ThemeState["menuPosition"])}><option value="left">Слева от логотипа</option><option value="center">По центру</option><option value="right">Справа</option><option value="drawer">Кнопка-меню</option></select></label><label>Оформление шапки<select value={theme.header} onChange={event => updateTheme("header", event.target.value)}><option>Светлая</option><option>Тёмная</option><option>Прозрачная</option></select></label></section>
@@ -358,7 +375,28 @@ function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; e
   const [menuOpen, setMenuOpen] = useState(false);
   const [message, setMessage] = useState("");
   const act = (text: string) => { setMessage(text); window.setTimeout(() => setMessage(""), 2600); };
-  return <div className={`liveSite template-${theme.template.toLowerCase()} header-${theme.header.toLowerCase()} menu-${theme.menuPosition || "center"} ${menuOpen ? "menu-open" : ""}`} style={{ "--site-accent": theme.accent, "--site-bg": theme.background, "--site-radius": `${theme.radius}px`, "--site-width": `${theme.container}px`, "--site-font": bodyFont, "--site-heading-font": theme.headingFont || bodyFont } as React.CSSProperties}>{message && <div className="siteDemoMessage">{message}</div>}<header><button className="siteLogo" onClick={() => act("Открыта главная страница")}>{settings.logo ? <img src={settings.logo} alt={settings.siteName} /> : <b>{settings.siteName[0]}</b>}<span><strong>{settings.siteName}</strong>{settings.slogan && <small>{settings.slogan}</small>}</span></button><nav><button onClick={() => act("Открыта главная страница")}>Главная</button><button onClick={() => act(`Открыт раздел «${edition === "commerce" ? "Каталог" : edition === "content" ? "Журнал" : "Услуги"}»`)}>{edition === "commerce" ? "Каталог" : edition === "content" ? "Журнал" : "Услуги"}</button><button onClick={() => act("Открыта страница «О нас»")}>О нас</button><button onClick={() => act("Открыта страница контактов")}>Контакты</button></nav><button className="siteMenuToggle" onClick={() => setMenuOpen(value => !value)}>☰</button><button className="siteAction" onClick={() => act(edition === "commerce" ? "Корзина открыта" : "Форма связи открыта")}>{edition === "commerce" ? "Корзина · 0" : "Связаться"}</button></header><main><section className="siteHero" id="overview"><div><small>{content.category || editions[edition].note}</small><h1>{content.title}</h1><p>{content.excerpt}</p>{content.price !== undefined ? <><strong>{content.price.toLocaleString("ru-RU")} ₽</strong><button onClick={() => act("Товар добавлен в демо-корзину")}>Добавить в корзину</button></> : <button onClick={() => act("Открыт полный материал")}>Подробнее →</button>}</div><MediaThumb index={content.image} large /></section><section className="siteBody" id="details"><aside><small>СОДЕРЖАНИЕ</small><a href="#overview">Обзор</a><a href="#details">Подробности</a><a href="#features">Характеристики</a></aside><article><h2>{content.kind === "products" ? "Описание товара" : "О проекте"}</h2><p>{content.body}</p><MediaThumb index={(content.image + 1) % 6} large /><h2 id="features">Продумано до деталей</h2><p>Эта часть страницы собирается из управляемых блоков. Изображения, тексты, порядок секций и кнопки меняются в редакторе BYPCMS.</p></article></section></main><footer><b>{settings.siteName}</b><span>{settings.email} · {settings.phone}</span><span>© 2026</span></footer></div>;
+  const customMarkup = (theme.customTemplateSource || "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replaceAll("{{site.name}}", settings.siteName)
+    .replaceAll("{{site.slogan}}", settings.slogan || "")
+    .replaceAll("{{page.title}}", content.title)
+    .replaceAll("{{page.excerpt}}", content.excerpt)
+    .replaceAll("{{page.image}}", "https://bypcms.ru/demo/cms-media-board.png")
+    .replaceAll("{{product.price}}", content.price ? `${content.price.toLocaleString("ru-RU")} ₽` : "");
+  const cards = seedEntities.filter(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "services")).slice(0, 3);
+  return <div className={`liveSite edition-${edition} template-${theme.template.toLowerCase()} header-${theme.header.toLowerCase()} menu-${theme.menuPosition || "center"} ${menuOpen ? "menu-open" : ""}`} style={{ "--site-accent": theme.accent, "--site-bg": theme.background, "--site-radius": `${theme.radius}px`, "--site-width": `${theme.container}px`, "--site-font": bodyFont, "--site-heading-font": theme.headingFont || bodyFont } as React.CSSProperties}>
+    {message && <div className="siteDemoMessage">{message}</div>}
+    <header><button className="siteLogo" onClick={() => act("Открыта главная страница")}>{settings.logo ? <img src={settings.logo} alt={settings.siteName} /> : <b>{settings.siteName[0]}</b>}<span><strong>{settings.siteName}</strong>{settings.slogan && <small>{settings.slogan}</small>}</span></button><nav><button onClick={() => act("Открыта главная страница")}>Главная</button><button onClick={() => act(`Открыт раздел «${edition === "commerce" ? "Каталог" : edition === "content" ? "Журнал" : "Услуги"}»`)}>{edition === "commerce" ? "Каталог" : edition === "content" ? "Журнал" : "Услуги"}</button><button onClick={() => act("Открыта страница «О нас»")}>О нас</button><button onClick={() => act("Открыта страница контактов")}>Контакты</button></nav><button className="siteMenuToggle" onClick={() => setMenuOpen(value => !value)}>☰</button><button className="siteAction" onClick={() => act(edition === "commerce" ? "Корзина открыта" : "Форма связи открыта")}>{edition === "commerce" ? "Корзина · 0" : "Связаться"}</button></header>
+    {theme.template === "custom" && customMarkup ? <main className="customTemplatePreview" dangerouslySetInnerHTML={{ __html: customMarkup }} /> : <main>
+      <section className="siteHero" id="overview"><div><small>{content.category || editions[edition].note}</small><h1>{content.title}</h1><p>{content.excerpt}</p>{content.price !== undefined ? <><strong>{content.price.toLocaleString("ru-RU")} ₽</strong><button onClick={() => act("Товар добавлен в демо-корзину")}>Добавить в корзину</button></> : <button onClick={() => act(edition === "business" ? "Открыта форма обсуждения проекта" : "Открыт полный материал")}>{edition === "business" ? "Обсудить проект" : "Подробнее →"}</button>}</div><MediaThumb index={content.image} large /></section>
+      {edition === "content" && <section className="contentShowcase"><header><small>СВЕЖИЕ ИСТОРИИ</small><h2>Читайте новое</h2></header><div>{cards.map(item => <article key={item.id}><MediaThumb index={item.image} large /><small>{item.category}</small><h3>{item.title}</h3><p>{item.excerpt}</p><button onClick={() => act(`Открыт материал «${item.title}»`)}>Читать →</button></article>)}</div></section>}
+      {edition === "business" && <><section className="businessStats">{[["12 лет","экспертизы"],["86","проектов"],["24","специалиста"],["4,9","рейтинг"]].map(item => <article key={item[1]}><strong>{item[0]}</strong><span>{item[1]}</span></article>)}</section><section className="businessServices"><header><small>КОМПЕТЕНЦИИ</small><h2>От идеи до результата</h2></header><div>{cards.map((item,index) => <article key={item.id}><i>0{index+1}</i><h3>{item.title}</h3><p>{item.excerpt}</p><button onClick={() => act(`Открыта услуга «${item.title}»`)}>Подробнее →</button></article>)}</div></section></>}
+      {edition === "commerce" && <section className="commerceCatalog"><header><div><small>КОЛЛЕКЦИЯ</small><h2>Избранные товары</h2></div><button onClick={() => act("Открыт весь каталог")}>Весь каталог →</button></header><div>{cards.map(item => <article key={item.id}><MediaThumb index={item.image} large /><small>{item.brand || item.category}</small><h3>{item.title}</h3><footer><strong>{(item.price || 0).toLocaleString("ru-RU")} ₽</strong><button onClick={() => act(`${item.title} добавлен в корзину`)}>＋</button></footer></article>)}</div></section>}
+      <section className="siteBody" id="details"><aside><small>СОДЕРЖАНИЕ</small><a href="#overview">Обзор</a><a href="#details">Подробности</a><a href="#features">Характеристики</a></aside><article><h2>{edition === "commerce" ? "Описание товара" : edition === "business" ? "Подход к работе" : "О материале"}</h2><p>{content.body}</p><MediaThumb index={(content.image + 1) % 6} large /><h2 id="features">Продумано до деталей</h2><p>Страница собирается из управляемых блоков. Изображения, тексты, порядок секций и кнопки меняются в редакторе BYPCMS.</p></article></section>
+    </main>}
+    <footer><b>{settings.siteName}</b><span>{settings.email} · {settings.phone}</span><span>© 2026</span></footer>
+  </div>;
 }
 
 function MediaThumb({ index, large = false }: { index: number; large?: boolean }) {

@@ -192,6 +192,7 @@ button { color: inherit; font: inherit; }
 
 @media (max-width: 620px) {
   .shell { width: min(1440px, calc(100% - 28px)); }
+  .statusPill { width: fit-content; max-width: 100%; }
   .nav { height: 70px; }.navLinks { top: 69px; }
   .hero { min-height: auto; padding-block: 55px; gap: 20px; }.hero h1 { font-size: 52px; }.heroCopy > p { font-size: 16px; }
   .heroActions { align-items: stretch; flex-direction: column; width: max-content; }.heroProof { margin-top: 50px; }.heroProof div { padding-right: 14px; margin-right: 14px; }

@@ -142,6 +142,28 @@ return [
         availability VARCHAR(30) NOT NULL DEFAULT "optional",
         PRIMARY KEY (edition, module_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
+    'CREATE TABLE IF NOT EXISTS byp_portfolio_projects (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        slug VARCHAR(160) NOT NULL UNIQUE,
+        title VARCHAR(190) NOT NULL,
+        category VARCHAR(120) NULL,
+        edition VARCHAR(80) NULL,
+        project_year VARCHAR(10) NULL,
+        lead TEXT NULL,
+        description LONGTEXT NULL,
+        result_text LONGTEXT NULL,
+        cover_image VARCHAR(500) NULL,
+        gallery LONGTEXT NULL,
+        features LONGTEXT NULL,
+        modules LONGTEXT NULL,
+        services LONGTEXT NULL,
+        project_url VARCHAR(500) NULL,
+        status VARCHAR(40) NOT NULL DEFAULT "draft",
+        sort_order INT NOT NULL DEFAULT 100,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_portfolio_status_sort (status, sort_order)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     'INSERT IGNORE INTO byp_edition_modules (edition, module_key, availability) VALUES
         ("Business","content","included"), ("Business","forms","included"), ("Business","seo","included"),
         ("Business","analytics","optional"),

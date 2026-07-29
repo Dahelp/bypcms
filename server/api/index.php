@@ -53,6 +53,17 @@ try {
         Response::ok();
     }
 
+    if ($action === 'portfolio.public' && $method === 'GET') {
+        $rows = $db->all('SELECT slug,title,category,edition,project_year,lead,description,result_text,cover_image,gallery,features,modules,services,project_url FROM byp_portfolio_projects WHERE status="published" ORDER BY sort_order,title');
+        foreach ($rows as &$row) {
+            foreach (['gallery','features','modules','services'] as $field) {
+                $decoded = json_decode((string)($row[$field] ?? '[]'), true);
+                $row[$field] = is_array($decoded) ? $decoded : [];
+            }
+        }
+        Response::ok(['projects'=>$rows]);
+    }
+
     $user = $auth->requireUser();
     if ($method !== 'GET') {
         $auth->verifyCsrf();
@@ -166,6 +177,7 @@ try {
                 'services'=>$db->all('SELECT * FROM byp_services ORDER BY name'),
                 'modules'=>$db->all('SELECT * FROM byp_module_catalog ORDER BY category,name'),
                 'edition_modules'=>$db->all('SELECT edition,module_key,availability FROM byp_edition_modules ORDER BY edition,module_key'),
+                'portfolio'=>$db->all('SELECT * FROM byp_portfolio_projects ORDER BY sort_order,title'),
                 'orders'=>$orders,
                 'builds'=>$builds,
                 'notifications'=>$notifications,
@@ -284,6 +296,37 @@ try {
             }
             byp_audit($db,$user,'owner.module.save','module_catalog',$id);
             Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.portfolio.save' && $method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            $title = trim((string)($input['title'] ?? ''));
+            if ($title === '') Response::error('Укажите название проекта', 422);
+            $slug = preg_replace('/[^a-z0-9-]/', '-', mb_strtolower(trim((string)($input['slug'] ?? ''))));
+            $slug = trim((string)preg_replace('/-+/', '-', $slug), '-');
+            if ($slug === '') $slug = 'project-' . time();
+            $list = static function (string $key) use ($input): string {
+                $items = preg_split('/\r\n|\r|\n|,/', (string)($input[$key] ?? ''));
+                return json_encode(array_values(array_filter(array_map('trim', $items ?: []))), JSON_UNESCAPED_UNICODE);
+            };
+            $params = [
+                'slug'=>$slug,'title'=>$title,'category'=>trim((string)($input['category'] ?? '')),
+                'edition'=>trim((string)($input['edition'] ?? 'Business')),'year'=>trim((string)($input['project_year'] ?? date('Y'))),
+                'lead'=>(string)($input['lead'] ?? ''),'description'=>(string)($input['description'] ?? ''),
+                'result'=>(string)($input['result_text'] ?? ''),'cover'=>trim((string)($input['cover_image'] ?? '')),
+                'gallery'=>$list('gallery'),'features'=>$list('features'),'modules'=>$list('modules'),'services'=>$list('services'),
+                'url'=>trim((string)($input['project_url'] ?? '')),
+                'status'=>in_array(($input['status'] ?? ''), ['draft','published','archived'], true) ? $input['status'] : 'draft',
+                'sort'=>(int)($input['sort_order'] ?? 100),
+            ];
+            if ($id > 0) {
+                $params['id']=$id;
+                $db->execute('UPDATE byp_portfolio_projects SET slug=:slug,title=:title,category=:category,edition=:edition,project_year=:year,lead=:lead,description=:description,result_text=:result,cover_image=:cover,gallery=:gallery,features=:features,modules=:modules,services=:services,project_url=:url,status=:status,sort_order=:sort,updated_at=NOW() WHERE id=:id',$params);
+            } else {
+                $db->execute('INSERT INTO byp_portfolio_projects (slug,title,category,edition,project_year,lead,description,result_text,cover_image,gallery,features,modules,services,project_url,status,sort_order,created_at,updated_at) VALUES (:slug,:title,:category,:edition,:year,:lead,:description,:result,:cover,:gallery,:features,:modules,:services,:url,:status,:sort,NOW(),NOW())',$params);
+            }
+            byp_audit($db,$user,'owner.portfolio.save','portfolio',$id);
+            Response::ok();
         }
 
         if ($action === 'owner.settings.save' && $method === 'POST') {

@@ -70,6 +70,7 @@ button { color: inherit; font: inherit; }
   gap: 48px;
   padding-block: 88px 72px;
 }
+.hero > * { min-width: 0; }
 .statusPill { width: max-content; border: 1px solid var(--line); background: rgba(255,255,255,.5); border-radius: 99px; padding: 9px 13px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .statusPill i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6ea700; box-shadow: 0 0 0 4px rgba(110,167,0,.13); margin-right: 9px; }
 .hero h1 { font-size: clamp(55px, 6.1vw, 92px); line-height: .91; letter-spacing: -.075em; margin: 29px 0 30px; max-width: 740px; font-weight: 850; }

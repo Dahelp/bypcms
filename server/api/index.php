@@ -298,6 +298,26 @@ try {
             Response::ok(['id'=>$id]);
         }
 
+        if ($action === 'owner.portfolio.upload' && $method === 'POST') {
+            $file = $_FILES['image'] ?? null;
+            if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                Response::error('Выберите изображение для загрузки', 422);
+            }
+            if ((int)$file['size'] > 8 * 1024 * 1024) Response::error('Размер изображения не должен превышать 8 МБ', 422);
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+            $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
+            if (!isset($extensions[$mime])) Response::error('Разрешены JPG, PNG, WEBP и GIF', 422);
+            $directory = BYPCMS_ROOT . '/uploads/portfolio';
+            if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+                Response::error('Не удалось создать каталог загрузки', 500);
+            }
+            $name = date('Ymd-His') . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
+            if (!move_uploaded_file((string)$file['tmp_name'], $directory . '/' . $name)) {
+                Response::error('Не удалось сохранить изображение', 500);
+            }
+            Response::ok(['url'=>'/uploads/portfolio/'.$name]);
+        }
+
         if ($action === 'owner.portfolio.save' && $method === 'POST') {
             $id = (int)($input['id'] ?? 0);
             $title = trim((string)($input['title'] ?? ''));

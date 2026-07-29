@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BackToTop, PublicFooter, PublicHeader } from "../../components/PublicChrome";
+import { BackToTop, Breadcrumbs, PublicFooter, PublicHeader } from "../../components/PublicChrome";
 import { portfolioProjects } from "../data";
 import "../portfolio.css";
 
@@ -11,6 +11,7 @@ export default async function PortfolioDetail({params}:{params:Promise<{slug:str
   if(!project)return <main><PublicHeader active="portfolio"/><section className="portfolioMissing publicContainer"><h1>Проект не найден</h1><Link href="/portfolio">Вернуться в портфолио</Link></section><PublicFooter/></main>;
   return <main className="portfolioPage">
     <PublicHeader active="portfolio"/>
+    <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Портфолио",href:"/portfolio/"},{label:project.title}]}/>
     <section className="caseHero publicContainer">
       <div><p>{project.category} · {project.year}</p><h1>{project.title}</h1><span>{project.lead}</span></div>
       <aside><small>РЕДАКЦИЯ</small><b>BYPCMS {project.edition}</b><Link href="/order">Хочу похожий проект →</Link></aside>

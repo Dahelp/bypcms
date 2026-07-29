@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { publicModules } from "./data";
-import { BackToTop, PublicFooter, PublicHeader } from "../components/PublicChrome";
+import { BackToTop, Breadcrumbs, PublicFooter, PublicHeader } from "../components/PublicChrome";
 import "./modules.css";
 
 export default function ModulesPage() {
   return (
     <main className="modulesCatalog">
       <PublicHeader active="modules" />
+      <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Модули"}]}/>
 
       <section className="catalogHero">
         <p>ЭКОСИСТЕМА BYPCMS</p>

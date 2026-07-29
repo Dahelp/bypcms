@@ -42,3 +42,9 @@ export function BackToTop() {
   }, []);
   return <button className={`backToTop ${visible ? "visible" : ""}`} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="Подняться наверх">↑<span>Наверх</span></button>;
 }
+
+export function Breadcrumbs({items}:{items:{label:string;href?:string}[]}) {
+  return <nav className="breadcrumbs publicContainer" aria-label="Хлебные крошки">
+    {items.map((item,index)=><span key={`${item.label}-${index}`}>{item.href?<Link href={item.href}>{item.label}</Link>:<b aria-current="page">{item.label}</b>}{index<items.length-1&&<i>/</i>}</span>)}
+  </nav>;
+}

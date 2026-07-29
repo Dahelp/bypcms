@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BackToTop, PublicFooter, PublicHeader } from "../components/PublicChrome";
+import { BackToTop, Breadcrumbs, PublicFooter, PublicHeader } from "../components/PublicChrome";
 import { portfolioProjects } from "./data";
 import "./portfolio.css";
 
@@ -23,6 +23,7 @@ export default function PortfolioPage() {
   if(selectedSlug&&selected)return <PortfolioCase project={selected}/>;
   return <main className="portfolioPage">
     <PublicHeader active="portfolio" />
+    <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Портфолио"}]}/>
     <section className="portfolioHero publicContainer">
       <p>ПРОЕКТЫ НА BYPCMS</p>
       <h1>Портфолио</h1>
@@ -44,6 +45,7 @@ export default function PortfolioPage() {
 function PortfolioCase({project}:{project:(typeof portfolioProjects)[number]}) {
   return <main className="portfolioPage">
     <PublicHeader active="portfolio"/>
+    <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Портфолио",href:"/portfolio/"},{label:project.title}]}/>
     <section className="caseHero publicContainer">
       <div><p>{project.category} · {project.year}</p><h1>{project.title}</h1><span>{project.lead}</span></div>
       <aside><small>РЕДАКЦИЯ</small><b>BYPCMS {project.edition}</b><Link href="/order">Хочу похожий проект →</Link></aside>

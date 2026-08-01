@@ -29,6 +29,14 @@ export type DemoEntity = {
   value?: number;
   date?: string;
   extra?: string;
+  blocks?: DemoContentBlock[];
+};
+
+export type DemoContentBlock = {
+  id: number;
+  type: "heading" | "gallery" | "button" | "form" | "code";
+  title: string;
+  content: string;
 };
 
 export type MenuItem = { id: string; label: string; icon: string; kind?: EntityKind; group?: string; badge?: string; moduleKey?: string };

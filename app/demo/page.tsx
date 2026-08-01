@@ -285,9 +285,40 @@ function PublishEditor({ draft, update, onSave, onPreview }: { draft: DemoEntity
   return <div className="publishLayout"><section className="fieldCard"><small>ПУБЛИКАЦИЯ</small><h2>Статус и расписание</h2><label>Статус<select value={draft.status} onChange={event => update("status", event.target.value)}><option>Черновик</option><option>Опубликовано</option><option>Скрыт</option></select></label><label>Дата публикации<input type="datetime-local" defaultValue="2026-07-28T12:00" /></label><label>Автор<select defaultValue={draft.author || "Администратор BYPCMS"}><option>Администратор BYPCMS</option><option>Анна Левина</option><option>Илья Морозов</option></select></label><label className="checkLine"><input type="checkbox" defaultChecked />Добавить в sitemap.xml</label><label className="checkLine"><input type="checkbox" />Защитить паролем</label></section><aside><div className="revisionCard"><small>ИСТОРИЯ ИЗМЕНЕНИЙ</small><h3>Версии записи</h3>{["Текущая версия · только что", "Автосохранение · 12 минут назад", "Опубликовано · вчера, 18:40"].map((text, i) => <button className={revision === i ? "active" : ""} onClick={() => setRevision(i)} key={text}><i>{i + 1}</i>{text}<span>{revision === i ? "Выбрана" : "Восстановить"}</span></button>)}</div><button className="previewWide" onClick={onPreview}>Предпросмотр на сайте ↗</button><button className="saveWide" onClick={onSave}>Сохранить и опубликовать</button></aside></div>;
 }
 
+type MediaRecord = { id: number; name: string; alt: string; caption: string; type: "image" | "document"; details: string; preview?: string };
+
 function MediaLibrary({ flash }: { flash: (message: string) => void }) {
+  const initialMedia = useMemo<MediaRecord[]>(() => mediaItems.map(item => ({ ...item, caption: "Изображение из медиатеки BYPCMS", type: "image", details: "1536 × 1024 · JPG · 1,4 МБ" })), []);
+  const [items, setItems] = useState(initialMedia);
   const [selected, setSelected] = useState<number | null>(null);
-  return <><PageHeading eyebrow="СИСТЕМА" title="Медиатека" description="Изображения, документы и варианты размеров" actions={<button onClick={() => flash("Окно загрузки файлов открыто")}>＋ Загрузить файлы</button>} /><div className="mediaToolbar"><label>⌕ <input placeholder="Поиск по файлам" /></label><button onClick={() => flash("Показаны все файлы")}>Все файлы</button><button onClick={() => flash("Показаны изображения")}>Изображения</button><button onClick={() => flash("Документов в демо пока нет")}>Документы</button><select><option>Июль 2026</option><option>Июнь 2026</option></select></div><section className="mediaLibrary">{mediaItems.map(item => <button className={selected === item.id ? "selected" : ""} onClick={() => setSelected(item.id)} key={item.id}><MediaThumb index={item.id} large /><span><b>{item.name}</b><small>1536 × 1024 · JPG</small></span><i>✓</i></button>)}</section>{selected !== null && <aside className="mediaInspector"><MediaThumb index={selected} large /><div><small>ВЫБРАННЫЙ ФАЙЛ</small><h2>{mediaItems[selected].name}</h2><label>Alt-текст<input defaultValue={mediaItems[selected].alt} /></label><label>Подпись<textarea defaultValue="Изображение из медиатеки BYPCMS" /></label><p><b>Оригинал</b> 1536 × 1024 · 1,4 МБ</p><p><b>WebP</b> 1200 × 800 · 186 КБ</p><button onClick={() => flash("Метаданные изображения сохранены")}>Сохранить</button><button className="danger" onClick={() => { flash("Файл удалён из демо-сессии"); setSelected(null); }}>Удалить файл</button></div></aside>}</>;
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "image" | "document">("all");
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const selectedItem = items.find(item => item.id === selected) || null;
+  const visibleItems = items.filter(item => (filter === "all" || item.type === filter) && `${item.name} ${item.alt}`.toLowerCase().includes(query.toLowerCase()));
+
+  function updateSelected(key: "alt" | "caption", value: string) {
+    if (selected === null) return;
+    setItems(current => current.map(item => item.id === selected ? { ...item, [key]: value } : item));
+  }
+
+  function upload(files: FileList | null) {
+    if (!files?.length) return;
+    Array.from(files).forEach(file => {
+      const id = Date.now() + Math.floor(Math.random() * 1000);
+      const type: MediaRecord["type"] = file.type.startsWith("image/") ? "image" : "document";
+      const record: MediaRecord = { id, name: file.name, alt: file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " "), caption: "", type, details: `${type === "image" ? "Новое изображение" : "Документ"} · ${Math.max(1, Math.round(file.size / 1024))} КБ` };
+      if (type === "image") {
+        const reader = new FileReader();
+        reader.onload = () => setItems(current => [{ ...record, preview: String(reader.result) }, ...current]);
+        reader.readAsDataURL(file);
+      } else setItems(current => [record, ...current]);
+      setSelected(id);
+    });
+    flash(files.length === 1 ? "Файл добавлен в медиатеку" : `Добавлено файлов: ${files.length}`);
+  }
+
+  return <><PageHeading eyebrow="СИСТЕМА" title="Медиатека" description="Изображения, документы и варианты размеров" actions={<><input ref={uploadRef} className="mediaFileInput" type="file" accept="image/*,.pdf,.doc,.docx" multiple onChange={event => { upload(event.target.files); event.target.value = ""; }} /><button onClick={() => uploadRef.current?.click()}>＋ Загрузить файлы</button></>} /><div className="mediaToolbar"><label>⌕ <input aria-label="Поиск по файлам" value={query} onChange={event => setQuery(event.target.value)} placeholder="Поиск по файлам" /></label><button className={filter === "all" ? "active" : ""} onClick={() => setFilter("all")}>Все файлы</button><button className={filter === "image" ? "active" : ""} onClick={() => setFilter("image")}>Изображения</button><button className={filter === "document" ? "active" : ""} onClick={() => setFilter("document")}>Документы</button><span>{visibleItems.length} из {items.length}</span></div>{visibleItems.length ? <section className="mediaLibrary">{visibleItems.map(item => <button className={selected === item.id ? "selected" : ""} onClick={() => setSelected(item.id)} key={item.id}>{item.preview ? <img className="uploadedMediaPreview" src={item.preview} alt={item.alt} /> : item.type === "image" ? <MediaThumb index={item.id} large /> : <span className="documentPreview">PDF</span>}<span><b>{item.name}</b><small>{item.details}</small></span><i>✓</i></button>)}</section> : <section className="mediaEmpty"><b>Файлы не найдены</b><span>Измените запрос или загрузите новый файл.</span></section>}{selectedItem && <aside className="mediaInspector">{selectedItem.preview ? <img className="uploadedMediaPreview" src={selectedItem.preview} alt={selectedItem.alt} /> : selectedItem.type === "image" ? <MediaThumb index={selectedItem.id} large /> : <span className="documentPreview">PDF</span>}<div><small>ВЫБРАННЫЙ ФАЙЛ</small><h2>{selectedItem.name}</h2><label>Alt-текст<input value={selectedItem.alt} onChange={event => updateSelected("alt", event.target.value)} /></label><label>Подпись<textarea value={selectedItem.caption} onChange={event => updateSelected("caption", event.target.value)} /></label><p><b>Оригинал</b> {selectedItem.details}</p>{selectedItem.type === "image" && <p><b>WebP</b> создаётся автоматически при публикации</p>}<button onClick={() => flash("Метаданные файла сохранены в демо-сессии")}>Сохранить</button><button className="danger" onClick={() => { setItems(current => current.filter(item => item.id !== selectedItem.id)); setSelected(null); flash("Файл удалён из демо-сессии"); }}>Удалить файл</button><button className="inspectorClose" onClick={() => setSelected(null)}>Закрыть</button></div></aside>}</>;
 }
 
 function MediaPicker({ selected, onSelect, onClose }: { selected: number; onSelect: (index: number) => void; onClose: () => void }) {

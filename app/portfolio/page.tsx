@@ -48,9 +48,9 @@ export default function PortfolioPage() {
       </Link>
       <Link href="/ballet-salzburg-proposal/" className="portfolioCard">
         <div className="portfolioVisual" style={{"--project-accent":"#a97891"} as React.CSSProperties}>
-          <span>КОНЦЕПЦИЯ</span><div style={{display:"grid",placeItems:"center",height:"100%",background:"linear-gradient(135deg,#302333,#8c6479)",color:"#fff",fontFamily:"Georgia,serif",fontSize:"clamp(26px,3vw,45px)",textAlign:"center",padding:"20px"}}>Балетная школа<br/>Зальцбург</div>
+          <span>КОНЦЕПЦИЯ</span><img src="/ballet-salzburg-proposal/ballet-hero.png" alt="Визуальная концепция сайта балетной школы" />
         </div>
-        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Сайт для набора детей: структура, визуальная концепция и три варианта разработки.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
+        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Визуальный макет, три варианта создания сайта и стоимость разработки для балетной школы.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
       </Link>
     </section>
     <section className="portfolioCta"><div className="publicContainer"><p>НУЖЕН ИНДИВИДУАЛЬНЫЙ ПРОЕКТ?</p><h2>Создадим сайт, который работает на задачи вашего бизнеса.</h2><Link href="/order">Обсудить проект →</Link></div></section>

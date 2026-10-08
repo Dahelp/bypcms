@@ -31,7 +31,7 @@ export default function PortfolioPage() {
     <section className="portfolioHero publicContainer">
       <p>ПРОЕКТЫ НА BYPCMS</p>
       <h1>Портфолио</h1>
-      <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length}<small>проекта в подборке</small></b></div>
+      <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length + 1}<small>проекта в подборке</small></b></div>
     </section>
     <section className="portfolioGrid publicContainer">
       {projects.map((project, index) => <Link href={`/portfolio/${encodeURIComponent(project.slug)}/`} className="portfolioCard" key={project.slug}>
@@ -40,6 +40,12 @@ export default function PortfolioPage() {
         </div>
         <div className="portfolioCardCopy"><small>{project.category} · {project.year}</small><h2>{project.title}</h2><p>{project.lead}</p><footer><span>{project.edition}</span><b>Смотреть кейс →</b></footer></div>
       </Link>)}
+      <Link href="/nuovi-spazi-proposal/" className="portfolioCard">
+        <div className="portfolioVisual" style={{"--project-accent":"#f4a242"} as React.CSSProperties}>
+          <span>КОНЦЕПЦИЯ</span><img src="/nuovi-spazi-proposal/roma-hero.png" alt="Концепция сайта Nuovi Spazi Advertising" />
+        </div>
+        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Nuovi Spazi Advertising</h2><p>Три варианта обновления сайта компании наружной рекламы в Риме: визуал, производительность и платформа роста.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
+      </Link>
     </section>
     <section className="portfolioCta"><div className="publicContainer"><p>НУЖЕН ИНДИВИДУАЛЬНЫЙ ПРОЕКТ?</p><h2>Создадим сайт, который работает на задачи вашего бизнеса.</h2><Link href="/order">Обсудить проект →</Link></div></section>
     <PublicFooter /><BackToTop />

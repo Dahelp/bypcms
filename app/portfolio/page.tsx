@@ -31,7 +31,7 @@ export default function PortfolioPage() {
     <section className="portfolioHero publicContainer">
       <p>ПРОЕКТЫ НА BYPCMS</p>
       <h1>Портфолио</h1>
-      <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length + 1}<small>проекта в подборке</small></b></div>
+      <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length + 2}<small>проекта в подборке</small></b></div>
     </section>
     <section className="portfolioGrid publicContainer">
       {projects.map((project, index) => <Link href={`/portfolio/${encodeURIComponent(project.slug)}/`} className="portfolioCard" key={project.slug}>
@@ -45,6 +45,12 @@ export default function PortfolioPage() {
           <span>КОНЦЕПЦИЯ</span><img src="/nuovi-spazi-proposal/roma-hero.png" alt="Концепция сайта Nuovi Spazi Advertising" />
         </div>
         <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Nuovi Spazi Advertising</h2><p>Три варианта обновления сайта компании наружной рекламы в Риме: визуал, производительность и платформа роста.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
+      </Link>
+      <Link href="/ballet-salzburg-proposal/" className="portfolioCard">
+        <div className="portfolioVisual" style={{"--project-accent":"#a97891"} as React.CSSProperties}>
+          <span>КОНЦЕПЦИЯ</span><div style={{display:"grid",placeItems:"center",height:"100%",background:"linear-gradient(135deg,#302333,#8c6479)",color:"#fff",fontFamily:"Georgia,serif",fontSize:"clamp(26px,3vw,45px)",textAlign:"center",padding:"20px"}}>Балетная школа<br/>Зальцбург</div>
+        </div>
+        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Сайт для набора детей: структура, визуальная концепция и три варианта разработки.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
       </Link>
     </section>
     <section className="portfolioCta"><div className="publicContainer"><p>НУЖЕН ИНДИВИДУАЛЬНЫЙ ПРОЕКТ?</p><h2>Создадим сайт, который работает на задачи вашего бизнеса.</h2><Link href="/order">Обсудить проект →</Link></div></section>

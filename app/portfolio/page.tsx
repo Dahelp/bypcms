@@ -48,7 +48,7 @@ export default function PortfolioPage() {
       </Link>
       <Link href="/ballettschule-salzburg-konzept/" className="portfolioCard">
         <div className="portfolioVisual" style={{"--project-accent":"#a97891"} as React.CSSProperties}>
-          <span>KONZEPT</span><img src="/ballettschule-salzburg-konzept/stage-hero.png" alt="Website-Konzept für eine Ballettschule in Salzburg" />
+          <span>KONZEPT</span><img src="/ballettschule-salzburg-konzept/stage-hero-v2.png" alt="Website-Konzept für eine Ballettschule in Salzburg" />
         </div>
         <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Немецкая презентация с русским переводом: эмоциональная концепция, события, интерактив и три варианта разработки.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
       </Link>

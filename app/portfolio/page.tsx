@@ -46,11 +46,11 @@ export default function PortfolioPage() {
         </div>
         <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Nuovi Spazi Advertising</h2><p>Три варианта обновления сайта компании наружной рекламы в Риме: визуал, производительность и платформа роста.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
       </Link>
-      <Link href="/ballet-salzburg-proposal/" className="portfolioCard">
+      <Link href="/ballettschule-salzburg-konzept/" className="portfolioCard">
         <div className="portfolioVisual" style={{"--project-accent":"#a97891"} as React.CSSProperties}>
-          <span>КОНЦЕПЦИЯ</span><img src="/ballet-salzburg-proposal/ballet-hero.png" alt="Визуальная концепция сайта балетной школы" />
+          <span>KONZEPT</span><img src="/ballettschule-salzburg-konzept/stage-hero.png" alt="Website-Konzept für eine Ballettschule in Salzburg" />
         </div>
-        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Визуальный макет, три варианта создания сайта и стоимость разработки для балетной школы.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
+        <div className="portfolioCardCopy"><small>Концепция сайта · 2026</small><h2>Балетная школа в Зальцбурге</h2><p>Немецкая презентация с русским переводом: эмоциональная концепция, события, интерактив и три варианта разработки.</p><footer><span>Презентация</span><b>Смотреть концепцию →</b></footer></div>
       </Link>
     </section>
     <section className="portfolioCta"><div className="publicContainer"><p>НУЖЕН ИНДИВИДУАЛЬНЫЙ ПРОЕКТ?</p><h2>Создадим сайт, который работает на задачи вашего бизнеса.</h2><Link href="/order">Обсудить проект →</Link></div></section>

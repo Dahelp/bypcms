@@ -113,6 +113,35 @@ if (!is_file($conceptMarker)) {
     @file_put_contents($conceptMarker, date(DATE_ATOM));
 }
 
+// An API request can arrive while FTP is still copying the private templates.
+// Retry the initial import once both active presentations are present.
+$conceptSeedMarker = BYPCMS_STORAGE . '/concept-seed-v2.lock';
+if (!is_file($conceptSeedMarker)) {
+    $conceptSources = [
+        ['nuovi-spazi-proposal', 'Nuovi Spazi Advertising', 'ru'],
+        ['ballettschule-salzburg-konzept', 'Балетная школа в Зальцбурге', 'de'],
+    ];
+    $allSourcesPresent = true;
+    foreach ($conceptSources as [$slug]) {
+        if (!is_file(BYPCMS_ROOT . '/_private/concepts/' . $slug . '.html')) $allSourcesPresent = false;
+    }
+    if ($allSourcesPresent) {
+        foreach ($conceptSources as [$slug, $title, $locale]) {
+            $html = (string)file_get_contents(BYPCMS_ROOT . '/_private/concepts/' . $slug . '.html');
+            $translations = [$locale => $html];
+            if ($slug === 'ballettschule-salzburg-konzept') {
+                $translations['ru'] = str_replace("new URLSearchParams(location.search).get('lang')==='ru'", "true", $html);
+            }
+            $db->execute('INSERT IGNORE INTO byp_concepts (slug,title,status,share_token,asset_base,translations,created_at,updated_at)
+                VALUES (:slug,:title,"shared",:token,:base,:translations,NOW(),NOW())', [
+                'slug'=>$slug, 'title'=>$title, 'token'=>bin2hex(random_bytes(32)), 'base'=>'/' . $slug . '/',
+                'translations'=>json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            ]);
+        }
+        @file_put_contents($conceptSeedMarker, date(DATE_ATOM));
+    }
+}
+
 if (random_int(1, 100) === 1) {
     $db->execute('DELETE FROM byp_demo_sessions WHERE expires_at < NOW()');
 }

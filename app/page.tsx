@@ -85,6 +85,8 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="conceptOffer shell"><div><p className="sectionLabel">05 / ПЕРЕД РАЗРАБОТКОЙ</p><h2>Сначала увидите идею.<br/>Потом примете решение.</h2><p>Для будущего сайта подготовим персональную концепцию: изучим задачу и аудиторию, предложим структуру, визуальное направление, ключевые сценарии и варианты реализации. Презентацию и условия проекта получите по закрытой ссылке. Состав, сроки и стоимость разработки согласуем после обсуждения концепции.</p><div><Link className="primaryButton dark" href="/concept-example/">Посмотреть пример <span>↗</span></Link><Link className="textButton" href="/order">Обсудить свой проект <span>→</span></Link></div></div><aside><span>КОНЦЕПЦИЯ / ПРИМЕР</span><strong>Тихий берег</strong><p>Как сайт камерного пространства отдыха помогает выбрать поездку ещё до первого звонка.</p><ul><li>Исследование и идея</li><li>Сценарий посетителя</li><li>Визуальное направление</li><li>План реализации</li></ul><Link href="/concept-example/">Открыть презентацию →</Link></aside></section>
+
       <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><a className="ctaButton" href={DEMO_URL}>Открыть демо <span>↗</span></a></div></section>
       <PublicFooter /><BackToTop />
     </main>

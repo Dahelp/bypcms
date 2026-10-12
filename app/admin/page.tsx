@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import ConceptManager from "./ConceptManager";
 import "./admin.css";
 import "./readable.css";
 
@@ -20,6 +21,7 @@ type DashboardData = {
 const navigation = [
   ["overview", "⌂", "Обзор"],
   ["content", "▤", "Контент"],
+  ["concepts", "◈", "Концепции"],
   ["modules", "◇", "Модули"],
   ["settings", "⚙", "Настройки"],
 ];
@@ -106,6 +108,10 @@ export default function AdminPage() {
   }, []);
 
   useEffect(() => { void loadSession(); }, [loadSession]);
+  useEffect(() => {
+    const sync=()=>{const section=new URLSearchParams(window.location.search).get("section");setActive(section&&navigation.some(([key])=>key===section)?section:"overview")};
+    sync();window.addEventListener("popstate",sync);return()=>window.removeEventListener("popstate",sync);
+  },[]);
   useEffect(() => {
     if (user) {
       void loadDashboard();
@@ -267,6 +273,7 @@ export default function AdminPage() {
     () => navigation.find(([key]) => key === active)?.[2] ?? "Обзор",
     [active],
   );
+  function selectSection(section:string){setActive(section);const url=new URL(window.location.href);if(section==="overview")url.searchParams.delete("section");else url.searchParams.set("section",section);window.history.pushState({},"",url);}
 
   if (loading) {
     return <main className="adminLoading"><span>B</span><p>Проверяем BYPCMS…</p></main>;
@@ -306,7 +313,7 @@ export default function AdminPage() {
         <Link href="/" className="cmsBrand"><span>B</span><strong>BYPCMS</strong></Link>
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, icon, label]) => (
-            <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => setActive(key)}>
+            <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
               <i>{icon}</i><span>{label}</span>
             </button>
           ))}
@@ -380,6 +387,8 @@ export default function AdminPage() {
               </div>
             </section>
           )}
+
+          {active === "concepts" && <ConceptManager csrf={csrf} />}
 
           {active === "modules" && (
             <section className="dataPanel">

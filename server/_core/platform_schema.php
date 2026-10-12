@@ -2,6 +2,18 @@
 declare(strict_types=1);
 
 return [
+    'CREATE TABLE IF NOT EXISTS byp_concepts (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        slug VARCHAR(160) NOT NULL UNIQUE,
+        title VARCHAR(190) NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT "draft",
+        share_token CHAR(64) NOT NULL,
+        asset_base VARCHAR(255) NOT NULL DEFAULT "/",
+        translations LONGTEXT NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL,
+        INDEX idx_concepts_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     'CREATE TABLE IF NOT EXISTS byp_clients (
         id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(190) NOT NULL,

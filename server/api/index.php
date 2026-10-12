@@ -64,9 +64,98 @@ try {
         Response::ok(['projects'=>$rows]);
     }
 
+    if ($action === 'concepts.view' && $method === 'POST') {
+        header('X-Robots-Tag: noindex, nofollow, noarchive');
+        $slug = (string)($input['slug'] ?? '');
+        $token = (string)($input['token'] ?? '');
+        $locale = (string)($input['locale'] ?? '');
+        if (!preg_match('/^[a-z0-9-]{1,160}$/', $slug) || !preg_match('/^[a-f0-9]{64}$/', $token)) {
+            Response::error('Концепция недоступна', 404);
+        }
+        $concept = $db->one('SELECT title,status,share_token,asset_base,translations FROM byp_concepts WHERE slug=:slug', ['slug'=>$slug]);
+        if (!$concept || $concept['status'] !== 'shared' || !hash_equals((string)$concept['share_token'], $token)) {
+            Response::error('Концепция недоступна', 404);
+        }
+        $translations = json_decode((string)$concept['translations'], true);
+        if (!is_array($translations) || !$translations) Response::error('Содержимое отсутствует', 404);
+        $languages = array_keys($translations);
+        if (!isset($translations[$locale])) $locale = (string)$languages[0];
+        Response::ok(['title'=>$concept['title'],'html'=>$translations[$locale], 'locale'=>$locale,
+            'languages'=>$languages,'asset_base'=>$concept['asset_base']]);
+    }
+
     $user = $auth->requireUser();
     if ($method !== 'GET') {
         $auth->verifyCsrf();
+    }
+
+    if ($action === 'concepts.list' && $method === 'GET') {
+        Response::ok(['concepts'=>$db->all('SELECT id,slug,title,status,share_token,asset_base,translations,updated_at FROM byp_concepts ORDER BY updated_at DESC')]);
+    }
+
+    if ($action === 'concepts.upload' && $method === 'POST') {
+        $file = $_FILES['image'] ?? null;
+        if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) Response::error('Выберите изображение', 422);
+        if ((int)$file['size'] > 8 * 1024 * 1024) Response::error('Максимальный размер — 8 МБ', 422);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+        $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
+        if (!isset($extensions[$mime])) Response::error('Разрешены JPG, PNG, WEBP и GIF', 422);
+        $directory = BYPCMS_ROOT . '/uploads/concepts';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) Response::error('Не удалось создать каталог', 500);
+        $name = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+        if (!move_uploaded_file((string)$file['tmp_name'], $directory . '/' . $name)) Response::error('Не удалось сохранить изображение', 500);
+        Response::ok(['url'=>'/uploads/concepts/'.$name]);
+    }
+
+    if ($action === 'concepts.save' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $slug = trim((string)($input['slug'] ?? ''));
+        $title = trim((string)($input['title'] ?? ''));
+        $status = (string)($input['status'] ?? 'draft');
+        $base = (string)($input['asset_base'] ?? '/');
+        $translations = $input['translations'] ?? [];
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,159}$/', $slug) || $title === '' ||
+            !in_array($status, ['draft','shared','archived'], true) ||
+            !preg_match('#^/[a-z0-9/_-]*/$#', $base) || !is_array($translations)) {
+            Response::error('Проверьте название, адрес и содержимое концепции', 422);
+        }
+        $clean = [];
+        foreach ($translations as $lang=>$html) {
+            if (!preg_match('/^[a-z]{2}$/', (string)$lang) || !is_string($html) || strlen($html) > 1024 * 1024) {
+                Response::error('Некорректный перевод или слишком большой HTML', 422);
+            }
+            if (trim($html) !== '') $clean[$lang] = $html;
+        }
+        if (!$clean) Response::error('Добавьте хотя бы один языковой вариант', 422);
+        $json = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($id > 0) {
+            $existing = $db->one('SELECT id FROM byp_concepts WHERE id=:id', ['id'=>$id]);
+            if (!$existing) Response::error('Концепция не найдена', 404);
+            $db->execute('UPDATE byp_concepts SET slug=:slug,title=:title,status=:status,asset_base=:base,translations=:translations,updated_at=NOW() WHERE id=:id',
+                ['slug'=>$slug,'title'=>$title,'status'=>$status,'base'=>$base,'translations'=>$json,'id'=>$id]);
+        } else {
+            $id = $db->insert('INSERT INTO byp_concepts (slug,title,status,share_token,asset_base,translations,created_at,updated_at)
+                VALUES (:slug,:title,:status,:token,:base,:translations,NOW(),NOW())',
+                ['slug'=>$slug,'title'=>$title,'status'=>$status,'token'=>bin2hex(random_bytes(32)),'base'=>$base,'translations'=>$json]);
+        }
+        byp_audit($db,$user,'concept.save','concept',$id);
+        Response::ok(['id'=>$id]);
+    }
+
+    if ($action === 'concepts.rotate' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $token = bin2hex(random_bytes(32));
+        $count = $db->execute('UPDATE byp_concepts SET share_token=:token,updated_at=NOW() WHERE id=:id', ['token'=>$token,'id'=>$id]);
+        if (!$count) Response::error('Концепция не найдена', 404);
+        byp_audit($db,$user,'concept.rotate','concept',$id);
+        Response::ok();
+    }
+
+    if ($action === 'concepts.delete' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $db->execute('DELETE FROM byp_concepts WHERE id=:id', ['id'=>$id]);
+        byp_audit($db,$user,'concept.delete','concept',$id);
+        Response::ok();
     }
 
     if ($action === 'auth.password' && $method === 'POST') {

@@ -88,6 +88,31 @@ if (!is_file($platformMarker)) {
     @file_put_contents($platformMarker, date(DATE_ATOM));
 }
 
+$conceptMarker = BYPCMS_STORAGE . '/concept-schema-v1.lock';
+if (!is_file($conceptMarker)) {
+    $db->execute((require __DIR__ . '/platform_schema.php')[0]);
+    foreach ([
+        ['nuovi-spazi-proposal', 'Nuovi Spazi Advertising', 'ru'],
+        ['ballettschule-salzburg-konzept', 'Балетная школа в Зальцбурге', 'de'],
+        ['ballet-salzburg-proposal', 'Балетная школа — первый вариант', 'ru'],
+    ] as [$slug, $title, $locale]) {
+        $source = BYPCMS_ROOT . '/_private/concepts/' . $slug . '.html';
+        if (!is_file($source)) continue;
+        $html = (string)file_get_contents($source);
+        $translations = [$locale => $html];
+        if ($slug === 'ballettschule-salzburg-konzept') {
+            $translations['ru'] = str_replace("new URLSearchParams(location.search).get('lang')==='ru'", "true", $html);
+        }
+        $db->execute('INSERT IGNORE INTO byp_concepts (slug,title,status,share_token,asset_base,translations,created_at,updated_at)
+            VALUES (:slug,:title,"shared",:token,:base,:translations,NOW(),NOW())', [
+            'slug'=>$slug, 'title'=>$title, 'token'=>bin2hex(random_bytes(32)),
+            'base'=>'/' . $slug . '/',
+            'translations'=>json_encode($translations, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+    @file_put_contents($conceptMarker, date(DATE_ATOM));
+}
+
 if (random_int(1, 100) === 1) {
     $db->execute('DELETE FROM byp_demo_sessions WHERE expires_at < NOW()');
 }

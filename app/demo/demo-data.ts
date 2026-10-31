@@ -111,7 +111,7 @@ export const editions: Record<EditionKey, { name: string; project: string; note:
     accent: "#c65b2d",
     menu: [
       { id: "overview", label: "Обзор", icon: "⌂" },
-      { id: "orders", label: "Заказы", icon: "▣", kind: "orders", group: "Продажи", badge: "4" },
+      { id: "orders", label: "Заказы", icon: "orders", kind: "orders", group: "Продажи", badge: "3" },
       { id: "products", label: "Товары", icon: "◇", kind: "products", group: "Каталог" },
       { id: "categories", label: "Категории", icon: "⌘", kind: "categories", group: "Каталог" },
       { id: "brands", label: "Производители", icon: "◉", kind: "brands", group: "Каталог" },

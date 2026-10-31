@@ -42,7 +42,7 @@ export default function DemoPage() {
         const known = [...templateCatalog.content, ...templateCatalog.business, ...templateCatalog.commerce].some(item => item.id === saved.theme.template) || saved.theme.template === "custom";
         setTheme({ ...initialTheme, ...saved.theme, template: known ? saved.theme.template : initialTheme.template, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } });
       }
-      if (saved.settings) setSettings(saved.settings);
+      if (saved.settings) setSettings({ ...initialSettings, ...saved.settings });
       if (saved.installedModules) setInstalledModules(saved.installedModules);
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
   }, []);

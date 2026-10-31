@@ -30,7 +30,16 @@ export type DemoEntity = {
   date?: string;
   extra?: string;
   blocks?: DemoContentBlock[];
+  variants?: DemoVariant[];
+  specifications?: DemoSpecification[];
+  orderItems?: DemoOrderItem[];
+  deliveryAddress?: string;
+  deliveryMethod?: string;
 };
+
+export type DemoVariant = { id: number; name: string; sku: string; price: number; stock: number };
+export type DemoSpecification = { id: number; name: string; value: string };
+export type DemoOrderItem = { id: number; title: string; sku: string; quantity: number; price: number; image: number };
 
 export type DemoContentBlock = {
   id: number;
@@ -174,13 +183,13 @@ export const seedEntities: DemoEntity[] = [
   entity(72, "leads", "Илья Орлов", "lead-1046", 1, { status: "Согласовано", value: 65000, phone: "+7 921 555-40-20", email: "orlov@example.ru", extra: "Обратный звонок" }),
   entity(80, "forms", "Обсудить проект", "project-request", 1, { extra: "6 полей · 32 отправки" }),
   entity(81, "forms", "Обратный звонок", "callback", 0, { extra: "3 поля · 18 отправок" }),
-  entity(100, "products", "Кресло Forma 01", "/catalog/forma-01", 2, { price: 42900, oldPrice: 46900, stock: 12, sku: "FRM-001", brand: "Forma", category: "Мебель", featured: true }),
-  entity(101, "products", "Стол Line 140", "/catalog/line-140", 5, { price: 36500, stock: 7, sku: "LIN-140", brand: "Nord", category: "Мебель" }),
-  entity(102, "products", "Светильник Arc", "/catalog/arc", 5, { price: 12900, stock: 0, sku: "ARC-220", brand: "Lumo", category: "Освещение", status: "Скрыт" }),
+  entity(100, "products", "Кресло Forma 01", "/catalog/forma-01", 2, { price: 42900, oldPrice: 46900, stock: 12, sku: "FRM-001", brand: "Forma", category: "Мебель", featured: true, variants: [{ id: 1, name: "Светло-серый", sku: "FRM-001-GR", price: 42900, stock: 7 }, { id: 2, name: "Терракотовый", sku: "FRM-001-TR", price: 44900, stock: 5 }], specifications: [{ id: 1, name: "Материал", value: "Шерсть, массив дуба" }, { id: 2, name: "Размер", value: "78 × 82 × 76 см" }, { id: 3, name: "Гарантия", value: "24 месяца" }] }),
+  entity(101, "products", "Стол Line 140", "/catalog/line-140", 5, { price: 36500, stock: 7, sku: "LIN-140", brand: "Nord", category: "Мебель", variants: [{ id: 1, name: "Дуб натуральный", sku: "LIN-140-OAK", price: 36500, stock: 4 }, { id: 2, name: "Орех", sku: "LIN-140-WAL", price: 38900, stock: 3 }], specifications: [{ id: 1, name: "Материал", value: "Массив дуба, сталь" }, { id: 2, name: "Размер", value: "140 × 75 × 74 см" }] }),
+  entity(102, "products", "Светильник Arc", "/catalog/arc", 5, { price: 12900, stock: 0, sku: "ARC-220", brand: "Lumo", category: "Освещение", status: "Скрыт", specifications: [{ id: 1, name: "Мощность", value: "18 Вт" }, { id: 2, name: "Температура", value: "3000 K" }] }),
   entity(110, "brands", "Forma", "/brands/forma", 2, { extra: "12 товаров · Италия" }),
   entity(111, "brands", "Nord", "/brands/nord", 5, { extra: "8 товаров · Россия" }),
   entity(112, "brands", "Lumo", "/brands/lumo", 4, { extra: "16 товаров · Дания" }),
-  entity(120, "orders", "Заказ #1051", "1051", 2, { status: "Новый", value: 55800, extra: "Мария К. · 2 товара", date: "Сегодня, 10:24" }),
+  entity(120, "orders", "Заказ #1051", "1051", 2, { status: "Новый", value: 55800, extra: "Мария Кузнецова", email: "maria@example.ru", phone: "+7 999 100-20-30", date: "Сегодня, 10:24", deliveryAddress: "Москва, ул. Тверская, 12", deliveryMethod: "Курьер · завтра, 10:00–14:00", orderItems: [{ id: 1, title: "Кресло Forma 01", sku: "FRM-001-GR", quantity: 1, price: 42900, image: 2 }, { id: 2, title: "Светильник Arc", sku: "ARC-220", quantity: 1, price: 12900, image: 5 }] }),
   entity(121, "orders", "Заказ #1050", "1050", 5, { status: "Комплектуется", value: 92400, extra: "Studio 17 · 3 товара", date: "Сегодня, 09:15" }),
   entity(122, "orders", "Заказ #1049", "1049", 2, { status: "Доставляется", value: 42900, extra: "Дмитрий П. · 1 товар", date: "Вчера, 18:40" }),
   entity(130, "customers", "Мария Кузнецова", "customer-88", 3, { email: "maria@example.ru", phone: "+7 999 100-20-30", value: 148200, extra: "4 заказа" }),

@@ -1,0 +1,37 @@
+/* Shared workspace visual language. Public templates retain their own identity. */
+:is(.realDemo,.ownerApp,.adminApp,.realLogin,.loginScreen){--panel-font:"Segoe UI",Arial,sans-serif;--panel-bg:#f5f7fa;--panel-border:#e1e6ee;--panel-text:#202938;--panel-secondary:#647084;font-family:var(--panel-font)!important;font-size:15px;line-height:1.5;color:var(--panel-text);font-synthesis:none}
+:is(.realDemo,.ownerApp,.adminApp,.realLogin,.loginScreen) :is(button,input,select,textarea,label,p,span,small,b,strong,em,time,h1,h2,h3,a){font-family:var(--panel-font)!important;letter-spacing:normal!important}
+:is(.realDemo,.ownerApp,.adminApp) :is(b,strong){font-weight:600!important}
+:is(.realDemo,.ownerApp,.adminApp) small{font-size:13px!important;font-weight:400!important;line-height:1.5!important;letter-spacing:normal!important}
+:is(.realDemo,.ownerApp,.adminApp) button{font-size:14px!important;font-weight:600!important;line-height:1.4}
+:is(.realDemo,.ownerApp,.adminApp) :is(h1,h2,h3){font-weight:600!important;letter-spacing:-.025em!important;line-height:1.25}
+:is(.realDemo,.ownerApp,.adminApp) h1{font-size:32px!important}
+:is(.realDemo,.ownerApp,.adminApp) h2{font-size:21px!important}
+:is(.realDemo,.ownerApp,.adminApp) :is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=color]),select,textarea){font-size:15px!important;line-height:1.5!important;border:1px solid #ccd4df;border-radius:8px;padding:11px 14px;min-height:44px;background:#fff;color:#263246}
+:is(.realDemo,.ownerApp,.adminApp) select{padding-right:38px!important}
+:is(.realDemo,.ownerApp,.adminApp) button svg{vertical-align:middle;flex-shrink:0;margin-inline:3px}
+.realDemo{background:var(--panel-bg)!important;--demo-radius:12px!important;--demo-accent:#4f46e5!important}
+.realDemo .realSidebar{background:#172033!important;border-right:0;padding:24px 14px;color:#fff}
+.realDemo .realSidebar nav button{min-height:44px;padding:10px 13px;color:#bac5d6!important;font-weight:500!important;border-radius:8px}
+.realDemo .realSidebar nav button.active{background:#303c55!important;color:#fff!important;box-shadow:inset 3px 0 #9c98ff!important}
+.realDemo .realSidebar nav button.active>i{color:#b9b5ff!important}
+.realDemo .realSidebar nav>div>small{color:#8795ad!important;font-size:11px!important;font-weight:600!important;text-transform:uppercase;letter-spacing:.1em!important}
+.realDemo .realSidebar nav button>em{background:#39465f;color:#e0ddff}
+.realDemo .demoSafety{background:#202d43;border-color:#39465e;margin-top:24px}.realDemo .demoSafety b{color:#c3d6ff}.realDemo .demoSafety span{color:#a6b4ca}
+.realDemo .realTopbar{background:#fff;min-height:76px;border-color:var(--panel-border);box-shadow:none}
+.realDemo .editionTabs{background:#f0f2f7;padding:4px}.realDemo .editionTabs button{padding:9px 15px;color:#647084}.realDemo .editionTabs button.active{background:#fff;color:#3730a3;box-shadow:0 1px 5px #1f29371a}
+.realDemo .realContent{max-width:1500px;padding:36px 40px 64px}.realDemo .realPageHeading{margin-bottom:28px;align-items:center}.realDemo .realPageHeading h1{margin:6px 0 8px}.realDemo .realPageHeading p{color:var(--panel-secondary);font-size:15px}
+.realDemo .realPageHeading>div:first-child>small{font-size:12px!important;font-weight:600!important;text-transform:uppercase;color:#7a8598;letter-spacing:.07em!important}
+.realDemo :is(.dashboardWidgets article,.analyticsKpi article,.dashboardGrid>article,.recentWidget,.fieldCard,.sideCard,.settingsForm>article,.seoPages,.seoTools article,.seoSummary article,.entityCards article,.extensionGrid article){border:1px solid var(--panel-border);border-radius:12px;background:#fff;box-shadow:0 2px 4px #17203303}
+.realDemo :is(.dashboardWidgets,.seoSummary,.dashboardGrid,.analyticsKpi){gap:18px}.realDemo .dashboardWidgets article{padding:23px}.realDemo .dashboardWidgets strong{font-size:30px;margin:10px 0;color:#202938}.realDemo .dashboardWidgets small{color:#647084}.realDemo .dashboardWidgets span{color:#36816a}
+.realDemo :is(.performanceWidget,.attentionWidget,.recentWidget){padding:24px}.realDemo .realChart i{background:#7770dc;opacity:.85}.realDemo .moduleWidgetRow>button{border-top-width:1px;border-color:var(--panel-border);padding:22px;background:#fff}
+.realDemo :is(.settingsNav,.editorTabs,.extensionTabs){gap:6px;border-color:var(--panel-border);margin-bottom:22px}.realDemo :is(.settingsNav,.editorTabs,.extensionTabs) button{color:#69758a;padding:14px 16px}.realDemo :is(.settingsNav,.editorTabs,.extensionTabs) button.active{color:#4f46e5;border-color:#4f46e5}
+.realDemo :is(.entityTable,.seoPages){overflow-x:auto;border:1px solid var(--panel-border);background:#fff;border-radius:12px;padding:0}
+.realDemo :is(.entityTable,.seoPages)>header{background:#f8f9fc;color:#657188;font-size:13px;padding:14px 20px;min-height:50px;text-align:left}
+.realDemo :is(.entityTable,.seoPages)>button{padding:14px 20px;min-height:78px;border-color:#edf0f5;align-items:center;text-align:left;background:#fff}.realDemo :is(.entityTable,.seoPages)>button:hover{background:#f8faff}
+.realDemo .seoPages>header{grid-template-columns:48px minmax(230px,1.4fr) minmax(150px,.7fr) minmax(180px,.8fr) 80px 140px;gap:14px;padding-left:20px}.realDemo .seoPages>header>span:first-child{grid-column:1/3}.realDemo .seoPages>button>span:not(.seoState){justify-content:start;text-align:left}.realDemo .seoState{display:flex!important;align-items:center;gap:8px}.realDemo .seoState small{font-size:13px!important}.realDemo .seoPages em{color:#4f46e5}
+.realDemo :is(.entityTable,.seoPages) time,.realDemo :is(.entityTable,.seoPages) small{color:#748097;font-size:13px!important}.realDemo :is(.entityTable,.seoPages) b{font-size:15px;color:#263246}
+.realDemo .designTabs{background:#e9edf4}.realDemo .designTabs button.active{background:#fff;color:#3730a3}.realDemo .editorHeader{margin:0 0 24px}.realDemo .settingsForm>article>button{margin-top:16px;padding:10px 14px;border:1px solid #d7deea;border-radius:8px;background:#f8f9fc}
+.realLogin :is(button,input,label,a){font-family:"Segoe UI",Arial,sans-serif!important;font-size:15px!important;font-weight:500!important}.realLogin form>button{display:flex;align-items:center;justify-content:center;gap:12px;background:#4f46e5}.realLogin form>a{display:flex;align-items:center;justify-content:center;gap:8px}
+@media(max-width:1000px){.realDemo .realContent{padding:28px 22px}.realDemo .dashboardWidgets,.realDemo .seoSummary{grid-template-columns:repeat(2,minmax(0,1fr))}.realDemo .realPageHeading{align-items:flex-start;flex-wrap:wrap}}
+@media(max-width:640px){.realDemo .realContent{padding:22px 14px}.realDemo .dashboardGrid,.realDemo .settingsForm{grid-template-columns:1fr}.realDemo h1{font-size:27px!important}.realDemo .realPageHeading>div:last-child{padding-top:12px}}

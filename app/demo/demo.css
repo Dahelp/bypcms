@@ -48,6 +48,16 @@
 @media(max-width:800px){.variantRow{grid-template-columns:1fr 1fr}.variantRow>button{align-self:end}.paymentEditor,.productLayout,.cartLayout,.commerceCheckout form{grid-template-columns:1fr}.productLayout>.mediaThumb{height:360px}.cartLayout>div>article{grid-template-columns:62px 1fr auto}.cartLayout article label,.cartLayout article>strong{grid-column:2}.catalogFilters{overflow-x:auto}.catalogFilters>*{white-space:nowrap}}
 
 /* Unified professional admin design system */
+.realDemo,.realLogin{font-family:"Segoe UI",Arial,sans-serif!important;font-weight:400}
+.realDemo :where(button,input,select,textarea,small,b,strong,span,em,time,p,label,h1,h2,h3),.realLogin :where(button,input,small,b,strong,span,p,label,h1,h2){font-family:"Segoe UI",Arial,sans-serif!important;font-style:normal;letter-spacing:normal}
+.realDemo :where(b,strong),.realLogin :where(b,strong,label){font-weight:600!important}
+.realDemo small{font-size:13px!important;font-weight:400!important;letter-spacing:0!important;line-height:1.5!important}
+.realDemo button{font-weight:500!important}.realDemo h1,.realDemo h2,.realDemo h3{font-weight:600!important}
+.realDemo .seoPages>header{padding-left:0;grid-template-columns:minmax(278px,1.4fr) minmax(150px,.7fr) minmax(180px,.8fr) 80px 140px}
+.realDemo .seoPages>button>span:not(.seoState){justify-content:start;text-align:left}
+.realDemo .seoPages>button{padding:12px 0}.realDemo .seoState{display:flex!important;align-items:center;gap:8px}
+.realDemo .seoPages>header>span{font-size:14px;font-weight:600;color:#535b50}
+.realDemo .entityTable>button{align-items:center;text-align:left;padding-block:14px}.realDemo .entityTable>button>span{justify-content:start}
 .realDemo{--panel-font:Inter,"Segoe UI",Arial,sans-serif;--panel-ink:#151813;--panel-muted:#697066;--panel-line:#d9ddd5;--panel-surface:#fff;font-family:var(--panel-font);font-size:15px;line-height:1.45;color:var(--panel-ink);background:#f3f5f1}
 .realDemo button,.realDemo input,.realDemo select,.realDemo textarea{font-family:var(--panel-font);font-size:15px;line-height:1.4}
 .realDemo button:focus-visible,.realDemo input:focus-visible,.realDemo select:focus-visible,.realDemo textarea:focus-visible{outline:3px solid color-mix(in srgb,var(--demo-accent) 25%,transparent);outline-offset:2px}

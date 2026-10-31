@@ -30,6 +30,7 @@ function PanelIcon({ name, size = 18 }: { name: PanelIconName; size?: number }) 
 
 export default function DemoPage() {
   const [logged, setLogged] = useState(false);
+  const [ready, setReady] = useState(false);
   const [edition, setEdition] = useState<EditionKey>("content");
   const [view, setView] = useState("overview");
   const [entities, setEntities] = useState<DemoEntity[]>(seedEntities);
@@ -46,12 +47,21 @@ export default function DemoPage() {
   const noticeTimer = useRef<number | null>(null);
 
   useEffect(() => {
+    const route = new URLSearchParams(location.search);
+    const selected = route.get("edition");
+    if (selected && selected in editions) setEdition(selected as EditionKey);
+    setView(route.get("section") || "overview");
+    setReady(true);
     setLogged(sessionStorage.getItem("bypcms-demo-auth") === "active");
     const raw = sessionStorage.getItem("bypcms-real-demo-v1");
     if (!raw) return;
     try {
       const saved = JSON.parse(raw);
-      if (saved.entities) setEntities(saved.entities);
+      if (saved.entities) {
+        setEntities(saved.entities);
+        const record = route.get("record");
+        if (record) setEditing(saved.entities.find((item: DemoEntity) => String(item.id) === record) || null);
+      }
       if (saved.theme) {
         const known = [...templateCatalog.content, ...templateCatalog.business, ...templateCatalog.commerce].some(item => item.id === saved.theme.template) || saved.theme.template === "custom";
         setTheme({ ...initialTheme, ...saved.theme, template: known ? saved.theme.template : initialTheme.template, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } });
@@ -61,8 +71,17 @@ export default function DemoPage() {
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
   }, []);
   useEffect(() => {
+    if (!ready) return;
     sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities, theme, settings, installedModules }));
-  }, [entities, theme, settings, installedModules]);
+  }, [entities, theme, settings, installedModules, ready]);
+  useEffect(() => {
+    if (!ready || !logged) return;
+    const url = new URL(location.href);
+    url.searchParams.set("edition", edition);
+    url.searchParams.set("section", view);
+    if (editing) url.searchParams.set("record", String(editing.id)); else url.searchParams.delete("record");
+    history.replaceState(null, "", url.pathname + url.search);
+  }, [edition, view, editing, ready, logged]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
@@ -122,6 +141,7 @@ export default function DemoPage() {
     flash(`«${item.title || "Новая запись"}» ${masculine ? "удалён" : "удалена"}`);
   }
 
+  if (!ready) return <main className="panelBoot" aria-label="Загрузка панели"><span>BYPCMS</span><p>Загрузка рабочего пространства…</p></main>;
   if (!logged) return <Login onLogin={() => { sessionStorage.setItem("bypcms-demo-auth", "active"); setLogged(true); }} notice={notice} flash={flash} />;
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
@@ -157,7 +177,7 @@ export default function DemoPage() {
       </div>
     </section>
     {preview && <PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} onClose={() => setPreview(null)} />}
-    {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><kbd>Esc</kbd></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <button key={item.id} onClick={() => { setView(item.id); setEditing(null); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></button>)}{searchQuery && entities.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <button key={`entity-${item.id}`} onClick={() => { setEditing(item); setView(currentMenu.find(menu => menu.kind === item.kind)?.id || "overview"); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></button>)}</div><footer><span><kbd>Enter</kbd> открыть</span><span><kbd>Esc</kbd> закрыть</span></footer></section></div>}
+    {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <button key={item.id} onClick={() => { setView(item.id); setEditing(null); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></button>)}{searchQuery && entities.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <button key={`entity-${item.id}`} onClick={() => { setEditing(item); setView(currentMenu.find(menu => menu.kind === item.kind)?.id || "overview"); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></button>)}</div></section></div>}
   </main>;
 }
 
@@ -559,6 +579,6 @@ function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; e
 function MediaThumb({ index, large = false }: { index: number; large?: boolean }) {
   const x = index % 3;
   const y = Math.floor(index / 3);
-  return <span className={`mediaThumb ${large ? "large" : ""}`} style={{ backgroundPosition: `${x * 50}% ${y * 100}%` }} role="img" aria-label={mediaItems[index]?.alt || "Изображение"} />;
+  return <span className={`mediaThumb ${large ? "large" : ""}`} role="img" aria-label={mediaItems[index]?.alt || "Изображение"}><svg viewBox={`${x * 512} ${y * 512} 512 512`} preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><image href="https://bypcms.ru/demo/cms-media-board.png" width="1536" height="1024" /></svg></span>;
 }
 

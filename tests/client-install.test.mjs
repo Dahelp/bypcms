@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync,readdirSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const read = p => readFileSync(new URL('../'+p,import.meta.url),'utf8');
+const installer=read('server/install/index.php'), builder=read('server/api/index.php'), front=read('server/_core/client-front.php');
+test('installer uses package edition and modules',()=>{assert.match(installer,/\$manifest\['edition'\]/);assert.match(installer,/foreach \(\$packageModules as \$key\)/);assert.match(installer,/'edition' => \$edition/);});
+test('package carries runtime manifest and HTTP router',()=>{for(const path of ['site/build-manifest.json','site/index.php','site/.htaccess']) assert.ok(builder.includes(path));});
+test('private and platform files excluded from customer package',()=>{for(const path of ['_storage/','_private/','.env','.log',"'owner'","'portfolio'"]) assert.ok(builder.includes(path),path);});
+test('installer requires CSRF and strong password and blocks reinstall',()=>{assert.match(installer,/hash_equals/);assert.match(installer,/strlen\(\$adminPassword\) < 12/);assert.match(installer,/POST' && !\$installed/);assert.match(installer,/password_hash/);});
+test('customer frontend uses parameterized published routes and real 404',()=>{assert.match(front,/\$pdo->prepare/);assert.match(front,/status="published"/);assert.match(front,/http_response_code\(404\)/);assert.match(front,/htmlspecialchars/);});
+test('all PHP source files parse',()=>{const walk=p=>readdirSync(p,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p+'/'+e.name):e.name.endsWith('.php')?[p+'/'+e.name]:[]);for(const path of walk(fileURLToPath(new URL('../server',import.meta.url)))) execFileSync('php',['-l',path],{stdio:'pipe'});});

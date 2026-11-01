@@ -325,7 +325,7 @@ export default function AdminPage() {
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, icon, label]) => (
             <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
-              <i><WorkspaceIcon symbol={icon}/></i><span>{label}</span>
+              <i><WorkspaceIcon symbol={key}/></i><span>{label}</span>
             </button>
           ))}
         </nav>

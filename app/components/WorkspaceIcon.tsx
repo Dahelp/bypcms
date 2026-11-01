@@ -1,5 +1,16 @@
 export default function WorkspaceIcon({ symbol }: { symbol: string }) {
   const paths: Record<string,string> = {
+    overview:'M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7',
+    clients:'M10 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0M2 21v-3a5 5 0 0 1 10 0v3M16 4a3 3 0 0 1 0 6M16 14a5 5 0 0 1 6 5v2',
+    licenses:'M6 3h12v13l-3-2-3 2-3-2-3 2zM9 7h6M9 10h4M10 16v6l3-2 3 2v-6',
+    builder:'M3 4h7v7H3zM14 4h7v7h-7zM3 15h7v7H3zM17 15v7M14 18.5h7',
+    modules:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+    services:'M3 7h18v14H3zM8 7V3h8v4M3 12h18M10 12v3h4v-3',
+    portfolio:'M3 4h18v16H3zM3 9h18M8 9v11M11 13h7M11 16h5',
+    notifications:'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',
+    content:'M5 3h14v18H5zM9 7h6M9 11h6M9 15h6M9 18h3',
+    concepts:'M9 18h6M10 21h4M8 14a6 6 0 1 1 8 0l-1 2H9z',
+    settings:'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
     '⌂':'M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7',
     '▤':'M5 3h14v18H5zM9 8h6M9 12h6M9 16h4',
     '▥':'M5 3h14v18H5zM9 8h6M9 12h6M9 16h4',

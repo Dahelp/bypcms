@@ -62,6 +62,15 @@ export default function AdminPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<PageItem | null>(null);
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
+  const [routeReady,setRouteReady]=useState(false);
+  useEffect(()=>{
+    if(loading||!user)return;
+    const restore=()=>{const query=new URLSearchParams(location.search);setActive(query.get("section")||"overview");if(query.has("page")&&!pages.length)return;if(query.has("module")&&!modules.length)return;setCreateOpen(query.get("editor")==="new-page");setEditingPage(pages.find(item=>String(item.id)===query.get("page"))||null);setEditingModule(modules.find(item=>item.module_key===query.get("module"))||null);setRouteReady(true);};
+    if(!routeReady)restore();window.addEventListener("popstate",restore);return()=>window.removeEventListener("popstate",restore);
+  },[loading,user,pages,modules,routeReady]);
+  useEffect(()=>{
+    if(!routeReady)return;const query=new URLSearchParams();query.set("section",active);if(createOpen)query.set("editor","new-page");if(editingPage)query.set("page",String(editingPage.id));if(editingModule)query.set("module",editingModule.module_key);const next=location.pathname+"?"+query.toString();if(next!==location.pathname+location.search)history.pushState(null,"",next);
+  },[active,createOpen,editingPage,editingModule,routeReady]);
 
   const loadSession = useCallback(async () => {
     setLoading(true);

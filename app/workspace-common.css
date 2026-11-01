@@ -1,4 +1,6 @@
 /* Shared owner/admin primitives; scope uses the actual /admin root: .cms. */
+.ownerContent.editorRouteOpen{display:none}.ownerApp:has(.ownerEditorPage) .ownerMain{min-height:100vh}.ownerEditorPage{grid-column:2;padding:32px;min-width:0}.ownerEditorPage .ownerModal{width:100%;max-width:1100px;margin:0 auto;max-height:none;overflow:visible;box-shadow:none}
+.cms .modalShade{position:static!important;inset:auto!important;grid-column:2;background:transparent!important;backdrop-filter:none!important;display:block!important;padding:32px!important}.cms:has(.modalShade) .cmsContent{display:none}.cms .modalShade .createModal{width:100%!important;max-width:1100px;margin:auto;max-height:none;overflow:visible}
 :is(.ownerGate,.loginScreen) :is(label,a,p,em){font-size:15px!important;line-height:1.6!important;font-weight:400!important}:is(.ownerGate,.loginScreen) small{font-size:13px!important;letter-spacing:normal!important}
 .ownerApp .ownerTable header>button{font-size:14px!important;padding:10px 14px!important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
 .ownerApp .quickActions>button{gap:14px!important;min-height:74px;align-items:center;padding:16px 0!important}

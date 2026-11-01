@@ -1,4 +1,11 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.panelSearchControl.panelSearchControl{display:flex!important;align-items:center;gap:10px;width:280px;min-width:0!important;height:44px;padding:0 13px!important;border:1px solid #d3dad5!important;border-radius:8px;background:#fff!important;color:#758078;font:400 14px "Segoe UI",Arial,sans-serif;box-shadow:none!important;outline:none!important;text-align:left}
+.panelSearchControl>svg{flex:0 0 18px;margin:0!important}.panelSearchControl>span{white-space:nowrap}
+.panelSearchControl.panelSearchControl input{width:100%;min-width:0;border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;min-height:40px!important;font-weight:400!important;box-shadow:none!important;outline:none!important}
+.panelSearchControl.panelSearchControl:is(:focus,:focus-visible,:focus-within){outline:none!important;box-shadow:none!important;border-color:#d3dad5!important}
+.realTopbar>.panelSearchControl{margin-left:auto}.panelSearchTrigger{cursor:pointer}.panelSearchTrigger:hover{background:#f7f9f7!important}
+.realDemo .ogEditor{align-items:start}.realDemo .ogEditor>.mediaThumb{height:190px;align-self:start}
+@media(max-width:800px){.realTopbar>.panelSearchControl{width:44px;padding:0!important;justify-content:center}.realTopbar>.panelSearchControl>span{display:none}}
 .realDemo.realDemo :is(.listToolbar,.mediaToolbar,.commandPalette) input:is(:focus,:focus-visible){outline:none!important;box-shadow:none!important}
 .realDemo.realDemo :is(.listToolbar,.mediaToolbar)>label:focus-within{outline:none!important;box-shadow:none!important}
 .realDemo.realDemo .listFooter{align-items:center;gap:20px;flex-wrap:wrap;padding:18px 0;margin-top:0}

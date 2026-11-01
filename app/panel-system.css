@@ -1,4 +1,11 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.realDemo.realDemo .googleResultPreview .googleAttribution{display:flex;align-items:center;gap:12px;margin-bottom:12px;min-width:0}
+.googleSiteIcon{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:50%;background:#f1f3f4;color:#5f6368}.googleAttribution>div{min-width:0;display:grid;gap:3px}
+.realDemo.realDemo .googleSiteName{font:400 14px/20px Arial,sans-serif!important;color:#202124}
+.realDemo.realDemo .googleBreadcrumb{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:400 12px/18px Arial,sans-serif!important;color:#4d5156}
+.realDemo.realDemo .googleResultPreview>h3{font:400 20px/26px Arial,sans-serif!important;color:#1a0dab;margin:0 0 4px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.realDemo.realDemo .googleResultPreview>p{font:400 14px/22px Arial,sans-serif!important;color:#4d5156;margin:0;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.googlePreviewDisclaimer{margin-top:18px;padding-top:14px;border-top:1px solid #e2e6e1;color:#717970;font-size:12px;line-height:1.6}
 .realDemo.realDemo .seoEditorLayout label:not(.checkLine){display:block;position:relative;margin-top:18px;font-weight:500;line-height:22px}
 .realDemo.realDemo .seoEditorLayout label:not(.checkLine)>span{float:right;margin:0;color:#849087;font-size:13px;font-weight:400;line-height:22px}
 .realDemo.realDemo .seoEditorLayout label:not(.checkLine)>input,.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>textarea,.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>select{display:block;clear:both;width:100%;margin-top:8px}

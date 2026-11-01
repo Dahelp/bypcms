@@ -1,4 +1,7 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.realDemo.realDemo .ogEditor{margin-top:20px;align-items:end}
+.realDemo.realDemo .ogEditor>.mediaThumb{align-self:end;margin:0;height:190px}
+.realDemo.realDemo .ogEditor>div>label:first-child{margin-top:0}
 .realDemo.realDemo .seoEditorLayout>aside{display:flex;flex-direction:column;gap:18px;min-width:0;align-self:start}
 .realDemo.realDemo .searchPreview{min-width:0;padding:22px}
 .realDemo.realDemo .searchPreview>small{display:block;margin:0 0 14px;line-height:1.5}

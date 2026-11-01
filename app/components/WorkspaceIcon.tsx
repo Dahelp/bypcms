@@ -1,21 +1,7 @@
 import PanelIcon, { type PanelIconName } from "./PanelIcon";
+import { panelIconBySection } from "./panel-icons";
 
 const icons: Record<string, PanelIconName> = {
-  overview: "home",
-  clients: "users",
-  licenses: "orders",
-  builder: "products",
-  modules: "modules",
-  services: "briefcase",
-  portfolio: "image",
-  notifications: "bell",
-  content: "pages",
-  concepts: "design",
-  settings: "settings",
-  payments: "payments",
-  tasks: "forms",
-  leads: "leads",
-  users: "users",
   "→": "arrow",
   "←": "arrow",
   "↗": "external",
@@ -26,5 +12,5 @@ const icons: Record<string, PanelIconName> = {
 
 /** Use the demo panel's SVG icons in the owner and admin workspaces. */
 export default function WorkspaceIcon({ symbol }: { symbol: string }) {
-  return <PanelIcon name={icons[symbol] ?? "file"} className={`workspaceIcon${symbol === "←" ? " workspaceIconBack" : ""}`} />;
+  return <PanelIcon name={panelIconBySection[symbol] ?? icons[symbol] ?? "file"} className={`workspaceIcon${symbol === "←" ? " workspaceIconBack" : ""}`} />;
 }

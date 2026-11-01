@@ -1,10 +1,24 @@
 /* Shared owner/admin primitives; scope uses the actual /admin root: .cms. */
-.workspaceNotifications{position:relative;display:inline-flex;align-items:center;flex:0 0 auto}
-.workspaceNotifications .notificationTrigger{position:relative;display:grid!important;place-items:center;width:44px;height:44px;padding:0!important;border:1px solid #d6ddd7;background:white;color:#52645a;border-radius:8px}
-.notificationCount{position:absolute;right:-5px;top:-6px;display:grid;place-items:center;min-width:19px;height:19px;padding:0 4px;border:2px solid white;border-radius:20px;background:#b65c37;color:white;font-size:11px!important}
-.workspaceNotifications .notificationPopover{position:absolute;top:54px;right:0;width:390px;max-width:calc(100vw - 32px);z-index:60;border:1px solid #dce2dc;border-radius:12px;background:#fff;box-shadow:0 16px 48px #1d2a2430;padding:0;overflow:hidden;text-align:left}
-.notificationPopover>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px;border-bottom:1px solid #e4e9e3}.notificationPopover h2{margin:0 0 4px;font-size:20px!important}.notificationPopover>header>button{width:32px;min-height:32px;padding:0;border:0;background:#f1f4f0;color:#52645a}
-.notificationItems{display:block!important;max-height:430px;overflow-y:auto}.notificationItems article{padding:18px 20px;border-bottom:1px solid #edf0ec;border-radius:0!important}.notificationItems article.unread{background:#f5f8f4}.notificationItems p{margin:7px 0;color:#68776d;line-height:1.6}.notificationItems time{display:block;color:#849087;font-size:12px}.notificationItems button{margin-top:10px;padding:7px 10px;border:1px solid #d8e0d7;background:#fff;color:#52675e}.notificationEmpty{padding:24px;margin:0!important;text-align:center}
+/* The event center is identical in all three workspaces. */
+.workspaceNotifications{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;font-family:"Segoe UI",Arial,sans-serif;color:#171b17}
+.workspaceNotifications .notificationTrigger{position:relative;display:grid!important;place-items:center;width:42px;height:44px;min-height:44px;padding:0!important;border:1px solid #d6ddd7;background:#fff;color:#171b17;border-radius:8px}
+.workspaceNotifications .notificationCount{position:absolute;right:-4px;top:-5px;display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border:2px solid #fff;border-radius:99px;background:#c65b2d;color:#fff;font-size:10px!important;line-height:1;font-weight:600!important}
+.workspaceNotifications .notificationPopover{position:absolute;top:54px;right:0;width:390px;max-width:calc(100vw - 24px);z-index:60;padding:10px;border:1px solid #d8ddd5;border-radius:12px;background:#fff;box-shadow:0 20px 55px #1115;text-align:left}
+.workspaceNotifications .notificationPopover>header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 10px 14px;border:0;background:#fff}
+.workspaceNotifications .notificationPopover>header>div{display:block}
+.workspaceNotifications .notificationPopover header small{font-size:12px!important;font-weight:400!important;line-height:1.5!important;color:#858c81}
+.workspaceNotifications .notificationPopover h3{margin:2px 0;font-size:18px!important;font-weight:600!important;line-height:1.4!important;color:#171b17}
+.workspaceNotifications .notificationPopover>header>button{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-height:34px;padding:0!important;border:0;border-radius:7px;background:#f1f3ee;color:#171b17}
+.workspaceNotifications .notificationItems{display:block!important;max-height:430px;overflow-y:auto}
+.workspaceNotifications .notificationRow{display:grid!important;grid-template-columns:38px minmax(0,1fr) 18px;align-items:center;gap:11px;width:100%;min-height:66px;margin:0;padding:12px 10px!important;border:0;border-top:1px solid #eceee9;border-radius:0;background:#fff;color:#171b17;text-align:left;cursor:pointer}
+.workspaceNotifications .notificationRow:hover{background:#f6f8f3}
+.workspaceNotifications .notificationRow>i{display:grid;place-items:center;width:38px;height:38px;border-radius:9px;background:#eef1e9;color:#52675e;font-style:normal}
+.workspaceNotifications .notificationRow>span{display:grid;gap:2px;min-width:0}
+.workspaceNotifications .notificationRow b{font-size:13px!important;font-weight:600!important;line-height:1.5!important;overflow-wrap:anywhere}
+.workspaceNotifications .notificationRow small{font-size:13px!important;font-weight:400!important;line-height:1.5!important;color:#687164;overflow-wrap:anywhere}
+.workspaceNotifications .notificationEmpty{padding:24px 10px;margin:0!important;border-top:1px solid #eceee9;font-size:13px;text-align:center;color:#687164}
+.workspaceNotifications .notificationError{margin:0;padding:10px;font-size:13px;color:#a3352c}
+@media(max-width:600px){.workspaceNotifications .notificationPopover{position:fixed;left:12px;right:12px;top:72px;width:auto;max-width:none}}
 .cmsTopbar>div:last-child{display:flex;align-items:center;gap:12px}
 .ownerContent.editorRouteOpen{display:none}.ownerApp:has(.ownerEditorPage) .ownerMain{min-height:100vh}.ownerEditorPage{grid-column:2;padding:32px;min-width:0}.ownerEditorPage .ownerModal{width:100%;max-width:1100px;margin:0 auto;max-height:none;overflow:visible;box-shadow:none}
 .cms .modalShade{position:static!important;inset:auto!important;grid-column:2;background:transparent!important;backdrop-filter:none!important;display:block!important;padding:32px!important}.cms:has(.modalShade) .cmsContent{display:none}.cms .modalShade .createModal{width:100%!important;max-width:1100px;margin:auto;max-height:none;overflow:visible}
@@ -19,7 +33,7 @@
 :is(.cms,.ownerApp) small,:is(.cms,.ownerApp) time{font-size:13px!important;line-height:1.5!important;font-weight:400!important;letter-spacing:0!important}
 :is(.cms,.ownerApp) :is(b,strong,label){font-weight:600!important}:is(.cms,.ownerApp) :is(h1,h2,h3){font-weight:600!important;line-height:1.3!important}:is(.cms,.ownerApp) h1{font-size:32px!important}:is(.cms,.ownerApp) h2{font-size:22px!important}
 :is(.cms,.ownerApp) button{font-size:14px!important;font-weight:500!important;line-height:1.4!important;border-radius:8px;min-height:38px}
-.workspaceIcon{display:inline-block;flex:0 0 18px;vertical-align:middle;margin:0 3px}
+.panelIcon{display:inline-block;width:18px!important;height:18px!important;flex:0 0 18px!important;vertical-align:middle;margin:0!important}
 .workspaceIconBack{transform:rotate(180deg)}
 :is(.cmsSidebar,.ownerSidebar) nav button{display:flex!important;align-items:center!important;gap:12px;padding:12px 14px!important;min-height:46px!important;text-align:left}
 :is(.cmsSidebar,.ownerSidebar) nav button>i{width:22px;display:grid;place-items:center;font-style:normal}:is(.cmsSidebar,.ownerSidebar) nav button>em{margin-left:auto}
@@ -35,3 +49,17 @@
 :is(.ownerTable,.quickActions,.ownerKpis article,.cms article){border-color:#dfe5de;border-radius:12px}
 .ownerGate :is(input,button),.loginScreen :is(input,button){font:400 15px/1.5 "Segoe UI",Arial,sans-serif!important;min-height:44px}.ownerGate form>button,.loginScreen form>button{background:#52675e!important;display:flex;align-items:center;justify-content:center;gap:10px}
 @media(max-width:750px){:is(.cmsContent,.ownerContent){padding:24px 16px!important}:is(.cmsHeading,.ownerHeading){flex-wrap:wrap}.ownerModal{padding:20px!important}}
+
+/* Keep navigation icons aligned and colored exactly like the demo. */
+:is(.realDemo.realDemo .realSidebar,.ownerApp .ownerSidebar,.cms .cmsSidebar) nav button{gap:11px!important}
+:is(.realDemo.realDemo .realSidebar,.ownerApp .ownerSidebar,.cms .cmsSidebar) nav button>i{display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;border-radius:7px;color:#9ca398!important;font-style:normal}
+:is(.realDemo.realDemo .realSidebar,.ownerApp .ownerSidebar,.cms .cmsSidebar) nav button>i>.panelIcon{display:block}
+:is(.realDemo.realDemo .realSidebar,.ownerApp .ownerSidebar,.cms .cmsSidebar) nav button.active>i{color:#d2e1d6!important}
+
+/* Workspace typography must not override the shared event center. */
+:is(.realDemo,.ownerApp,.cms) .workspaceNotifications.workspaceNotifications,
+:is(.realDemo,.ownerApp,.cms) .workspaceNotifications.workspaceNotifications *{font-family:"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important;box-sizing:border-box}
+.workspaceNotifications.workspaceNotifications .notificationPopover h3{font-size:18px!important;font-weight:600!important;line-height:1.4!important}
+
+.workspaceNotifications.workspaceNotifications .notificationPopover{font-size:14px!important;line-height:1.5!important}
+.workspaceNotifications.workspaceNotifications .notificationPopover header small{display:block;line-height:18px!important}

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import PanelSearch from "../components/PanelSearch";
-import PanelIcon, { type PanelIconName } from "../components/PanelIcon";
+import PanelIcon from "../components/PanelIcon";
+import { panelIconBySection as iconByMenu } from "../components/panel-icons";
+import NotificationDropdown from "../components/NotificationDropdown";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { defaultInstalledModules, DemoContentBlock, DemoEntity, DemoModule, EditionKey, EntityKind, editions, entityTitles, mediaItems, moduleRegistry, seedEntities } from "./demo-data";
 import "./demo.css";
@@ -21,7 +23,6 @@ const initialTheme: ThemeState = { template: "atelier", editionTemplates: { cont
 const initialSettings: SettingsState = { siteName: "Northline Studio", slogan: "Дизайн и цифровые продукты для бизнеса", logo: "", domain: "demo.bypcms.ru", email: "hello@northline.demo", phone: "+7 495 100-20-30", address: "Москва, ул. Тверская, 12", language: "Русский", timezone: "Europe/Moscow", notifications: true, maintenance: false, currency: "RUB", taxRate: 20, minOrder: 1500, inventoryTracking: true };
 const sanitizeDemoHtml = (source: string) => source.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/\son\w+\s*=\s*["'][^"']*["']/gi, "");
 
-const iconByMenu: Record<string, PanelIconName> = { overview: "home", articles: "file", pages: "pages", categories: "grid", authors: "users", team: "users", customers: "users", media: "image", seo: "seo", analytics: "chart", design: "design", extensions: "modules", settings: "settings", orders: "orders", products: "products", brands: "briefcase", services: "briefcase", projects: "briefcase", forms: "forms", leads: "leads", payments: "payments", promos: "promo" };
 
 export default function DemoPage() {
   const [logged, setLogged] = useState(false);
@@ -38,7 +39,6 @@ export default function DemoPage() {
   const [notice, setNotice] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [eventsOpen, setEventsOpen] = useState(false);
   const noticeTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -80,7 +80,7 @@ export default function DemoPage() {
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
-      if (event.key === "Escape") { setSearchOpen(false); setEventsOpen(false); }
+      if (event.key === "Escape") { setSearchOpen(false); }
     };
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
@@ -154,7 +154,11 @@ export default function DemoPage() {
       <header className="realTopbar">
         <div className="editionTabs">{(Object.keys(editions) as EditionKey[]).map(key => <button className={edition === key ? "active" : ""} onClick={() => switchEdition(key)} key={key}>{editions[key].name}<small>{editions[key].note}</small></button>)}</div>
         <PanelSearch onOpen={() => setSearchOpen(true)} />
-        <div className="eventCenter"><button className="topIcon" aria-label="События" onClick={() => setEventsOpen(value => !value)}><PanelIcon name="bell" /><b>3</b></button>{eventsOpen && <section className="eventPopover"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h3>Важное сегодня</h3></div><button aria-label="Закрыть" onClick={() => setEventsOpen(false)}><PanelIcon name="close" /></button></header>{[["orders","Новый заказ #1043","2 минуты назад"],["seo","SEO-аудит завершён","Найдены 2 рекомендации"],["extensions","Доступны обновления","2 модуля готовы"]].map(([target,title,meta]) => <button key={title} onClick={() => { setView(target); setEventsOpen(false); }}><i><PanelIcon name={target === "orders" ? "orders" : target === "seo" ? "seo" : "modules"} /></i><span><b>{title}</b><small>{meta}</small></span><PanelIcon name="chevron" /></button>)}</section>}</div>
+        <NotificationDropdown items={[
+          { id: 1, title: "Новый заказ #1043", message: "2 минуты назад", created_at: "", is_read: 0, icon: "orders" },
+          { id: 2, title: "SEO-аудит завершён", message: "Найдены 2 рекомендации", created_at: "", is_read: 0, icon: "seo" },
+          { id: 3, title: "Доступны обновления", message: "2 модуля готовы", created_at: "", is_read: 0, icon: "modules" },
+        ]} onSelect={id => { setView(({ 1: "orders", 2: "seo", 3: "extensions" } as Record<number, string>)[id]); setEditing(null); }} />
         <button className="openSite" onClick={() => setPreview(entities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects")) || entities[0])}>Открыть сайт <PanelIcon name="external" /></button>
       </header>
       <div className="realContent">
@@ -187,7 +191,7 @@ function Login({ onLogin, notice, flash }: { onLogin: () => void; notice: string
 }
 
 function ProjectBadge({ edition, project }: { edition: EditionKey; project: string }) {
-  return <div className="projectBadge"><span>{project[0]}</span><div><b>{project}</b><small>BYPCMS {editions[edition].name}</small></div><i><PanelIcon name="chevron" size={15}/></i></div>;
+  return <div className="projectBadge"><span>{project[0]}</span><div><b>{project}</b><small>BYPCMS {editions[edition].name}</small></div><i><PanelIcon name="chevron"/></i></div>;
 }
 
 function Dashboard({ edition, entities, modules, onNavigate }: { edition: EditionKey; entities: DemoEntity[]; modules: DemoModule[]; onNavigate: (id: string) => void }) {

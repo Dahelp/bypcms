@@ -3,6 +3,7 @@
 import Link from "next/link";
 import PanelSearch from "../components/PanelSearch";
 import WorkspaceIcon from "../components/WorkspaceIcon";
+import NotificationDropdown from "../components/NotificationDropdown";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import "./owner.css";
 import "./gate.css";
@@ -98,7 +99,7 @@ export default function Owner(){
 
   return <main className="ownerApp">
     <aside className="ownerSidebar"><Link href="/" className="ownerBrand"><b>B</b><span>BYPCMS<strong>OWNER CENTER</strong></span></Link><p>УПРАВЛЕНИЕ</p><nav>{nav.map(([id,icon,label])=><button key={id} className={section===id?"active":""} onClick={()=>setSection(id)}><i><WorkspaceIcon symbol={icon}/></i><span>{label}</span>{id==="notifications"&&unread>0&&<em>{unread}</em>}</button>)}</nav><div className="ownerStatus"><i/><span><b>Production</b><small>Данные подключены к MySQL</small></span></div><Link className="ownerExit" href="/admin">Панель сайта <WorkspaceIcon symbol="↗"/></Link></aside>
-    <section className="ownerMain"><header><PanelSearch value={search} onChange={setSearch} placeholder="Поиск клиента, лицензии, домена…" /><div><button title="Оповещения" onClick={()=>setSection("notifications")}><WorkspaceIcon symbol="♢"/>{unread>0&&<em>{unread}</em>}</button><button className="ownerProfileButton" onClick={()=>setSection("settings")}><span className="ownerAvatar">{initials}</span><p><b>{data?.user.name}</b><small>{data?.user.role_name}</small></p></button></div></header>
+    <section className="ownerMain"><header><PanelSearch value={search} onChange={setSearch} placeholder="Поиск клиента, лицензии, домена…" /><div><NotificationDropdown items={data?.notifications||[]} onRead={async(id)=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id})});await load();}} /><button className="ownerProfileButton" onClick={()=>setSection("settings")}><span className="ownerAvatar">{initials}</span><p><b>{data?.user.name}</b><small>{data?.user.role_name}</small></p></button></div></header>
       <div className={`ownerContent ${modal ? "editorRouteOpen" : ""}`}><div className="ownerHeading"><div><small>BYPCMS CONTROL CENTER</small><h1>{nav.find(x=>x[0]===section)?.[2]}</h1><p>{section==="overview"?"Реальные данные платформы, клиентов и договорных обязательств.":"Создание, редактирование и контроль без перехода в демонстрационные экраны."}</p></div>
         {section==="clients"&&<button onClick={()=>setModal({type:"client"})}><WorkspaceIcon symbol="＋"/> Клиент</button>}
         {section==="licenses"&&<button onClick={()=>setModal({type:"license"})}><WorkspaceIcon symbol="＋"/> Лицензия</button>}

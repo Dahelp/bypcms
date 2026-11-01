@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import WorkspaceIcon from "../components/WorkspaceIcon";
+import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
 import "./admin.css";
 import "./readable.css";
@@ -338,7 +339,7 @@ export default function AdminPage() {
       <section className="cmsMain">
         <header className="cmsTopbar">
           <div><span className="projectBadge">B</span><p><strong>BYPCMS Platform</strong><small>production · core {dashboard?.health.core ?? "2.0.0"}</small></p></div>
-          <div><a href="/" target="_blank">Открыть сайт <WorkspaceIcon symbol="↗"/></a></div>
+          <div><NotificationDropdown /><a href="/" target="_blank">Открыть сайт <WorkspaceIcon symbol="↗"/></a></div>
         </header>
 
         <div className="cmsContent">

@@ -140,15 +140,15 @@ export default function DemoPage() {
   if (!logged) return <Login onLogin={() => { sessionStorage.setItem("bypcms-demo-auth", "active"); setLogged(true); }} notice={notice} flash={flash} />;
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
-    <aside className="realSidebar">
-      <a href="https://bypcms.ru/" className="demoBrand"><b>B</b><span>BYPCMS</span><i>{current.name}</i></a>
+    <aside className="realSidebar workspaceMenu">
+      <a href="https://bypcms.ru/" className="demoBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>{current.name}</i></a>
       <ProjectBadge edition={edition} project={settings.siteName} />
       <nav>{currentMenu.map((item, index) => {
         const showGroup = item.group && currentMenu[index - 1]?.group !== item.group;
-        return <div key={item.id}>{showGroup && <small>{item.group}</small>}<button className={view === item.id ? "active" : ""} onClick={() => { setView(item.id); setEditing(null); }}><i><PanelIcon name={iconByMenu[item.id] || "file"} /></i><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</button></div>;
+        return <div key={item.id}>{showGroup && <small className="workspaceMenuGroup">{item.group}</small>}<button className={view === item.id ? "active" : ""} onClick={() => { setView(item.id); setEditing(null); }}><i><PanelIcon name={iconByMenu[item.id] || "file"} /></i><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</button></div>;
       })}</nav>
-      <div className="demoSafety"><b>● Демо-сессия</b><span>Данные изолированы и не отправляются наружу</span></div>
-      <button className="demoLogout" onClick={() => { sessionStorage.removeItem("bypcms-demo-auth"); setLogged(false); }}>Выйти из демо</button>
+      <div className="demoSafety workspaceMenuStatus"><b>● Демо-сессия</b><span>Данные изолированы и не отправляются наружу</span></div>
+      <button className="demoLogout workspaceMenuExit" onClick={() => { sessionStorage.removeItem("bypcms-demo-auth"); setLogged(false); }}>Выйти из демо</button>
     </aside>
     <section className="realWorkspace">
       <header className="realTopbar">

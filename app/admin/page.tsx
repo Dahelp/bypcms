@@ -320,8 +320,8 @@ export default function AdminPage() {
 
   return (
     <main className="cms">
-      <aside className="cmsSidebar">
-        <Link href="/" className="cmsBrand"><span>B</span><strong>BYPCMS</strong></Link>
+      <aside className="cmsSidebar workspaceMenu">
+        <Link href="/" className="cmsBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Admin</i></Link>
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, label]) => (
             <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
@@ -329,7 +329,7 @@ export default function AdminPage() {
             </button>
           ))}
         </nav>
-        <div className="cmsUser">
+        <div className="cmsUser workspaceMenuStatus">
           <span>{user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>
           <div><strong>{user.name}</strong><small>{user.role_name}</small></div>
           <button type="button" onClick={logout} aria-label="Выйти"><WorkspaceIcon symbol="↗"/></button>

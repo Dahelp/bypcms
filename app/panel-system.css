@@ -1,4 +1,7 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.realDemo.realDemo .seoEditorLayout label:not(.checkLine){display:block;position:relative;margin-top:18px;font-weight:500;line-height:22px}
+.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>span{float:right;margin:0;color:#849087;font-size:13px;font-weight:400;line-height:22px}
+.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>input,.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>textarea,.realDemo.realDemo .seoEditorLayout label:not(.checkLine)>select{display:block;clear:both;width:100%;margin-top:8px}
 .realDemo.realDemo .ogEditor{margin-top:20px;align-items:end}
 .realDemo.realDemo .ogEditor>.mediaThumb{align-self:end;margin:0;height:190px}
 .realDemo.realDemo .ogEditor>div>label:first-child{margin-top:0}

@@ -5,6 +5,7 @@ import PanelSearch from "../components/PanelSearch";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { defaultInstalledModules, DemoContentBlock, DemoEntity, DemoModule, EditionKey, EntityKind, editions, entityTitles, mediaItems, moduleRegistry, seedEntities } from "./demo-data";
 import "./demo.css";
+import "./site-preview.css";
 
 type ThemeState = { template: string; editionTemplates?: Partial<Record<EditionKey, string>>; accent: string; background: string; font: string; headingFont?: string; customFont?: string; radius: number; header: string; container: number; menuPosition?: "left" | "center" | "right" | "drawer"; customTemplateName?: string; customTemplateSource?: string };
 type SettingsState = { siteName: string; slogan?: string; logo?: string; domain: string; email: string; phone: string; address: string; language: string; timezone: string; notifications: boolean; maintenance: boolean; currency?: string; taxRate?: number; minOrder?: number; inventoryTracking?: boolean };
@@ -551,7 +552,7 @@ function PublicPreview({ entity, edition, theme, settings, onClose }: { entity: 
 
 function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
   const content = entity || seedEntities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects"))!;
-  const bodyFont = theme.customFont?.trim() || theme.font;
+  const bodyFont = theme.customFont?.trim() || '"Segoe UI", Arial, sans-serif';
   const [menuOpen, setMenuOpen] = useState(false);
   type SitePage = "home" | "listing" | "about" | "contacts" | "product" | "cart" | "checkout";
   const [sitePage, setSitePage] = useState<SitePage>("home");
@@ -561,7 +562,20 @@ function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; e
   const [catalogSort, setCatalogSort] = useState("popular");
   const [message, setMessage] = useState("");
   const act = (text: string) => { setMessage(text); window.setTimeout(() => setMessage(""), 2600); };
-  const openSitePage = (page: SitePage, text: string) => { setSitePage(page); setMenuOpen(false); act(text); };
+  const openSitePage = (page: SitePage, text: string) => {
+    setSitePage(page); setMenuOpen(false); act(text);
+    const url = new URL(location.href);
+    url.searchParams.set("preview", page);
+    history.pushState(null, "", url.pathname + url.search);
+  };
+  useEffect(() => {
+    const restore = () => {
+      const value = new URLSearchParams(location.search).get("preview");
+      if (["home","listing","about","contacts","product","cart","checkout"].includes(value || "")) setSitePage(value as SitePage);
+    };
+    restore(); window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
   const addToCart = (product: DemoEntity) => { setCart(items => { const found = items.find(item => item.product.id === product.id); return found ? items.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) : [...items, { product, quantity: 1 }]; }); act(`«${product.title}» добавлен в корзину`); };
   const openProduct = (product: DemoEntity) => { setSelectedProduct(product); openSitePage("product", `Открыта карточка «${product.title}»`); };
   const customMarkup = (theme.customTemplateSource || "")

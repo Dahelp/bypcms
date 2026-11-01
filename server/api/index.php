@@ -484,7 +484,7 @@ try {
             if (!$file->isFile()) continue;
             $full = $file->getRealPath();
             $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
-            if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '.git/')) continue;
+            if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
             $zip->addFile($full, 'site/' . $relative);
         }
         $schema = require BYPCMS_ROOT . '/_core/schema.php';

@@ -1,0 +1,20 @@
+/* Client canvas: deliberately isolated from dashboard typography and controls. */
+.realDemo .liveSite.liveSite{font:400 16px/1.65 "Segoe UI",Arial,sans-serif!important;color:#262b27;background:var(--site-bg,#f7f7f4);overflow:hidden;container-type:inline-size}
+.realDemo .liveSite.liveSite :is(p,a,span,small,b,strong,em,label,button,input,select,textarea){font-family:"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important}
+.realDemo .liveSite.liveSite :is(p,a,span,label,input,select,textarea){font-size:16px!important;line-height:1.65!important;font-weight:400!important}
+.realDemo .liveSite.liveSite small{font-size:13px!important;line-height:1.5!important;font-weight:500!important}
+.realDemo .liveSite.liveSite :is(h1,h2,h3){font-family:"Segoe UI",Arial,sans-serif!important;font-weight:500!important;letter-spacing:-.035em!important;line-height:1.12!important}
+.realDemo .liveSite.liveSite h1{font-size:clamp(36px,5cqw,72px)!important;margin:16px 0 24px}
+.realDemo .liveSite.liveSite h2{font-size:clamp(28px,3.5cqw,44px)!important;margin:0 0 20px}
+.realDemo .liveSite.liveSite h3{font-size:24px!important;margin:12px 0}
+.realDemo .liveSite.liveSite button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;font-size:15px!important;font-weight:600!important;line-height:1.4!important;white-space:normal}
+.realDemo .liveSite.liveSite>header{padding:22px 32px;gap:24px;min-height:92px;border-bottom:1px solid #dce0d9}
+.realDemo .liveSite.liveSite .siteLogo{min-width:0;text-align:left;justify-content:flex-start}.realDemo .liveSite.liveSite .siteLogo>span{display:grid;gap:2px}.realDemo .liveSite.liveSite .siteLogo small{max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.realDemo .liveSite.liveSite nav{gap:24px;flex-wrap:wrap}.realDemo .liveSite.liveSite .siteHero{padding:64px 32px;gap:48px;align-items:center;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.realDemo .liveSite.liveSite .siteHero>.mediaThumb{height:440px;width:100%;border-radius:var(--site-radius);overflow:hidden}.realDemo .liveSite.liveSite .siteHero p{max-width:580px;margin:0 0 26px}
+.realDemo .liveSite.liveSite .mediaThumb{background-image:none!important;overflow:hidden}.realDemo .liveSite.liveSite .mediaThumb svg{display:block;width:100%;height:100%}
+.realDemo .liveSite.liveSite :is(.contentShowcase,.businessServices,.commerceCatalog,.siteSubpage){padding:64px 32px}.realDemo .liveSite.liveSite :is(.contentShowcase,.commerceCatalog) article{padding:18px;border:1px solid #dfe3dc}.realDemo .liveSite.liveSite :is(.contentShowcase,.commerceCatalog,.siteListing) .mediaThumb{height:260px}
+.realDemo .liveSite.liveSite>footer{padding:32px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;border-top:1px solid #dce0d9}
+.realDemo .liveSite.liveSite.template-luxe{background:#181c19;color:#f4f2ea}.realDemo .liveSite.liveSite.template-luxe :is(p,small,span){color:#c6cbc5}.realDemo .liveSite.liveSite.template-luxe :is(h1,h2,h3,strong){color:#faf9f4}
+.realDemo .liveSite.liveSite.template-gallery .commerceCatalog article{transform:none}.realDemo .liveSite.liveSite input,.realDemo .liveSite.liveSite select{padding:12px 14px!important;border-radius:8px!important}
+@container(max-width:760px){.realDemo .liveSite.liveSite .siteHero{grid-template-columns:1fr;padding:36px 22px;gap:28px}.realDemo .liveSite.liveSite .siteHero>.mediaThumb{height:320px}.realDemo .liveSite.liveSite :is(.contentShowcase,.businessServices,.commerceCatalog)>div{grid-template-columns:1fr}.realDemo .liveSite.liveSite>header{display:flex!important;flex-wrap:wrap;padding:20px 22px}.realDemo .liveSite.liveSite>header nav{order:3;width:100%;gap:18px;position:static;transform:none}.realDemo .liveSite.liveSite :is(.contentShowcase,.businessServices,.commerceCatalog,.siteSubpage){padding:40px 22px}}

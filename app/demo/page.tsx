@@ -242,6 +242,20 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
   const [draft, setDraft] = useState(entity);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [blockOrder, setBlockOrder] = useState(["excerpt", "text", "image"]);
+  function reorderBlock(id: string, offset: number) {
+    setBlockOrder(order => {
+      const next = [...order];
+      const index = next.indexOf(id);
+      const target = index + offset;
+      if (index < 0 || target < 0 || target >= next.length) return order;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+  function blockControls(id: string) {
+    const index = blockOrder.indexOf(id);
+    return <nav className="blockOrderActions" aria-label="Порядок блока"><button type="button" title="Переместить выше" aria-label="Переместить блок выше" disabled={index === 0} onClick={() => reorderBlock(id, -1)}><PanelIcon name="chevron" /></button><button type="button" title="Переместить ниже" aria-label="Переместить блок ниже" disabled={index === blockOrder.length - 1} onClick={() => reorderBlock(id, 1)}><PanelIcon name="chevron" /></button></nav>;
+  }
   const [draggedBlock, setDraggedBlock] = useState<string | null>(null);
   const [codeBlock, setCodeBlock] = useState(false);
   const [blockPickerOpen, setBlockPickerOpen] = useState(false);
@@ -308,9 +322,9 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
       {entity.kind === "brands" && <BrandFields draft={draft} update={update} />}
       <div className="fieldCard contentBlocks">
         <header><div><small>КОНТЕНТ СТРАНИЦЫ</small><h2>Блочный редактор</h2></div><button onClick={() => setBlockPickerOpen(value => !value)}><PanelIcon name="plus" /> Добавить блок</button></header>
-        <article className="contentBlock" {...blockProps("excerpt")}><i title="Перетащите блок">⋮⋮</i><div><small>КРАТКОЕ ОПИСАНИЕ</small><textarea value={draft.excerpt} onChange={event => update("excerpt", event.target.value)} rows={3} placeholder="Описание для карточки и анонса" /></div><button onClick={() => setBlockOrder(order => [...order.slice(1), order[0]])}>↓</button></article>
-        <article className="contentBlock richBlock" {...blockProps("text")}><i title="Перетащите блок">⋮⋮</i><div><small>ОСНОВНОЙ ТЕКСТ</small><RichTextField value={draft.body} onChange={value => update("body", value)} onOpenCode={() => addBlock("code")} /></div><button onClick={() => setBlockOrder(order => [...order.slice(1), order[0]])}>↓</button></article>
-        <article className="contentBlock imageBlock" {...blockProps("image")}><i title="Перетащите блок">⋮⋮</i><div><small>ИЗОБРАЖЕНИЕ</small><MediaThumb index={draft.image} large /><span>{mediaItems[draft.image]?.name}<button onClick={() => setMediaOpen(true)}>Заменить</button></span></div><button onClick={() => setBlockOrder(order => [...order.slice(1), order[0]])}>↓</button></article>
+        <article className="contentBlock" {...blockProps("excerpt")}><i title="Перетащите блок">⋮⋮</i><div><small>КРАТКОЕ ОПИСАНИЕ</small><textarea value={draft.excerpt} onChange={event => update("excerpt", event.target.value)} rows={3} placeholder="Описание для карточки и анонса" /></div>{blockControls("excerpt")}</article>
+        <article className="contentBlock richBlock" {...blockProps("text")}><i title="Перетащите блок">⋮⋮</i><div><small>ОСНОВНОЙ ТЕКСТ</small><RichTextField value={draft.body} onChange={value => update("body", value)} onOpenCode={() => addBlock("code")} /></div>{blockControls("text")}</article>
+        <article className="contentBlock imageBlock" {...blockProps("image")}><i title="Перетащите блок">⋮⋮</i><div><small>ИЗОБРАЖЕНИЕ</small><MediaThumb index={draft.image} large /><span>{mediaItems[draft.image]?.name}<button onClick={() => setMediaOpen(true)}>Заменить</button></span></div>{blockControls("image")}</article>
         {(draft.blocks || []).map((block, index) => <article className={`contentBlock customContentBlock type-${block.type}`} style={{ order: 10 + index }} key={block.id}><i title="Пользовательский блок">{block.type === "heading" ? "T" : block.type === "gallery" ? "▧" : block.type === "button" ? "↗" : block.type === "form" ? "☷" : "⌘"}</i><div><small>{block.type === "heading" ? "ЗАГОЛОВОК" : block.type === "gallery" ? "ГАЛЕРЕЯ" : block.type === "button" ? "КНОПКА" : block.type === "form" ? "ФОРМА" : "HTML / КОД"}</small><input value={block.title} onChange={event => updateBlock(block.id, "title", event.target.value)} aria-label="Название блока" />{block.type === "code" ? <textarea className="blockCodeEditor" spellCheck={false} rows={7} value={block.content} onChange={event => updateBlock(block.id, "content", event.target.value)} aria-label="HTML-код блока" /> : <textarea rows={3} value={block.content} onChange={event => updateBlock(block.id, "content", event.target.value)} aria-label="Содержимое блока" />}{block.type === "gallery" && <div className="blockGalleryPreview">{[0,1,2].map(item => <MediaThumb index={item} key={item} />)}</div>}{block.type === "form" && <div className="blockFormPreview"><input readOnly placeholder="Имя" /><input readOnly placeholder="Телефон" /><button type="button">Отправить</button></div>}</div><button aria-label="Удалить блок" onClick={() => removeBlock(block.id)}><PanelIcon name="close" /></button></article>)}
         {codeBlock && <article className="contentBlock codeBlock" style={{ order: 20 }}><i>⌘</i><div><small>HTML / CSS / КОД ВИДЖЕТА</small><textarea spellCheck={false} value={customCode} onChange={event => setCustomCode(event.target.value)} rows={9} /><p>Код хранится как отдельный безопасный блок. В рабочей CMS права на script и iframe задаются политикой проекта.</p></div><button onClick={() => setCodeBlock(false)}><PanelIcon name="close" /></button></article>}
         {blockPickerOpen && <div className="blockPicker"><button onClick={() => addBlock("heading")}>T Заголовок</button><button onClick={() => addBlock("gallery")}>▧ Галерея</button><button onClick={() => addBlock("button")}>↗ Кнопка</button><button onClick={() => addBlock("form")}>☷ Форма</button><button onClick={() => addBlock("code")}>{"</>"} HTML / код</button></div>}

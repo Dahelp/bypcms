@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import WorkspaceIcon from "../components/WorkspaceIcon";
 import ConceptManager from "./ConceptManager";
 import "./admin.css";
 import "./readable.css";
@@ -299,7 +300,7 @@ export default function AdminPage() {
             {error && <div className="formError">{error}</div>}
             <label>Email<input type="email" name="email" autoComplete="username" required /></label>
             <label>Пароль<input type="password" name="password" autoComplete="current-password" required /></label>
-            <button type="submit">Войти в панель <b>→</b></button>
+            <button type="submit">Войти в панель <b><WorkspaceIcon symbol="→"/></b></button>
             <a href="/install/">Установщик системы</a>
           </form>
         </section>
@@ -314,29 +315,29 @@ export default function AdminPage() {
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, icon, label]) => (
             <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
-              <i>{icon}</i><span>{label}</span>
+              <i><WorkspaceIcon symbol={icon}/></i><span>{label}</span>
             </button>
           ))}
         </nav>
         <div className="cmsUser">
           <span>{user.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}</span>
           <div><strong>{user.name}</strong><small>{user.role_name}</small></div>
-          <button type="button" onClick={logout} aria-label="Выйти">↗</button>
+          <button type="button" onClick={logout} aria-label="Выйти"><WorkspaceIcon symbol="↗"/></button>
         </div>
       </aside>
 
       <section className="cmsMain">
         <header className="cmsTopbar">
           <div><span className="projectBadge">B</span><p><strong>BYPCMS Platform</strong><small>production · core {dashboard?.health.core ?? "2.0.0"}</small></p></div>
-          <div><a href="/" target="_blank">Открыть сайт ↗</a></div>
+          <div><a href="/" target="_blank">Открыть сайт <WorkspaceIcon symbol="↗"/></a></div>
         </header>
 
         <div className="cmsContent">
           <div className="cmsHeading">
             <div><p>ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>{pageTitle}</h1><span>{notice || "Все системы работают штатно"}</span></div>
-            {active === "content" && <button type="button" onClick={() => setCreateOpen(true)}>＋ Создать страницу</button>}
+            {active === "content" && <button type="button" onClick={() => setCreateOpen(true)}><WorkspaceIcon symbol="＋"/> Создать страницу</button>}
           </div>
-          {error && <div className="systemError">{error}<button type="button" onClick={() => setError("")}>×</button></div>}
+          {error && <div className="systemError">{error}<button type="button" onClick={() => setError("")}><WorkspaceIcon symbol="×"/></button></div>}
 
           {active === "overview" && (
             <>
@@ -357,7 +358,7 @@ export default function AdminPage() {
 
               <div className="dashboardPanels">
                 <article className="recentPanel">
-                  <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><button type="button" onClick={() => setActive("content")}>Все страницы →</button></header>
+                  <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><button type="button" onClick={() => setActive("content")}>Все страницы <WorkspaceIcon symbol="→"/></button></header>
                   <div className="tableRows">
                     {(dashboard?.recent_pages ?? []).length === 0 && <div className="emptyRow">Создайте первую страницу</div>}
                     {(dashboard?.recent_pages ?? []).map((page) => (
@@ -431,12 +432,12 @@ export default function AdminPage() {
       {createOpen && (
         <div className="modalShade" onMouseDown={() => setCreateOpen(false)}>
           <form className="createModal" onSubmit={createPage} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div><button type="button" onClick={() => setCreateOpen(false)}>×</button></header>
+            <header><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div><button type="button" onClick={() => setCreateOpen(false)}><WorkspaceIcon symbol="×"/></button></header>
             <label>Заголовок<input name="title" required placeholder="Например, О компании" /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" placeholder="about" /></label>
             <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
             <label>Статус<select name="status"><option value="draft">Черновик</option><option value="published">Опубликовать</option></select></label>
-            <button type="submit" className="saveButton">Создать страницу →</button>
+            <button type="submit" className="saveButton">Создать страницу <WorkspaceIcon symbol="→"/></button>
           </form>
         </div>
       )}
@@ -444,14 +445,14 @@ export default function AdminPage() {
       {editingPage && (
         <div className="modalShade" onMouseDown={() => setEditingPage(null)}>
           <form className="createModal" onSubmit={updatePage} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div><button type="button" onClick={() => setEditingPage(null)}>×</button></header>
+            <header><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div><button type="button" onClick={() => setEditingPage(null)}><WorkspaceIcon symbol="×"/></button></header>
             <label>Заголовок<input name="title" required defaultValue={editingPage.title} /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" defaultValue={editingPage.slug} /></label>
             <label>Описание<textarea name="excerpt" rows={5} defaultValue={editingPage.excerpt || ""} /></label>
             <label>Содержимое страницы<textarea name="content" rows={10} defaultValue={editingPage.content || ""} placeholder="Основной текст страницы. Можно использовать HTML-разметку." /></label>
             <label>Шаблон<select name="template" defaultValue={editingPage.template || "default"}><option value="default">Стандартная</option><option value="landing">Лендинг</option><option value="catalog">Каталог</option><option value="services">Услуги</option><option value="order">Заказ</option><option value="demo">Демонстрация</option></select></label>
             <label>Статус<select name="status" defaultValue={editingPage.status}><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="archived">Архив</option></select></label>
-            <button type="submit" className="saveButton">Сохранить изменения →</button>
+            <button type="submit" className="saveButton">Сохранить изменения <WorkspaceIcon symbol="→"/></button>
           </form>
         </div>
       )}
@@ -459,12 +460,12 @@ export default function AdminPage() {
       {editingModule && (
         <div className="modalShade" onMouseDown={() => setEditingModule(null)}>
           <form className="createModal" onSubmit={saveModuleSettings} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div><button type="button" onClick={() => setEditingModule(null)}>×</button></header>
+            <header><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div><button type="button" onClick={() => setEditingModule(null)}><WorkspaceIcon symbol="×"/></button></header>
             <p className="moduleMeta">Ключ: <code>{editingModule.module_key}</code> · версия {editingModule.version}</p>
             <label className="checkSetting"><input name="notifications" type="checkbox" defaultChecked /> Системные уведомления модуля</label>
             <label className="checkSetting"><input name="public_access" type="checkbox" /> Разрешить публичные API-методы</label>
             <label>Записей на странице<input name="records_per_page" type="number" min="5" max="100" defaultValue="20" /></label>
-            <button type="submit" className="saveButton">Сохранить настройки →</button>
+            <button type="submit" className="saveButton">Сохранить настройки <WorkspaceIcon symbol="→"/></button>
           </form>
         </div>
       )}

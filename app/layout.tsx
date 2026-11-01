@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./panel-system.css";
+import "./workspace-common.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(

@@ -1,0 +1,27 @@
+/* Shared owner/admin primitives; scope uses the actual /admin root: .cms. */
+:is(.ownerGate,.loginScreen) :is(label,a,p,em){font-size:15px!important;line-height:1.6!important;font-weight:400!important}:is(.ownerGate,.loginScreen) small{font-size:13px!important;letter-spacing:normal!important}
+.ownerApp .ownerTable header>button{font-size:14px!important;padding:10px 14px!important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.ownerApp .quickActions>button{gap:14px!important;min-height:74px;align-items:center;padding:16px 0!important}
+.ownerApp .ownerServices :is(p,small){letter-spacing:normal!important;line-height:1.6!important}.ownerApp .ownerServices small{display:block;margin-top:5px}
+:is(.cms,.ownerApp,.ownerGate,.loginScreen){--workspace-accent:#52675e;font-family:"Segoe UI",Arial,sans-serif!important;font-size:15px;line-height:1.5;color:#26362d}
+:is(.cms,.ownerApp,.ownerGate,.loginScreen) :is(button,input,textarea,select,a,label,span,small,p,b,strong,h1,h2,h3){font-family:"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important}
+:is(.cms,.ownerApp) :is(input,textarea,select){font-size:15px!important;font-weight:400!important;line-height:1.5!important;min-height:44px;border:1px solid #ccd5ce;border-radius:8px;padding:11px 14px!important;background:#fff;color:#303d33}
+:is(.cms,.ownerApp) select{padding-right:38px!important}:is(.cms,.ownerApp) :is(input[type=checkbox],input[type=radio]){min-height:0;width:18px;height:18px;padding:0!important;accent-color:#52675e}
+:is(.cms,.ownerApp) small,:is(.cms,.ownerApp) time{font-size:13px!important;line-height:1.5!important;font-weight:400!important;letter-spacing:0!important}
+:is(.cms,.ownerApp) :is(b,strong,label){font-weight:600!important}:is(.cms,.ownerApp) :is(h1,h2,h3){font-weight:600!important;line-height:1.3!important}:is(.cms,.ownerApp) h1{font-size:32px!important}:is(.cms,.ownerApp) h2{font-size:22px!important}
+:is(.cms,.ownerApp) button{font-size:14px!important;font-weight:500!important;line-height:1.4!important;border-radius:8px;min-height:38px}
+.workspaceIcon{display:inline-block;flex:0 0 18px;vertical-align:middle;margin:0 3px}
+:is(.cmsSidebar,.ownerSidebar) nav button{display:flex!important;align-items:center!important;gap:12px;padding:12px 14px!important;min-height:46px!important;text-align:left}
+:is(.cmsSidebar,.ownerSidebar) nav button>i{width:22px;display:grid;place-items:center;font-style:normal}:is(.cmsSidebar,.ownerSidebar) nav button>em{margin-left:auto}
+:is(.cmsSidebar,.ownerSidebar){background:#252b29!important}:is(.cmsSidebar,.ownerSidebar) nav button.active{background:#39433e!important;color:#fff!important}
+:is(.cmsContent,.ownerContent){padding:36px 32px!important}:is(.cmsHeading,.ownerHeading){align-items:center;gap:24px;margin-bottom:28px}
+:is(.cmsTopbar,.ownerMain>header){min-height:76px;align-items:center;padding:16px 28px;gap:20px;border-bottom:1px solid #e0e5df;background:#fff}
+:is(.cmsHeading,.ownerHeading) button,:is(.cmsTopbar,.ownerMain>header) a{display:inline-flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;padding:11px 16px!important}
+.ownerMain>header>.panelSearchControl{width:min(480px,100%)}
+.ownerModal{padding:28px!important}.ownerModal>header{align-items:center;margin-bottom:24px!important;padding-bottom:20px!important}.ownerModal :is(label,.formGrid){gap:8px}.ownerModal label{margin-top:14px}.ownerModal>footer{padding-top:24px;gap:12px}
+.ownerServices>div,.ownerLicenses>div,.taskRow,.taskOverviewRow,.clientManager>div{align-items:center!important;column-gap:18px!important;padding-block:18px!important}
+.ownerServices button,.ownerLicenses button,.taskRow button,.clientManager button{padding:10px 14px!important;white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.cms :is(table td,table th){padding:16px 20px!important;vertical-align:middle;text-align:left}.cms :is(.contentRow,.moduleRow){align-items:center;gap:18px;padding-block:16px}
+:is(.ownerTable,.quickActions,.ownerKpis article,.cms article){border-color:#dfe5de;border-radius:12px}
+.ownerGate :is(input,button),.loginScreen :is(input,button){font:400 15px/1.5 "Segoe UI",Arial,sans-serif!important;min-height:44px}.ownerGate form>button,.loginScreen form>button{background:#52675e!important;display:flex;align-items:center;justify-content:center;gap:10px}
+@media(max-width:750px){:is(.cmsContent,.ownerContent){padding:24px 16px!important}:is(.cmsHeading,.ownerHeading){flex-wrap:wrap}.ownerModal{padding:20px!important}}

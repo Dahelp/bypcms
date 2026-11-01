@@ -1,4 +1,14 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.realDemo.realDemo .slugField{display:flex;align-items:stretch;border:1px solid #cfd6d0;border-radius:8px;overflow:hidden;background:#fff}
+.realDemo.realDemo .slugField>span{display:flex;align-items:center;padding:10px 13px;border-right:1px solid #d7ddd7;white-space:nowrap;background:#f0f2ef}
+.realDemo.realDemo .slugField>input{min-width:0;flex:1;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0}
+.realDemo.realDemo .revisionCard{padding:24px!important}
+.realDemo.realDemo .revisionCard>small{display:block;margin-bottom:8px}
+.realDemo.realDemo .revisionCard>h3{font-size:19px;margin:0 0 20px;line-height:1.4}
+.realDemo.realDemo .revisionCard>button{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;column-gap:14px;width:100%;min-height:70px;padding:17px 0;text-align:left;line-height:1.6;border-top:1px solid #e5e9e4;background:transparent}
+.realDemo.realDemo .revisionCard>button>i{display:grid;place-items:center;width:28px;height:28px;border-radius:6px;background:#f0f3ef;color:#68796c;font-style:normal;font-size:13px}
+.realDemo.realDemo .revisionCard>button>span{padding-left:12px;font-size:13px;white-space:nowrap;color:#52675e}
+@media(max-width:1100px){.realDemo.realDemo .revisionCard>button{grid-template-columns:28px minmax(0,1fr);row-gap:10px}.realDemo.realDemo .revisionCard>button>span{grid-column:2;padding-left:0}}
 .panelSearchControl.panelSearchControl{display:flex!important;align-items:center;gap:10px;width:280px;min-width:0!important;height:44px;padding:0 13px!important;border:1px solid #d3dad5!important;border-radius:8px;background:#fff!important;color:#758078;font:400 14px "Segoe UI",Arial,sans-serif;box-shadow:none!important;outline:none!important;text-align:left}
 .panelSearchControl>svg{flex:0 0 18px;margin:0!important}.panelSearchControl>span{white-space:nowrap}
 .panelSearchControl.panelSearchControl input{width:100%;min-width:0;border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;min-height:40px!important;font-weight:400!important;box-shadow:none!important;outline:none!important}

@@ -1,4 +1,10 @@
 /* Shared workspace visual language. Public templates retain their own identity. */
+.realDemo.realDemo .seoEditorLayout>aside{display:flex;flex-direction:column;gap:18px;min-width:0;align-self:start}
+.realDemo.realDemo .searchPreview{min-width:0;padding:22px}
+.realDemo.realDemo .searchPreview>small{display:block;margin:0 0 14px;line-height:1.5}
+.realDemo.realDemo .searchPreview>span{display:block;margin:0 0 10px;overflow-wrap:anywhere;font-size:14px;line-height:1.6;color:#52675e}
+.realDemo.realDemo .searchPreview>h3{margin:0 0 10px;font-size:21px;line-height:1.35}
+.realDemo.realDemo .searchPreview>p{margin:0;line-height:1.65;overflow-wrap:anywhere}
 .realDemo.realDemo .slugField{display:flex;align-items:stretch;border:1px solid #cfd6d0;border-radius:8px;overflow:hidden;background:#fff}
 .realDemo.realDemo .slugField>span{display:flex;align-items:center;padding:10px 13px;border-right:1px solid #d7ddd7;white-space:nowrap;background:#f0f2ef}
 .realDemo.realDemo .slugField>input{min-width:0;flex:1;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0}

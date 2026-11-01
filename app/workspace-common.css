@@ -20,6 +20,7 @@
 :is(.cms,.ownerApp) :is(b,strong,label){font-weight:600!important}:is(.cms,.ownerApp) :is(h1,h2,h3){font-weight:600!important;line-height:1.3!important}:is(.cms,.ownerApp) h1{font-size:32px!important}:is(.cms,.ownerApp) h2{font-size:22px!important}
 :is(.cms,.ownerApp) button{font-size:14px!important;font-weight:500!important;line-height:1.4!important;border-radius:8px;min-height:38px}
 .workspaceIcon{display:inline-block;flex:0 0 18px;vertical-align:middle;margin:0 3px}
+.workspaceIconBack{transform:rotate(180deg)}
 :is(.cmsSidebar,.ownerSidebar) nav button{display:flex!important;align-items:center!important;gap:12px;padding:12px 14px!important;min-height:46px!important;text-align:left}
 :is(.cmsSidebar,.ownerSidebar) nav button>i{width:22px;display:grid;place-items:center;font-style:normal}:is(.cmsSidebar,.ownerSidebar) nav button>em{margin-left:auto}
 :is(.cmsSidebar,.ownerSidebar){background:#252b29!important}:is(.cmsSidebar,.ownerSidebar) nav button.active{background:#39433e!important;color:#fff!important}

@@ -21,11 +21,11 @@ type DashboardData = {
 };
 
 const navigation = [
-  ["overview", "⌂", "Обзор"],
-  ["content", "▤", "Контент"],
-  ["concepts", "◈", "Концепции"],
-  ["modules", "◇", "Модули"],
-  ["settings", "⚙", "Настройки"],
+  ["overview", "Обзор"],
+  ["content", "Контент"],
+  ["concepts", "Концепции"],
+  ["modules", "Модули"],
+  ["settings", "Настройки"],
 ];
 
 async function api<T>(
@@ -281,7 +281,7 @@ export default function AdminPage() {
   }
 
   const pageTitle = useMemo(
-    () => navigation.find(([key]) => key === active)?.[2] ?? "Обзор",
+    () => navigation.find(([key]) => key === active)?.[1] ?? "Обзор",
     [active],
   );
   function selectSection(section:string){setActive(section);const url=new URL(window.location.href);if(section==="overview")url.searchParams.delete("section");else url.searchParams.set("section",section);window.history.pushState({},"",url);}
@@ -323,7 +323,7 @@ export default function AdminPage() {
       <aside className="cmsSidebar">
         <Link href="/" className="cmsBrand"><span>B</span><strong>BYPCMS</strong></Link>
         <nav aria-label="Разделы CMS">
-          {navigation.map(([key, icon, label]) => (
+          {navigation.map(([key, label]) => (
             <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
               <i><WorkspaceIcon symbol={key}/></i><span>{label}</span>
             </button>
@@ -360,10 +360,10 @@ export default function AdminPage() {
               </div>
 
               <div className="metrics">
-                <article><span>▤</span><p>Всего страниц<strong>{dashboard?.counts.pages ?? 0}</strong><small>{dashboard?.counts.published ?? 0} опубликовано</small></p></article>
-                <article><span>◇</span><p>Активные модули<strong>{dashboard?.counts.modules ?? 0}</strong><small>из {modules.length} установленных</small></p></article>
-                <article><span>◎</span><p>Новые обращения<strong>{dashboard?.counts.submissions ?? 0}</strong><small>требуют обработки</small></p></article>
-                <article><span>♙</span><p>Пользователи<strong>{dashboard?.counts.users ?? 0}</strong><small>активных аккаунтов</small></p></article>
+                <article><span><WorkspaceIcon symbol="content"/></span><p>Всего страниц<strong>{dashboard?.counts.pages ?? 0}</strong><small>{dashboard?.counts.published ?? 0} опубликовано</small></p></article>
+                <article><span><WorkspaceIcon symbol="modules"/></span><p>Активные модули<strong>{dashboard?.counts.modules ?? 0}</strong><small>из {modules.length} установленных</small></p></article>
+                <article><span><WorkspaceIcon symbol="leads"/></span><p>Новые обращения<strong>{dashboard?.counts.submissions ?? 0}</strong><small>требуют обработки</small></p></article>
+                <article><span><WorkspaceIcon symbol="users"/></span><p>Пользователи<strong>{dashboard?.counts.users ?? 0}</strong><small>активных аккаунтов</small></p></article>
               </div>
 
               <div className="dashboardPanels">
@@ -407,7 +407,7 @@ export default function AdminPage() {
               <div className="moduleGrid">
                 {modules.map((module) => (
                   <article key={module.module_key}>
-                    <span className="moduleIcon">{module.name[0]}</span>
+                    <span className="moduleIcon"><WorkspaceIcon symbol="modules"/></span>
                     <div><h3>{module.name}</h3><p>{module.module_key} · v{module.version}</p></div>
                     <div className="moduleActions"><button type="button" className={module.status} onClick={() => void toggleModule(module)}>{module.status === "active" ? "Включён" : "Выключен"}</button><button type="button" onClick={() => setEditingModule(module)}>Настроить</button></div>
                   </article>

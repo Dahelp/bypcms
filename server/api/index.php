@@ -486,7 +486,7 @@ try {
             $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
             if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
             $topDirectory = explode('/', $relative)[0];
-            if (in_array($topDirectory, ['owner','demo','portfolio','services','modules','order','concepts','concept-example','nuovi-spazi-proposal','ballettschule-salzburg-konzept','ballet-salzburg-proposal'], true)) continue;
+            if (in_array($topDirectory, ['account','owner','demo','portfolio','services','modules','order','concepts','concept-example','nuovi-spazi-proposal','ballettschule-salzburg-konzept','ballet-salzburg-proposal'], true)) continue;
             if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
             $zip->addFile($full, 'site/' . $relative);
         }

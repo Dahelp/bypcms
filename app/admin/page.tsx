@@ -284,7 +284,7 @@ export default function AdminPage() {
     () => navigation.find(([key]) => key === active)?.[1] ?? "Обзор",
     [active],
   );
-  function selectSection(section:string){setActive(section);const url=new URL(window.location.href);if(section==="overview")url.searchParams.delete("section");else url.searchParams.set("section",section);window.history.pushState({},"",url);}
+  function selectSection(section:string){setCreateOpen(false);setEditingPage(null);setEditingModule(null);setActive(section);const url=new URL(window.location.href);if(section==="overview")url.searchParams.delete("section");else url.searchParams.set("section",section);window.history.pushState({},"",url);}
 
   if (loading) {
     return <main className="adminLoading"><span>B</span><p>Проверяем BYPCMS…</p></main>;
@@ -324,7 +324,7 @@ export default function AdminPage() {
         <Link href="/" className="cmsBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Admin</i></Link>
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, label]) => (
-            <button type="button" key={key} className={active === key ? "active" : ""} onClick={() => selectSection(key)}>
+            <button type="button" key={key} className={(createOpen||editingPage?"content":editingModule?"modules":active) === key ? "active" : ""} onClick={() => selectSection(key)}>
               <i><WorkspaceIcon symbol={key}/></i><span>{label}</span>
             </button>
           ))}
@@ -342,7 +342,7 @@ export default function AdminPage() {
           <div><NotificationDropdown /><a href="/" target="_blank">Открыть сайт <WorkspaceIcon symbol="↗"/></a></div>
         </header>
 
-        <div className="cmsContent">
+        <div className={`cmsContent ${createOpen||editingPage||editingModule?"editorRouteOpen":""}`}>
           <div className="cmsHeading">
             <div><p>ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>{pageTitle}</h1><span>{notice || "Все системы работают штатно"}</span></div>
             {active === "content" && <button type="button" onClick={() => setCreateOpen(true)}><WorkspaceIcon symbol="＋"/> Создать страницу</button>}
@@ -437,12 +437,11 @@ export default function AdminPage() {
             </section>
           )}
         </div>
-      </section>
 
       {createOpen && (
-        <div className="modalShade" onMouseDown={() => setCreateOpen(false)}>
-          <form className="createModal" onSubmit={createPage} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div><button type="button" onClick={() => setCreateOpen(false)}><WorkspaceIcon symbol="×"/></button></header>
+        <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
+          <form className="cmsEditorForm workspaceEditorForm" onSubmit={createPage}>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div></header>
             <label>Заголовок<input name="title" required placeholder="Например, О компании" /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" placeholder="about" /></label>
             <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
@@ -453,9 +452,9 @@ export default function AdminPage() {
       )}
 
       {editingPage && (
-        <div className="modalShade" onMouseDown={() => setEditingPage(null)}>
-          <form className="createModal" onSubmit={updatePage} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div><button type="button" onClick={() => setEditingPage(null)}><WorkspaceIcon symbol="×"/></button></header>
+        <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
+          <form className="cmsEditorForm workspaceEditorForm" onSubmit={updatePage}>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div></header>
             <label>Заголовок<input name="title" required defaultValue={editingPage.title} /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" defaultValue={editingPage.slug} /></label>
             <label>Описание<textarea name="excerpt" rows={5} defaultValue={editingPage.excerpt || ""} /></label>
@@ -468,9 +467,9 @@ export default function AdminPage() {
       )}
 
       {editingModule && (
-        <div className="modalShade" onMouseDown={() => setEditingModule(null)}>
-          <form className="createModal" onSubmit={saveModuleSettings} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div><button type="button" onClick={() => setEditingModule(null)}><WorkspaceIcon symbol="×"/></button></header>
+        <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
+          <form className="cmsEditorForm workspaceEditorForm" onSubmit={saveModuleSettings}>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("modules")}><WorkspaceIcon symbol="←"/> К модулям</button><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div></header>
             <p className="moduleMeta">Ключ: <code>{editingModule.module_key}</code> · версия {editingModule.version}</p>
             <label className="checkSetting"><input name="notifications" type="checkbox" defaultChecked /> Системные уведомления модуля</label>
             <label className="checkSetting"><input name="public_access" type="checkbox" /> Разрешить публичные API-методы</label>
@@ -479,6 +478,7 @@ export default function AdminPage() {
           </form>
         </div>
       )}
+      </section>
     </main>
   );
 }

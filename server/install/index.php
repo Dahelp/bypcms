@@ -12,6 +12,17 @@ $_SESSION['install_csrf'] ??= bin2hex(random_bytes(24));
 $installed = is_file(CONFIG_PATH);
 $errors = [];
 $success = false;
+$manifest = is_file(ROOT_PATH . '/build-manifest.json')
+    ? json_decode((string)file_get_contents(ROOT_PATH . '/build-manifest.json'), true) : null;
+$edition = strtolower((string)($manifest['edition'] ?? 'business'));
+if (!in_array($edition, ['content', 'business', 'commerce'], true)) {
+    $errors[] = 'Некорректная редакция в manifest сборки.';
+}
+$moduleNames = ['content'=>'Контент','seo'=>'SEO Pro','forms'=>'Формы и CRM','analytics'=>'Аналитика','payments'=>'Платежи','reviews'=>'Отзывы','delivery'=>'Доставка','faq'=>'Вопросы и ответы','commerce'=>'Магазин','updates'=>'Обновления','automation'=>'Автоматизация'];
+$packageModules = is_array($manifest['modules'] ?? null) ? $manifest['modules'] : ['content','seo','forms','analytics','automation','updates'];
+foreach ($packageModules as $moduleKey) {
+    if (!is_string($moduleKey) || !isset($moduleNames[$moduleKey])) $errors[] = 'Сборка содержит неизвестный модуль.';
+}
 
 function field(string $name, string $default = ''): string
 {
@@ -31,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
     $siteName = trim((string)($_POST['site_name'] ?? 'BYPCMS'));
     $siteUrl = rtrim(trim((string)($_POST['site_url'] ?? '')), '/');
     $adminName = trim((string)($_POST['admin_name'] ?? 'Администратор'));
-    $adminEmail = mb_strtolower(trim((string)($_POST['admin_email'] ?? '')));
+    $adminEmail = strtolower(trim((string)($_POST['admin_email'] ?? '')));
     $adminPassword = (string)($_POST['admin_password'] ?? '');
 
     if ($dbName === '' || $dbUser === '') {
@@ -120,14 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                  VALUES (:module_key, :name, "1.0.0", "active", :manifest, "{}", NOW(), NOW())
                  ON DUPLICATE KEY UPDATE name=VALUES(name), version=VALUES(version), updated_at=NOW()'
             );
-            foreach ([
-                ['content', 'Контент'],
-                ['seo', 'SEO Toolkit'],
-                ['forms', 'Формы'],
-                ['analytics', 'Аналитика'],
-                ['automation', 'Автоматизация'],
-                ['updates', 'Обновления'],
-            ] as [$key, $name]) {
+            foreach ($packageModules as $key) {
+                $name = $moduleNames[$key];
                 $moduleStatement->execute([
                     'module_key' => $key,
                     'name' => $name,
@@ -155,14 +160,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 ]);
             }
 
+            if (is_array($manifest)) {
+                $starter = $pdo->prepare('INSERT INTO byp_pages (author_id,slug,title,excerpt,content,blocks,template,status,published_at,created_at,updated_at) SELECT :author,:slug,:title,:excerpt,:content,"[]","page","published",NOW(),NOW(),NOW() WHERE NOT EXISTS (SELECT 1 FROM byp_pages WHERE slug=:existing)');
+                foreach ([['about','О компании'],['contacts','Контакты'],[$edition==='content'?'journal':($edition==='commerce'?'catalog':'services'),$edition==='content'?'Журнал':($edition==='commerce'?'Каталог':'Услуги')]] as [$starterSlug,$starterTitle]) {
+                    $starter->execute(['author'=>$adminId,'slug'=>$starterSlug,'existing'=>$starterSlug,'title'=>$starterTitle,'excerpt'=>$starterTitle.' — '.$siteName,'content'=>'Заполните содержание этой страницы в разделе «Контент» панели управления.']);
+                }
+            }
+
             if (!(int)$pdo->query('SELECT COUNT(*) FROM byp_licenses')->fetchColumn()) {
                 $licenseStatement = $pdo->prepare(
                     'INSERT INTO byp_licenses (edition, domain, status, entitlements, valid_until, created_at, updated_at)
-                     VALUES ("business", :domain, "trial", :entitlements, DATE_ADD(NOW(), INTERVAL 30 DAY), NOW(), NOW())'
+                     VALUES (:edition, :domain, "trial", :entitlements, DATE_ADD(NOW(), INTERVAL 30 DAY), NOW(), NOW())'
                 );
                 $licenseStatement->execute([
+                    'edition' => $edition,
                     'domain' => (string)(parse_url($siteUrl, PHP_URL_HOST) ?: ''),
-                    'entitlements' => json_encode(['core_updates', 'official_modules'], JSON_UNESCAPED_UNICODE),
+                    'entitlements' => json_encode($packageModules, JSON_UNESCAPED_UNICODE),
                 ]);
             }
 
@@ -179,6 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                     'version' => '2.0.0',
                     'debug' => false,
                     'key' => bin2hex(random_bytes(32)),
+                    'edition' => $edition,
+                    'modules' => $packageModules,
+                    'installation_type' => is_array($manifest) ? 'client' : 'platform',
                 ],
                 'database' => [
                     'host' => $dbHost,

@@ -484,10 +484,15 @@ try {
             if (!$file->isFile()) continue;
             $full = $file->getRealPath();
             $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
+            if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
+            $topDirectory = explode('/', $relative)[0];
+            if (in_array($topDirectory, ['owner','demo','portfolio','services','modules','order','concepts','concept-example','nuovi-spazi-proposal','ballettschule-salzburg-konzept','ballet-salzburg-proposal'], true)) continue;
             if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
             $zip->addFile($full, 'site/' . $relative);
         }
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
+        $zip->addFromString('site/index.php', "<?php\nrequire __DIR__ . '/_core/client-front.php';\n");
+        $zip->addFromString('site/.htaccess', "DirectoryIndex index.php\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
         $zip->addFromString('database.sql', implode(";\n\n", $schema) . ";\n");
         $zip->addFromString('build-manifest.json', json_encode([
             'product' => 'BYPCMS',
@@ -498,6 +503,11 @@ try {
             'created_at' => date(DATE_ATOM),
             'installer' => 'site/install/index.php',
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $zip->addFromString('site/build-manifest.json', json_encode([
+            'product' => 'BYPCMS', 'edition' => strtolower($edition),
+            'license_term' => $licenseTerm, 'modules' => $selected,
+            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $zip->addFromString('README.txt', "BYPCMS {$edition}\n\n1. Загрузите содержимое папки site на сервер.\n2. Откройте /install/.\n3. Укажите параметры MySQL и создайте владельца.\n");
         $zip->close();
         $moduleRows = $selected ? $db->all(

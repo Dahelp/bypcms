@@ -8,12 +8,14 @@ const source=readFileSync(new URL('../app/demo/editor-session.ts',import.meta.ur
 const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}});
 const module={exports:{}};
 new Function('require','module','exports',outputText)(createRequire(import.meta.url),module,module.exports);
-const {createEntity,prepareEntitySave,editorSessionKey,isPersistedEntity,readEditorSession,writeEditorSession,clearEditorSession,commitDemoEntity,cameFromEditor}=module.exports;
+const {createEntity,prepareEntitySave,editorSessionKey,isPersistedEntity,readEditorSession,writeEditorSession,clearEditorSession,commitDemoEntity,cameFromEditor,readNewEditorSession,writeNewEditorSession,clearNewEditorSession,writeSiteSnapshot,readSiteSnapshot}=module.exports;
 class MemoryStorage{
   values=new Map();fail=false;
   getItem(key){return this.values.get(key)??null;}
   setItem(key,value){if(this.fail)throw new Error('QuotaExceededError');this.values.set(key,value);}
   removeItem(key){this.values.delete(key);}
+  get length(){return this.values.size;}
+  key(index){return [...this.values.keys()][index]??null;}
 }
 const entity={id:12,kind:'articles',title:'Свет',slug:'/journal/light',body:'Saved body',excerpt:'Saved excerpt',seoTitle:'SEO',seoDescription:'Description',status:'Черновик',updated:'Сегодня',image:0};
 const context={edition:'content',kind:'articles',id:12};
@@ -60,7 +62,7 @@ test('working copies preserve editor data, active tab and scroll without saving 
   assert.equal(readEditorSession(storage,{...context,edition:'business'}),null);
 });
 
-test('new timestamp-based IDs do not enable preview until a successful commit',()=>{
+test('new timestamp-based IDs are not treated as saved records until a successful commit',()=>{
   const storage=new MemoryStorage();const draft={...entity,id:Date.now(),title:'Новый материал'};
   const payload={entities:[entity],settings:{siteName:'QA'}};
   assert.equal(isPersistedEntity(payload.entities,draft),false);
@@ -114,4 +116,52 @@ test('Close uses native history only when the previous document is the same edit
     assert.equal(cameFromEditor('',close,preview),false);
     assert.equal(cameFromEditor(base+'?edition=content&section=articles',close,preview),false);
   }
+});
+
+test('new-material preview restores a working copy on Back, reload or explicit Close without creating a record',()=>{
+  const storage=new MemoryStorage();const draft={...createEntity('articles'),title:'Unsaved new title',image:4};
+  const working=JSON.parse(JSON.stringify({...snapshot,draft,tab:'seo'}));const context={edition:'content',kind:'articles',id:draft.id};
+  storage.setItem('bypcms-real-demo-v1',JSON.stringify({entities:[]}));
+  writeNewEditorSession(storage,context,working);
+  assert.deepEqual(readNewEditorSession(storage,context,null,'back_forward'),working);
+  assert.deepEqual(readNewEditorSession(storage,context,null,'reload'),working);
+  assert.deepEqual(readNewEditorSession(storage,context,String(draft.id),'navigate'),working);
+  assert.equal(readNewEditorSession(storage,context,null,'navigate'),null);
+  assert.equal(readNewEditorSession(storage,context,String(draft.id+1),'navigate'),null);
+  assert.equal(readNewEditorSession(storage,{...context,kind:'pages'},String(draft.id),'navigate'),null);
+  assert.deepEqual(JSON.parse(storage.getItem('bypcms-real-demo-v1')).entities,[]);
+  clearNewEditorSession(storage,context);assert.equal(readNewEditorSession(storage,context,null,'back_forward'),null);
+});
+
+test('Close from an unsaved preview uses native history only for the matching new editor',()=>{
+  const editor='https://demo.bypcms.ru/?edition=content&section=articles&editor=new';
+  const close='?edition=content&section=articles&editor=new&draft=123456789';
+  const preview=editor+'&draft=123456789&previewDraft=123456789';
+  assert.equal(cameFromEditor(editor,close,preview),true);
+  assert.equal(cameFromEditor(editor+'&draft=123456789',close,preview),true);
+  assert.equal(cameFromEditor(editor+'&draft=987654321',close,preview),false);
+  assert.equal(cameFromEditor(editor.replace('articles','pages'),close,preview),false);
+  assert.equal(cameFromEditor(preview,close,preview),false);
+});
+
+test('opening the saved site in another tab copies committed data only into a bounded disposable snapshot',()=>{
+  const storage=new MemoryStorage();storage.setItem('bypcms-real-demo-v1','committed');storage.setItem('bypcms-demo-seo-preferences-v1','preferences');
+  const payload={entities:[entity],theme:{accent:'#555'},settings:{siteName:'Site'}};
+  writeSiteSnapshot(storage,'snapshot-one',payload);
+  assert.deepEqual(JSON.parse(readSiteSnapshot(storage,'snapshot-one')),payload);
+  assert.equal(storage.getItem('bypcms-real-demo-v1'),'committed');
+  for(let id=0;id<12;id++)writeSiteSnapshot(storage,`snapshot-${id}`,payload);
+  assert.equal([...storage.values.keys()].filter(key=>key.startsWith('bypcms-demo-site-preview-v1:')).length,8);
+  assert.equal(storage.getItem('bypcms-demo-seo-preferences-v1'),'preferences');
+  assert.equal(readSiteSnapshot(storage,'../../invalid'),null);
+  storage.setItem('bypcms-demo-site-preview-v1:expired-one',JSON.stringify({createdAt:Date.now()-86400001,payload}));
+  assert.equal(readSiteSnapshot(storage,'expired-one'),null);
+});
+
+test('the single Save action respects the selected status and supplies a date only for publication',()=>{
+  const draft=createEntity('articles');
+  assert.equal(prepareEntitySave(draft).status,'Черновик');assert.equal(prepareEntitySave(draft).publishAt,'');
+  const published=prepareEntitySave({...draft,status:'Опубликовано'});
+  assert.equal(published.status,'Опубликовано');assert.ok(published.publishAt);
+  assert.equal(prepareEntitySave({...draft,status:'Скрыт'}).status,'Скрыт');
 });

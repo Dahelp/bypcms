@@ -135,7 +135,7 @@ export const editions: Record<EditionKey, { name: string; project: string; note:
 };
 
 export const moduleRegistry: DemoModule[] = [
-  { key: "seo", name: "SEO Pro", description: "Метаданные, Open Graph, аудит, sitemap и редиректы.", version: "1.8.2", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "editor.tab", "dashboard.widget"], editorKinds: ["pages", "articles", "services", "projects", "products", "categories", "brands"], color: "#7057e8" },
+  { key: "seo", name: "SEO Pro", description: "Метаданные, Open Graph, аудит, sitemap и редиректы.", version: "1.8.2", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "editor.tab", "dashboard.widget", "settings.section"], editorKinds: ["pages", "articles", "services", "projects", "products", "categories", "brands"], color: "#7057e8" },
   { key: "analytics", name: "Аналитика", description: "События, цели, воронки и отчёты по контенту и продажам.", version: "1.2.4", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "dashboard.widget"], color: "#286a8a" },
   { key: "forms", name: "Формы и CRM", description: "Конструктор форм, заявки, статусы и ответственные.", version: "1.4.0", price: 9900, editions: ["business", "commerce"], slots: ["menu.main", "editor.sidebar", "dashboard.widget", "settings.section"], editorKinds: ["pages", "services", "products"], color: "#557a25" },
   { key: "payments", name: "Платежи", description: "ЮKassa, СБП, чеки, статусы операций и возвраты.", version: "1.3.0", price: 7900, editions: ["commerce"], slots: ["menu.main", "editor.tab", "settings.section"], editorKinds: ["orders"], color: "#c65b2d" },

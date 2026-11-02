@@ -4,6 +4,40 @@ export type EditorTab = "content" | "seo" | "settings" | `module:${string}`;
 export type EditorContext = { edition: EditionKey; kind: EntityKind; id: number };
 export type EditorSnapshot = { draft: DemoEntity; tab: EditorTab; scrollY: number; blockOrder: string[]; codeBlock: boolean; customCode: string };
 type EditorStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type NewEditorContext = Pick<EditorContext,"edition" | "kind">;
+const newEditorKey=(context:NewEditorContext)=>`bypcms-demo-new-editor-v1:${context.edition}:${context.kind}`;
+const SITE_SNAPSHOT_PREFIX="bypcms-demo-site-preview-v1:";
+
+export function readNewEditorSession(storage:EditorStorage,context:NewEditorContext,requestedId:string | null,navigationType:string):EditorSnapshot | null {
+  if(!requestedId && !["reload","back_forward"].includes(navigationType))return null;
+  try {
+    const id=Number(storage.getItem(newEditorKey(context)));
+    if(!Number.isSafeInteger(id) || id<=0 || (requestedId && String(id)!==requestedId))return null;
+    return readEditorSession(storage,{...context,id});
+  }catch{return null;}
+}
+export function writeNewEditorSession(storage:EditorStorage,context:EditorContext,snapshot:EditorSnapshot):void {
+  writeEditorSession(storage,context,snapshot);storage.setItem(newEditorKey(context),String(context.id));
+}
+export function clearNewEditorSession(storage:EditorStorage,context:EditorContext):void {
+  try{if(storage.getItem(newEditorKey(context))===String(context.id))storage.removeItem(newEditorKey(context));}catch{/* Keep the saved record usable if storage is unavailable. */}
+}
+export function writeSiteSnapshot(storage:Storage,token:string,payload:{entities:DemoEntity[]} & Record<string,unknown>):void {
+  if(!/^[a-z0-9-]{8,80}$/i.test(token))throw new Error("Некорректный адрес предпросмотра");
+  const key=SITE_SNAPSHOT_PREFIX+token;
+  const keys=Array.from({length:storage.length},(_,index)=>storage.key(index)).filter((item):item is string=>Boolean(item?.startsWith(SITE_SNAPSHOT_PREFIX)) && item!==key);
+  // Only bounded, disposable preview snapshots are removed, never material or media storage.
+  while(keys.length>=8){const expired=keys.shift();if(expired)storage.removeItem(expired);}
+  storage.setItem(key,JSON.stringify({createdAt:Date.now(),payload}));
+}
+export function readSiteSnapshot(storage:Pick<Storage,"getItem">,token:string):string | null {
+  try{
+    if(!/^[a-z0-9-]{8,80}$/i.test(token))return null;
+    const value=JSON.parse(storage.getItem(SITE_SNAPSHOT_PREFIX+token) || "null");
+    if(!value || !Array.isArray(value.payload?.entities) || typeof value.createdAt!=="number" || Date.now()-value.createdAt>86400000)return null;
+    return JSON.stringify(value.payload);
+  }catch{return null;}
+}
 
 export function editorSessionKey(context: EditorContext): string {
   return `bypcms-demo-editor-v1:${context.edition}:${context.kind}:${context.id}`;
@@ -17,7 +51,7 @@ export function createEntity(kind: EntityKind): DemoEntity {
   return { id: Date.now(), kind, title: "", slug: "/", status: ["leads", "orders"].includes(kind) ? "Новый" : "Черновик", updated: "", image: -1, publishAt: "", excerpt: "", body: "", seoTitle: "", seoDescription: "", price: ["products", "services"].includes(kind) ? 0 : undefined, stock: kind === "products" ? 0 : undefined, sku: kind === "products" ? "" : undefined, value: ["leads", "orders", "payments"].includes(kind) ? 0 : undefined, extra: "" };
 }
 
-export function prepareEntitySave(entity: DemoEntity, publish = false, now = new Date()): DemoEntity {
+export function prepareEntitySave(entity: DemoEntity, publish = entity.status === "Опубликовано", now = new Date()): DemoEntity {
   if (!publish) return entity;
   const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0,16);
   return { ...entity, status: "Опубликовано", publishAt: entity.publishAt || localTime };
@@ -67,7 +101,10 @@ export function cameFromEditor(referrer: string, closeHref: string, currentHref:
     const source = new URL(referrer);
     const target = new URL(closeHref, currentHref);
     // An in-preview anchor may have added a history entry: Close must still leave preview.
-    return !new URL(currentHref).hash && source.origin === target.origin && source.pathname === target.pathname && !source.searchParams.has("preview") &&
-      Boolean(target.searchParams.get("record")) && ["edition", "section", "record"].every(key => source.searchParams.get(key) === target.searchParams.get(key));
+    if(new URL(currentHref).hash || source.origin!==target.origin || source.pathname!==target.pathname || source.searchParams.has("preview") || source.searchParams.has("previewDraft"))return false;
+    if(!["edition","section"].every(key=>source.searchParams.get(key)===target.searchParams.get(key)))return false;
+    if(target.searchParams.get("record"))return source.searchParams.get("record")===target.searchParams.get("record");
+    return target.searchParams.get("editor")==="new" && source.searchParams.get("editor")==="new" && Boolean(target.searchParams.get("draft")) &&
+      (!source.searchParams.get("draft") || source.searchParams.get("draft")===target.searchParams.get("draft"));
   } catch { return false; }
 }

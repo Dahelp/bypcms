@@ -28,6 +28,8 @@ test('the actual result component renders both engines, accessible device contro
   assert.match(html,/aria-label="ПК"[^>]*aria-pressed="true"/);assert.match(html,/aria-label="Мобильная версия"[^>]*aria-pressed="false"/);
   assert.match(html,/Свет &amp; геометрия/);assert.match(html,/Описание материала/);assert.match(html,/studio.test/);assert.match(html,/Студия/);
   assert.match(html,/target="_blank" rel="noopener"/);assert.doesNotMatch(html,/ПРИМЕР РЕЗУЛЬТАТА GOOGLE/);
+  const settingsLink=html.match(/<a[^>]+class="serpSettingsLink"[^>]*>/)?.[0];assert.ok(settingsLink);
+  assert.doesNotMatch(settingsLink,/target="_blank"/);assert.match(settingsLink,/aria-label="Настройки SEO"/);
 });
 test('the module form exposes real multi-selection and one explicit settings save',()=>{
   const html=render(React.createElement(SeoPreferencesForm));

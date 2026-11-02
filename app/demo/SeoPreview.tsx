@@ -39,7 +39,7 @@ export function SeoPreferencesForm({onSaved}:{onSaved?:()=>void}) {
   </form>;
 }
 
-export function SearchResultPreview({entity,siteName,domain,settingsHref}:{entity:DemoEntity;siteName:string;domain:string;settingsHref:string}) {
+export function SearchResultPreview({entity,siteName,domain,settingsHref,onOpenSettings}:{entity:DemoEntity;siteName:string;domain:string;settingsHref:string;onOpenSettings?:(event:React.MouseEvent<HTMLAnchorElement>)=>void}) {
   const {preferences}=useSeoPreferences();const uid=useId();
   const key=resultViewKey(entity.id,entity.kind);
   const [view,setView]=useState(()=>{try{return normalizeResultView(JSON.parse(sessionStorage.getItem(key) || "null"),preferences);}catch{return normalizeResultView(null,preferences);}});
@@ -50,7 +50,7 @@ export function SearchResultPreview({entity,siteName,domain,settingsHref}:{entit
   const name=searchEngineNames[engine];const address=resultAddress(domain,entity.slug);
   const panelId=`${uid}-result`;
   return <section className="serpPreview" aria-label="Предпросмотр поисковой выдачи" data-device={view.device} data-engine={engine}>
-    <header><div><small>ПОИСКОВАЯ ВЫДАЧА</small><h3>Результат в поиске</h3></div><a href={settingsHref} target="_blank" rel="noopener" className="serpSettingsLink" aria-label="Настройки SEO — новая вкладка" title="Настройки SEO"><PanelIcon name="settings"/></a></header>
+    <header><div><small>ПОИСКОВАЯ ВЫДАЧА</small><h3>Результат в поиске</h3></div><a href={settingsHref} onClick={onOpenSettings} className="serpSettingsLink" aria-label="Настройки SEO" title="Настройки SEO"><PanelIcon name="settings"/></a></header>
     <div className="serpControls">{preferences.engines.length>1 ? <div role="tablist" aria-label="Поисковая система" className="serpEngineTabs">{preferences.engines.map((item,index)=><button type="button" role="tab" key={item} id={`${uid}-${item}`} aria-selected={engine===item} aria-controls={panelId} tabIndex={engine===item?0:-1} onClick={()=>change(item,view.device)} onKeyDown={event=>{
       if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;event.preventDefault();
       const next=event.key==="Home"?0:event.key==="End"?preferences.engines.length-1:(index+(event.key==="ArrowRight"?1:-1)+preferences.engines.length)%preferences.engines.length;

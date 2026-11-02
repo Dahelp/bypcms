@@ -21,11 +21,23 @@ export function DemoMediaProvider({ children }: { children: ReactNode }) {
   const [loading,setLoading]=useState(true);const [error,setError]=useState("");
   const [progress,setProgress]=useState<UploadProgress | null>(null);
   const busy=useRef(false);const cancelled=useRef(false);
+  const revision=useRef(0);const reloadSequence=useRef(0);
   async function reload() {
+    if(busy.current)return;
+    const sequence=++reloadSequence.current;const before=revision.current;
     setLoading(true);setError("");
-    try {setItems(await readMedia());}catch(error){setError(`Медиатека недоступна: ${mediaError(error)}`);}finally{setLoading(false);}
+    try {const records=await readMedia();if(sequence===reloadSequence.current && before===revision.current && !busy.current)setItems(records);}
+    catch(error){if(sequence===reloadSequence.current && before===revision.current)setError(`Медиатека недоступна: ${mediaError(error)}`);}
+    finally{if(sequence===reloadSequence.current)setLoading(false);}
   }
-  useEffect(()=>{void reload();},[]);
+  useEffect(()=>{
+    void reload();
+    const focus=()=>{if(document.visibilityState==="visible")void reload();};
+    const pageshow=(event:PageTransitionEvent)=>{if(event.persisted)void reload();};
+    window.addEventListener("focus",focus);window.addEventListener("pageshow",pageshow);
+    document.addEventListener("visibilitychange",focus);
+    return()=>{window.removeEventListener("focus",focus);window.removeEventListener("pageshow",pageshow);document.removeEventListener("visibilitychange",focus);};
+  },[]);
   const byId=useMemo(()=>new Map(items.map(item=>[item.id,item])),[items]);
   async function upload(files: File[], imagesOnly: boolean): Promise<UploadResult> {
     if(busy.current)return {added:[],errors:["Дождитесь текущей загрузки"],cancelled:false};
@@ -37,7 +49,7 @@ export function DemoMediaProvider({ children }: { children: ReactNode }) {
         const file=files[index];setProgress({done:index,total:files.length,name:file.name});
         try {
           const invalid=validateMediaFile(file,imagesOnly);if(invalid)throw new Error(invalid);
-          const record=await storeMediaFile(file);added.push(record);
+          const record=await storeMediaFile(file);added.push(record);revision.current++;
           setItems(current=>[record,...current]);
         }catch(error){errors.push(`${file.name}: ${mediaError(error)}`);}
       }
@@ -45,7 +57,7 @@ export function DemoMediaProvider({ children }: { children: ReactNode }) {
     }finally{busy.current=false;setProgress(null);}
   }
   async function save(record: DemoMedia) {
-    await updateMedia(record);setItems(current=>current.map(item=>item.id===record.id?record:item));
+    await updateMedia(record);revision.current++;setItems(current=>current.map(item=>item.id===record.id?record:item));
   }
   return <MediaContext.Provider value={{items,loading,error,progress,lookup:id=>byId.get(id),reload,upload,save,cancelUpload:()=>{cancelled.current=true;}}}>{children}</MediaContext.Provider>;
 }
@@ -123,7 +135,7 @@ function MediaBrowser({ imagesOnly, initialSelected, onSelect, onClose }: { imag
       {!imagesOnly && <label>Показать<select value={filters.trashed?"hidden":"active"} onChange={event=>filter("trashed",event.target.value==="hidden")}><option value="active">Активные файлы</option><option value="hidden">Скрытые</option></select></label>}
       <button type="button" className="assetReset" onClick={()=>setFilters({...initialFilters,type:imagesOnly?"image":"all"})}>Сбросить фильтры</button>
     </div>
-    <div className="assetResultsHeader"><span aria-live="polite">Найдено: {visible.total} из {total}{media.loading?" · Загрузка…":""}</span><span>По 24 файла на странице</span></div>
+    <div className="assetResultsHeader"><span aria-live="polite">Найдено: {visible.total} из {total}{media.loading?" · Загрузка…":""}</span><span>По 24 файла на странице <button type="button" className="assetRefresh" disabled={media.loading || Boolean(media.progress)} onClick={()=>void media.reload()}>Обновить список</button></span></div>
     <div className="assetBody"><div className="assetCatalog" ref={catalog}><div className="assetGrid" aria-label="Файлы медиатеки">{visible.items.map(item=><button type="button" aria-label={`Выбрать файл: ${item.name}`} aria-pressed={pending===item.id} className={`assetTile ${pending===item.id?"selected":""}`} key={item.id} onClick={()=>choose(item.id)}><AssetPreview item={item} thumbnail/><span className="assetName" title={item.name}>{item.name}</span><small>{mediaDetails(item)}</small><time dateTime={item.createdAt?new Date(item.createdAt).toISOString():undefined}>{item.createdAt?new Date(item.createdAt).toLocaleString("ru-RU"):"Демо-файл · дата загрузки не задана"}</time>{pending===item.id && <i aria-hidden="true">✓</i>}</button>)}</div>
       {!visible.items.length && !media.loading && <div className="assetEmpty"><b>Файлы не найдены</b><span>Измените запрос или загрузите новое изображение.</span></div>}
       <nav className="assetPagination" aria-label="Страницы медиатеки"><button type="button" disabled={visible.page===1} onClick={()=>page(visible.page-1)}>Назад</button><span aria-live="polite">Страница {visible.page} из {visible.pages}</span><button type="button" disabled={visible.page>=visible.pages} onClick={()=>page(visible.page+1)}>Далее</button><label>На страницу<input type="number" min={1} max={visible.pages} value={visible.page} onChange={event=>page(Number(event.target.value))}/></label></nav>

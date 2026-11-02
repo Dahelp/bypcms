@@ -1,6 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import PanelTable from "../components/PanelTable";
+import { panelHref } from "../components/panel-route";
 import PanelSearch from "../components/PanelSearch";
 import PanelIcon from "../components/PanelIcon";
 import { panelIconBySection as iconByMenu } from "../components/panel-icons";
@@ -33,6 +34,8 @@ export default function DemoPage() {
   const [editing, setEditing] = useState<DemoEntity | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>("content");
   const [preview, setPreview] = useState<DemoEntity | null>(null);
+  const [routedPreview, setRoutedPreview] = useState(false);
+  const [routeError, setRouteError] = useState("");
   const [theme, setTheme] = useState(initialTheme);
   const [settings, setSettings] = useState(initialSettings);
   const [installedModules, setInstalledModules] = useState<Record<EditionKey, string[]>>(defaultInstalledModules);
@@ -43,40 +46,50 @@ export default function DemoPage() {
 
   useEffect(() => {
     const route = new URLSearchParams(location.search);
-    const selected = route.get("edition");
-    if (selected && selected in editions) setEdition(selected as EditionKey);
-    setView(route.get("section") || "overview");
-    setReady(true);
+    const selected = route.get("edition") as EditionKey;
+    const nextEdition = selected && Object.hasOwn(editions, selected) ? selected : "content";
+    setEdition(nextEdition);
     setLogged(sessionStorage.getItem("bypcms-demo-auth") === "active");
-    const raw = sessionStorage.getItem("bypcms-real-demo-v1");
-    if (!raw) return;
+    let records = seedEntities;
+    let nextTheme = initialTheme;
+    let nextSettings = initialSettings;
+    let nextModules = defaultInstalledModules;
     try {
-      const saved = JSON.parse(raw);
-      if (saved.entities) {
-        setEntities(saved.entities);
-        const record = route.get("record");
-        if (record) setEditing(saved.entities.find((item: DemoEntity) => String(item.id) === record) || null);
+      const saved = JSON.parse(sessionStorage.getItem("bypcms-real-demo-v1") || "null");
+      if (saved) {
+        if (Array.isArray(saved.entities)) records = saved.entities;
+        if (saved.theme) nextTheme = { ...initialTheme, ...saved.theme, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } };
+        if (saved.settings) nextSettings = { ...initialSettings, ...saved.settings };
+        if (saved.installedModules) nextModules = { ...defaultInstalledModules, ...saved.installedModules };
       }
-      if (saved.theme) {
-        const known = [...templateCatalog.content, ...templateCatalog.business, ...templateCatalog.commerce].some(item => item.id === saved.theme.template) || saved.theme.template === "custom";
-        setTheme({ ...initialTheme, ...saved.theme, template: known ? saved.theme.template : initialTheme.template, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } });
-      }
-      if (saved.settings) setSettings({ ...initialSettings, ...saved.settings });
-      if (saved.installedModules) setInstalledModules(saved.installedModules);
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
+    const menu = editions[nextEdition].menu.filter(item => !item.moduleKey || nextModules[nextEdition].includes(item.moduleKey));
+    const extraMenu = moduleRegistry.filter(module => nextModules[nextEdition].includes(module.key) && module.menu).map(module => module.menu!);
+    const section = route.get("section") || "overview";
+    const item = [...menu, ...extraMenu].find(item => item.id === section);
+    const nextView = section === "overview" || item ? section : "overview";
+    setView(nextView);
+    setEntities(records);
+    const template = nextTheme.editionTemplates?.[nextEdition] || templateCatalog[nextEdition][0].id;
+    setTheme({ ...nextTheme, template });
+    setSettings(nextSettings);
+    setInstalledModules(nextModules);
+    if (route.get("editor") === "new" && item?.kind) setEditing(createEntity(item.kind));
+    else if (route.has("record")) {
+      const record = records.find(record => String(record.id) === route.get("record") && record.kind === item?.kind);
+      if (record) setEditing(record); else setRouteError("Запись не найдена в этом разделе.");
+    }
+    if (route.get("tab") === "seo") setEditorTab("seo");
+    if (route.has("preview")) {
+      const record = records.find(record => String(record.id) === route.get("preview"));
+      if (record) { setPreview(record); setRoutedPreview(true); } else setRouteError("Запись для просмотра не найдена.");
+    }
+    setReady(true);
   }, []);
   useEffect(() => {
     if (!ready) return;
     sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities, theme, settings, installedModules }));
   }, [entities, theme, settings, installedModules, ready]);
-  useEffect(() => {
-    if (!ready || !logged) return;
-    const url = new URL(location.href);
-    url.searchParams.set("edition", edition);
-    url.searchParams.set("section", view);
-    if (editing) url.searchParams.set("record", String(editing.id)); else url.searchParams.delete("record");
-    history.replaceState(null, "", url.pathname + url.search);
-  }, [edition, view, editing, ready, logged]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
@@ -105,39 +118,29 @@ export default function DemoPage() {
       noticeTimer.current = null;
     }, 3500);
   }
-  function switchEdition(next: EditionKey) {
-    setEdition(next);
-    setView("overview");
-    setEditing(null);
-    setSettings(value => ({ ...value, siteName: editions[next].project }));
-    setTheme(value => ({ ...value, accent: editions[next].accent, template: value.editionTemplates?.[next] || templateCatalog[next][0].id }));
-    flash(`Открыта полноценная редакция BYPCMS ${editions[next].name}`);
-  }
-  function startCreate(kind: EntityKind) {
-    const meta = entityTitles[kind];
-    setEditing({
-      id: Date.now(), kind, title: "", slug: "/", status: kind === "leads" || kind === "orders" ? "Новый" : "Черновик",
-      updated: "Только что", image: kind === "products" ? 2 : 0, excerpt: "", body: "", seoTitle: "", seoDescription: "",
-      price: kind === "products" || kind === "services" ? 0 : undefined, stock: kind === "products" ? 0 : undefined,
-      sku: kind === "products" ? "" : undefined, value: ["leads", "orders", "payments"].includes(kind) ? 0 : undefined,
-      extra: "",
-    });
-    setEditorTab("content");
+  const sectionHref = (section: string) => panelHref({ edition, section });
+  const entityHref = (item: DemoEntity, extra: Record<string, string | number> = {}) => panelHref({ edition, section: currentMenu.find(menu => menu.kind === item.kind)?.id || item.kind, record: item.id, ...extra });
+  const previewHref = (item: DemoEntity) => panelHref({ edition, section: view, record: editing?.id, editor: editing && !entities.some(item => item.id === editing.id) ? "new" : undefined, preview: item.id });
+  function persistEntities(next: DemoEntity[]) {
+    sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities: next, theme, settings, installedModules }));
   }
   function saveEntity(item: DemoEntity) {
-    setEntities(value => value.some(entry => entry.id === item.id) ? value.map(entry => entry.id === item.id ? { ...item, updated: "Только что" } : entry) : [{ ...item, updated: "Только что" }, ...value]);
-    setEditing(null);
-    flash("Изменения сохранены в демо-сессии");
+    const next = entities.some(entry => entry.id === item.id) ? entities.map(entry => entry.id === item.id ? { ...item, updated: "Только что" } : entry) : [{ ...item, updated: "Только что" }, ...entities];
+    persistEntities(next);
+    window.location.assign(sectionHref(view));
   }
   function deleteEntity(item: DemoEntity) {
-    setEntities(value => value.filter(entry => entry.id !== item.id));
-    setEditing(null);
+    const next = entities.filter(entry => entry.id !== item.id);
+    persistEntities(next);
+    if (editing) { window.location.assign(sectionHref(view)); return; }
+    setEntities(next);
     const masculine = ["articles", "projects", "team", "orders", "products", "brands", "customers", "promos", "payments"].includes(item.kind);
     flash(`«${item.title || "Новая запись"}» ${masculine ? "удалён" : "удалена"}`);
   }
 
   if (!ready) return <main className="panelBoot" aria-label="Загрузка панели"><span>BYPCMS</span><p>Загрузка рабочего пространства…</p></main>;
   if (!logged) return <Login onLogin={() => { sessionStorage.setItem("bypcms-demo-auth", "active"); setLogged(true); }} notice={notice} flash={flash} />;
+  if (routedPreview && preview) return <main className="realDemo previewDocument"><PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} closeHref={panelHref({ edition, section: view, record: editing?.id })} /></main>;
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
     <aside className="realSidebar workspaceMenu">
@@ -145,38 +148,39 @@ export default function DemoPage() {
       <ProjectBadge edition={edition} project={settings.siteName} />
       <nav>{currentMenu.map((item, index) => {
         const showGroup = item.group && currentMenu[index - 1]?.group !== item.group;
-        return <div key={item.id}>{showGroup && <small className="workspaceMenuGroup">{item.group}</small>}<button className={view === item.id ? "active" : ""} onClick={() => { setView(item.id); setEditing(null); }}><i><PanelIcon name={iconByMenu[item.id] || "file"} /></i><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</button></div>;
+        return <div key={item.id}>{showGroup && <small className="workspaceMenuGroup">{item.group}</small>}<a href={sectionHref(item.id)} aria-label={item.label} title={item.label} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "active" : ""}><i><PanelIcon name={iconByMenu[item.id] || "file"} /></i><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</a></div>;
       })}</nav>
       <div className="demoSafety workspaceMenuStatus"><b>● Демо-сессия</b><span>Данные изолированы и не отправляются наружу</span></div>
       <button className="demoLogout workspaceMenuExit" onClick={() => { sessionStorage.removeItem("bypcms-demo-auth"); setLogged(false); }}>Выйти из демо</button>
     </aside>
     <section className="realWorkspace">
       <header className="realTopbar">
-        <div className="editionTabs">{(Object.keys(editions) as EditionKey[]).map(key => <button className={edition === key ? "active" : ""} onClick={() => switchEdition(key)} key={key}>{editions[key].name}<small>{editions[key].note}</small></button>)}</div>
+        <div className="editionTabs">{(Object.keys(editions) as EditionKey[]).map(key => <a href={panelHref({ edition: key, section: "overview" })} className={edition === key ? "active" : ""} key={key}>{editions[key].name}<small>{editions[key].note}</small></a>)}</div>
         <PanelSearch onOpen={() => setSearchOpen(true)} />
         <NotificationDropdown items={[
           { id: 1, title: "Новый заказ #1043", message: "2 минуты назад", created_at: "", is_read: 0, icon: "orders" },
           { id: 2, title: "SEO-аудит завершён", message: "Найдены 2 рекомендации", created_at: "", is_read: 0, icon: "seo" },
           { id: 3, title: "Доступны обновления", message: "2 модуля готовы", created_at: "", is_read: 0, icon: "modules" },
-        ]} onSelect={id => { setView(({ 1: "orders", 2: "seo", 3: "extensions" } as Record<number, string>)[id]); setEditing(null); }} />
-        <button className="openSite" onClick={() => setPreview(entities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects")) || entities[0])}>Открыть сайт <PanelIcon name="external" /></button>
+        ]} hrefForItem={item => sectionHref(item.id === 1 ? (edition === "commerce" ? "orders" : edition === "business" ? "leads" : "articles") : item.id === 2 ? "seo" : "extensions")} />
+        <a className="openSite panelLinkButton" href={previewHref(entities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects")) || seedEntities[0])}>Открыть сайт <PanelIcon name="external" /></a>
       </header>
       <div className="realContent">
         {notice && <div className="demoNotice">{notice}<button onClick={() => setNotice("")}><PanelIcon name="close" /></button></div>}
-        {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} onNavigate={setView} />}
-        {currentKind && !editing && <EntityList kind={currentKind} entities={entities.filter(item => item.kind === currentKind)} onEdit={item => { setEditing(item); setEditorTab("content"); }} onCreate={() => startCreate(currentKind)} onPreview={setPreview} />}
-        {currentKind && editing && <EntityEditor key={editing.id} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} onCancel={() => setEditing(null)} onPreview={setPreview} flash={flash} />}
+        {routeError && <p role="alert">{routeError} <a href={sectionHref(view)}>К списку</a></p>}
+        {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} sectionHref={sectionHref} entityHref={entityHref} />}
+        {currentKind && !editing && <EntityList key={currentKind} kind={currentKind} entities={entities.filter(item => item.kind === currentKind)} editHref={entityHref} createHref={panelHref({ edition, section: view, editor: "new" })} previewHref={previewHref} onDelete={deleteEntity} />}
+        {currentKind && editing && <EntityEditor key={editing.id} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} cancelHref={sectionHref(view)} onPreview={setPreview} flash={flash} />}
         {view === "media" && <MediaLibrary flash={flash} />}
-        {view === "seo" && <SeoCenter entities={entities} onEdit={item => { setView(current.menu.some(menu => menu.kind === item.kind) ? item.kind : "pages"); setEditing(item); setEditorTab("seo"); }} flash={flash} />}
+        {view === "seo" && <SeoCenter entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
         {view === "analytics" && <Analytics edition={edition} flash={flash} />}
         {view === "design" && <DesignStudioV2 edition={edition} theme={theme} setTheme={setTheme} settings={settings} setSettings={setSettings} flash={flash} />}
         {view === "extensions" && <ExtensionCenterV2 edition={edition} installed={activeModules} setInstalled={keys => setInstalledModules(value => ({ ...value, [edition]: keys }))} flash={flash} />}
-        {moduleRegistry.some(module => module.key === view && module.menu) && <InjectedModulePage module={moduleRegistry.find(module => module.key === view)!} flash={flash} />}
+        {moduleRegistry.some(module => module.key === view && module.menu) && <InjectedModulePage edition={edition} module={moduleRegistry.find(module => module.key === view)!} />}
         {view === "settings" && <SettingsPanelV2 edition={edition} settings={settings} setSettings={setSettings} modules={moduleRegistry.filter(module => activeModules.includes(module.key) && module.slots.includes("settings.section"))} flash={flash} />}
       </div>
     </section>
     {preview && <PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} onClose={() => setPreview(null)} />}
-    {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <button key={item.id} onClick={() => { setView(item.id); setEditing(null); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></button>)}{searchQuery && entities.filter(item => item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <button key={`entity-${item.id}`} onClick={() => { setEditing(item); setView(currentMenu.find(menu => menu.kind === item.kind)?.id || "overview"); setSearchOpen(false); setSearchQuery(""); }}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></button>)}</div></section></div>}
+    {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <a key={item.id} href={sectionHref(item.id)}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></a>)}{searchQuery && entities.filter(item => currentMenu.some(menu => menu.kind === item.kind) && item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <a key={`entity-${item.id}`} href={entityHref(item)}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></a>)}</div></section></div>}
   </main>;
 }
 
@@ -194,14 +198,18 @@ function ProjectBadge({ edition, project }: { edition: EditionKey; project: stri
   return <div className="projectBadge"><span>{project[0]}</span><div><b>{project}</b><small>BYPCMS {editions[edition].name}</small></div><i><PanelIcon name="chevron"/></i></div>;
 }
 
-function Dashboard({ edition, entities, modules, onNavigate }: { edition: EditionKey; entities: DemoEntity[]; modules: DemoModule[]; onNavigate: (id: string) => void }) {
+function Dashboard({ edition, entities, modules, sectionHref, entityHref }: { edition: EditionKey; entities: DemoEntity[]; modules: DemoModule[]; sectionHref: (id: string) => string; entityHref: (item: DemoEntity) => string }) {
   const data = edition === "commerce"
     ? { title: "Магазин сегодня", stats: [["684 200 ₽", "Выручка", "+18,4%"], ["148", "Заказы", "+12,8%"], ["3,82%", "Конверсия", "+0,7%"], ["7", "Требуют внимания", "2 без остатка"]], primary: "orders", recent: entities.filter(i => i.kind === "orders") }
     : edition === "business"
       ? { title: "Работа с клиентами", stats: [["494 000 ₽", "Сделки в работе", "+14,1%"], ["87", "Обращения", "+7,2%"], ["18", "Активные услуги", "3 направления"], ["3", "Новые заявки", "ответьте сегодня"]], primary: "leads", recent: entities.filter(i => i.kind === "leads") }
       : { title: "Работа редакции", stats: [["184 600", "Просмотры", "+18,4%"], ["32", "Материалы", "+4 за неделю"], ["7:42", "Время чтения", "+12%"], ["3", "Черновики", "готовы к выпуску"]], primary: "articles", recent: entities.filter(i => i.kind === "articles") };
   const moduleWidgets = modules.filter(module => module.slots.includes("dashboard.widget"));
-  return <><PageHeading eyebrow={`BYPCMS ${editions[edition].name}`} title={data.title} description={editions[edition].note} actions={<button onClick={() => onNavigate(data.primary)}>Открыть рабочий раздел <PanelIcon name="arrow" /></button>} /><section className="dashboardWidgets">{data.stats.map(([value, label, delta]) => <article key={label}><small>{label}</small><strong>{value}</strong><span>{delta}</span></article>)}</section><section className="dashboardGrid"><article className="performanceWidget"><header><div><small>ДИНАМИКА ЗА 30 ДНЕЙ</small><h2>{edition === "commerce" ? "Продажи" : edition === "business" ? "Новые обращения" : "Аудитория"}</h2></div><select><option>30 дней</option><option>7 дней</option><option>Год</option></select></header><div className="realChart">{[42, 54, 48, 69, 63, 78, 72, 88, 76, 96, 82, 100].map((height, i) => <i key={i} style={{ height: `${height}%` }} />)}</div><footer><b>+18,4%</b><span>по сравнению с прошлым периодом</span></footer></article><article className="attentionWidget"><small>ТРЕБУЕТ ВНИМАНИЯ</small><h2>Задачи</h2>{["Заполнить SEO у 2 страниц", "Ответить на новые обращения", "Проверить неопубликованный материал", "Обновить резервную копию"].map((item, index) => <button onClick={() => onNavigate(index === 0 ? "seo" : index === 1 ? data.primary : index === 2 ? (edition === "content" ? "articles" : data.primary) : "settings")} key={item}><i>{index + 1}</i><span>{item}<small>{index < 2 ? "Сегодня" : "На этой неделе"}</small></span><PanelIcon name="arrow" /></button>)}</article></section><section className="moduleWidgetRow">{moduleWidgets.map((module, index) => <button onClick={() => onNavigate(module.menu?.id || (module.key === "seo" ? "seo" : module.key === "analytics" ? "analytics" : "extensions"))} style={{ "--module-color": module.color } as React.CSSProperties} key={module.key}><i>{module.name[0]}</i><span><small>ВИДЖЕТ МОДУЛЯ</small><b>{module.name}</b><em>{module.key === "faq" ? "3 вопроса без ответа" : module.key === "reviews" ? "4 отзыва на модерации" : index % 2 ? "Все события передаются" : "Работает штатно"}</em></span><PanelIcon name="arrow" /></button>)}</section><section className="recentWidget"><header><div><small>ПОСЛЕДНИЕ ИЗМЕНЕНИЯ</small><h2>{entityTitles[data.recent[0]?.kind || "pages"].title}</h2></div><button onClick={() => onNavigate(data.primary)}>Все записи <PanelIcon name="arrow" /></button></header>{data.recent.slice(0, 3).map(item => <button onClick={() => onNavigate(data.primary)} key={item.id}><MediaThumb index={item.image} /><span><b>{item.title}</b><small>{item.extra || item.excerpt}</small></span><em>{item.status}</em><time>{item.updated}</time></button>)}</section></>;
+  return <><PageHeading eyebrow={`BYPCMS ${editions[edition].name}`} title={data.title} description={editions[edition].note} actions={<a className="panelDashboardLink" href={sectionHref(data.primary)}>Открыть рабочий раздел <PanelIcon name="arrow" /></a>} /><section className="dashboardWidgets">{data.stats.map(([value, label, delta]) => <article key={label}><small>{label}</small><strong>{value}</strong><span>{delta}</span></article>)}</section><section className="dashboardGrid"><article className="performanceWidget"><header><div><small>ДИНАМИКА ЗА 30 ДНЕЙ</small><h2>{edition === "commerce" ? "Продажи" : edition === "business" ? "Новые обращения" : "Аудитория"}</h2></div><select><option>30 дней</option><option>7 дней</option><option>Год</option></select></header><div className="realChart">{[42, 54, 48, 69, 63, 78, 72, 88, 76, 96, 82, 100].map((height, i) => <i key={i} style={{ height: `${height}%` }} />)}</div><footer><b>+18,4%</b><span>по сравнению с прошлым периодом</span></footer></article><article className="attentionWidget"><small>ТРЕБУЕТ ВНИМАНИЯ</small><h2>Задачи</h2>{["Заполнить SEO у 2 страниц", "Ответить на новые обращения", "Проверить неопубликованный материал", "Обновить резервную копию"].map((item, index) => <a className="panelDashboardLink" href={sectionHref(index === 0 ? "seo" : index === 1 ? data.primary : index === 2 ? (edition === "content" ? "articles" : data.primary) : "settings")} key={item}><i>{index + 1}</i><span>{item}<small>{index < 2 ? "Сегодня" : "На этой неделе"}</small></span><PanelIcon name="arrow" /></a>)}</article></section><section className="moduleWidgetRow">{moduleWidgets.map((module, index) => <a className="panelDashboardLink" href={sectionHref(module.menu?.id || (module.key === "seo" ? "seo" : module.key === "analytics" ? "analytics" : "extensions"))} style={{ "--module-color": module.color } as React.CSSProperties} key={module.key}><i>{module.name[0]}</i><span><small>ВИДЖЕТ МОДУЛЯ</small><b>{module.name}</b><em>{module.key === "faq" ? "3 вопроса без ответа" : module.key === "reviews" ? "4 отзыва на модерации" : index % 2 ? "Все события передаются" : "Работает штатно"}</em></span><PanelIcon name="arrow" /></a>)}</section><section className="recentWidget"><header><div><small>ПОСЛЕДНИЕ ИЗМЕНЕНИЯ</small><h2>{entityTitles[data.recent[0]?.kind || "pages"].title}</h2></div><a className="panelDashboardLink" href={sectionHref(data.primary)}>Все записи <PanelIcon name="arrow" /></a></header><PanelTable label="Последние изменения" rows={data.recent.slice(0, 3)} rowId={item => item.id} rowLabel={item => item.title} columns={[
+    { key: "title", label: "Название", render: item => <span className="panelCellText"><a href={entityHref(item)}>{item.title}</a><small>{item.extra || item.excerpt}</small></span> },
+    { key: "status", label: "Статус", render: item => <em>{item.status}</em> },
+    { key: "updated", label: "Обновлено", render: item => item.updated },
+  ]} actions={item => [{ label: "Редактировать", href: entityHref(item) }]} /></section></>;
 }
 
 function PageHeading({ eyebrow, title, description, actions }: { eyebrow: string; title: string; description: string; actions?: React.ReactNode }) {
@@ -223,20 +231,31 @@ function RichTextField({ value, onChange, onOpenCode }: { value: string; onChang
   return <div className="richTextEditor"><header><div className="richMode"><button className={mode === "visual" ? "active" : ""} onClick={() => setMode("visual")}>Редактор</button><button className={mode === "html" ? "active" : ""} onClick={() => setMode("html")}>HTML</button></div><span>{value.length} символов</span></header><div className="richToolbar"><button title="Полужирный" onClick={() => insert("<strong>", "</strong>", "Текст")}><b>B</b></button><button title="Курсив" onClick={() => insert("<em>", "</em>", "Текст")}><i>I</i></button><button title="Заголовок второго уровня" onClick={() => insert("<h2>", "</h2>", "Заголовок")}>H2</button><button title="Абзац" onClick={() => insert("<p>", "</p>", "Абзац")}>¶</button><button title="Маркированный список" onClick={() => insert("<ul><li>", "</li></ul>", "Пункт списка")}>☷</button><button title="Ссылка" onClick={() => insert('<a href="#">', "</a>", "Текст ссылки")}>↗</button><button title="Цитата" onClick={() => insert("<blockquote>", "</blockquote>", "Цитата")}>“”</button><button title="Отдельный HTML-блок" onClick={onOpenCode}>{"</>"}</button></div><textarea ref={editorRef} className={mode === "html" ? "htmlMode" : ""} value={value} onChange={event => onChange(event.target.value)} rows={10} aria-label="Основной текст" />{mode === "visual" && <div className="richPreview"><small>ПРЕДПРОСМОТР ТЕКСТА</small><div dangerouslySetInnerHTML={{ __html: sanitizeDemoHtml(value) }} /></div>}</div>;
 }
 
-function EntityList({ kind, entities, onEdit, onCreate, onPreview }: { kind: EntityKind; entities: DemoEntity[]; onEdit: (item: DemoEntity) => void; onCreate: () => void; onPreview: (item: DemoEntity) => void }) {
+function createEntity(kind: EntityKind): DemoEntity {
+  return { id: Date.now(), kind, title: "", slug: "/", status: ["leads", "orders"].includes(kind) ? "Новый" : "Черновик", updated: "Только что", image: kind === "products" ? 2 : 0, excerpt: "", body: "", seoTitle: "", seoDescription: "", price: ["products", "services"].includes(kind) ? 0 : undefined, stock: kind === "products" ? 0 : undefined, sku: kind === "products" ? "" : undefined, value: ["leads", "orders", "payments"].includes(kind) ? 0 : undefined, extra: "" };
+}
+
+function EntityList({ kind, entities, editHref, createHref, previewHref, onDelete }: { kind: EntityKind; entities: DemoEntity[]; editHref: (item: DemoEntity) => string; createHref: string; previewHref: (item: DemoEntity) => string; onDelete: (item: DemoEntity) => void }) {
   const meta = entityTitles[kind];
-  const visual = ["articles", "projects", "products", "brands", "services", "team", "authors", "categories"].includes(kind);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Все статусы");
   const [sort, setSort] = useState("Сначала новые");
   const [page, setPage] = useState(1);
-  useEffect(() => setPage(1), [query, status, sort, kind]);
   const visible = entities.filter(item => (!query || `${item.title} ${item.excerpt} ${item.extra || ""}`.toLowerCase().includes(query.toLowerCase())) && (status === "Все статусы" || item.status === status)).sort((a, b) => sort === "По названию" ? a.title.localeCompare(b.title, "ru") : b.id - a.id);
-  const countLabel = visible.length % 10 === 1 && visible.length % 100 !== 11 ? "запись" : visible.length % 10 >= 2 && visible.length % 10 <= 4 && (visible.length % 100 < 10 || visible.length % 100 >= 20) ? "записи" : "записей";
-  return <><PageHeading eyebrow="УПРАВЛЕНИЕ САЙТОМ" title={meta.title} description={meta.description} actions={<button onClick={onCreate}><PanelIcon name="plus" /> Добавить {meta.singular}</button>} /><div className="listToolbar"><PanelSearch value={query} onChange={setQuery} placeholder={`Поиск: ${meta.title.toLowerCase()}`} /><select value={status} onChange={event => setStatus(event.target.value)}><option>Все статусы</option><option>Опубликовано</option><option>Черновик</option></select><select value={sort} onChange={event => setSort(event.target.value)}><option>Сначала новые</option><option>По названию</option></select><button onClick={() => { setQuery(""); setStatus("Все статусы"); setSort("Сначала новые"); }}>Сбросить фильтры</button></div>{visual ? <section className="entityCards">{visible.slice((page - 1) * 12, page * 12).map(item => <article key={item.id}><MediaThumb index={item.image} large /><div><small>{item.category || item.brand || item.extra || meta.title}</small><h3>{item.title}</h3><p>{item.excerpt}</p>{item.price !== undefined && <strong>{item.price.toLocaleString("ru-RU")} ₽</strong>}<footer><em className={item.status === "Опубликовано" ? "published" : ""}>{item.status}</em><button onClick={() => onPreview(item)}>Просмотр <PanelIcon name="external" /></button><button onClick={() => onEdit(item)}>Редактировать</button></footer></div></article>)}</section> : <section className="entityTable"><header><span>Название</span><span>Информация</span><span>Статус</span><span>Обновлено</span><span /></header>{visible.slice((page - 1) * 12, page * 12).map(item => <button onClick={() => onEdit(item)} key={item.id}><MediaThumb index={item.image} /><span><b>{item.title}</b><small>{item.slug}</small></span><span>{item.extra || item.email || (item.value !== undefined ? `${item.value.toLocaleString("ru-RU")} ₽` : "—")}</span><em>{item.status}</em><time>{item.date || item.updated}</time><i>•••</i></button>)}</section>}<footer className="listFooter"><span>Показано {visible.length} {countLabel}</span><nav className="panelPagination" aria-label="Страницы списка"><button className="paginationPrevious" disabled={page === 1} onClick={() => setPage(value => value - 1)} aria-label="Предыдущая страница"><PanelIcon name="chevron" />Назад</button><span aria-live="polite">Страница <b>{page}</b> из <b>{Math.max(1, Math.ceil(visible.length / 12))}</b></span><button disabled={page >= Math.ceil(visible.length / 12)} onClick={() => setPage(value => value + 1)} aria-label="Следующая страница">Далее<PanelIcon name="chevron" /></button></nav></footer></>;
+  const total = Math.max(1, Math.ceil(visible.length / 12));
+  const currentPage = Math.min(page, total);
+  return <><PageHeading eyebrow="УПРАВЛЕНИЕ САЙТОМ" title={meta.title} description={meta.description} actions={<a className="panelLinkButton panelPrimaryLink" href={createHref}><PanelIcon name="plus" /> Добавить {meta.singular}</a>} />
+    <div className="listToolbar"><PanelSearch value={query} onChange={value => { setQuery(value); setPage(1); }} placeholder={`Поиск: ${meta.title.toLowerCase()}`} /><select aria-label="Статус" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option>Все статусы</option>{Array.from(new Set(entities.map(item => item.status))).map(status => <option key={status}>{status}</option>)}</select><select aria-label="Сортировка" value={sort} onChange={event => { setSort(event.target.value); setPage(1); }}><option>Сначала новые</option><option>По названию</option></select><button onClick={() => { setQuery(""); setStatus("Все статусы"); setSort("Сначала новые"); setPage(1); }}>Сбросить фильтры</button></div>
+    <PanelTable label={meta.title} rows={visible.slice((currentPage - 1) * 12, currentPage * 12)} rowId={item => item.id} rowLabel={item => item.title} empty="Записи не найдены. Измените фильтры или добавьте запись." columns={[
+      { key: "title", label: "Название", render: item => <div className="panelCellTitle"><MediaThumb index={item.image} /><span><a href={editHref(item)}>{item.title}</a><small>{item.slug}</small></span></div> },
+      { key: "info", label: "Информация", render: item => <span className="panelCellText">{item.extra || item.email || item.category || item.brand || "—"}{(item.price !== undefined || item.value !== undefined) && <small>{(item.price ?? item.value ?? 0).toLocaleString("ru-RU")} ₽</small>}</span> },
+      { key: "status", label: "Статус", render: item => <em>{item.status}</em> },
+      { key: "updated", label: "Обновлено", render: item => <time>{item.date || item.updated}</time> },
+    ]} actions={item => [{ label: "Редактировать", href: editHref(item) }, { label: "Просмотр", href: previewHref(item) }, { label: "Удалить", danger: true, onClick: () => { if (window.confirm(`Удалить «${item.title}»?`)) onDelete(item); } }]} />
+    <footer className="listFooter"><span>Найдено записей: {visible.length}</span><nav className="panelPagination" aria-label="Страницы списка"><button className="paginationPrevious" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><PanelIcon name="chevron" />Назад</button><span aria-live="polite">Страница <b>{currentPage}</b> из <b>{total}</b></span><button disabled={currentPage >= total} onClick={() => setPage(currentPage + 1)}>Далее<PanelIcon name="chevron" /></button></nav></footer></>;
 }
 
-function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDelete, onCancel, onPreview, flash }: { entity: DemoEntity; tab: EditorTab; setTab: (tab: EditorTab) => void; entities: DemoEntity[]; installed: DemoModule[]; onSave: (item: DemoEntity) => void; onDelete: (item: DemoEntity) => void; onCancel: () => void; onPreview: (item: DemoEntity) => void; flash: (message: string) => void }) {
+function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDelete, cancelHref, onPreview, flash }: { entity: DemoEntity; tab: EditorTab; setTab: (tab: EditorTab) => void; entities: DemoEntity[]; installed: DemoModule[]; onSave: (item: DemoEntity) => void; onDelete: (item: DemoEntity) => void; cancelHref: string; onPreview: (item: DemoEntity) => void; flash: (message: string) => void }) {
   const [draft, setDraft] = useState(entity);
   const [mediaOpen, setMediaOpen] = useState(false);
   const [blockOrder, setBlockOrder] = useState(["excerpt", "text", "image"]);
@@ -310,7 +329,7 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
       flash("Порядок блоков изменён");
     },
   });
-  return <><header className="editorHeader"><button onClick={onCancel}>← {meta.title}</button><div><small>{entity.id > 100000 ? "НОВАЯ ЗАПИСЬ" : `ID ${entity.id}`}</small><h1>{draft.title || newEntityTitle[entity.kind]}</h1></div><span className={`statusDot ${draft.status === "Опубликовано" ? "live" : ""}`}>{draft.status}</span><button onClick={() => onPreview(draft)}>Предпросмотр <PanelIcon name="external" /></button><button className="primary" onClick={saveDraft}>Сохранить</button></header><nav className="editorTabs"><button className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>Содержание</button>{hasSeo && <button className={tab === "seo" ? "active" : ""} onClick={() => setTab("seo")}>SEO и соцсети <em>Pro</em></button>}{editorModules.map(module => <button className={tab === `module:${module.key}` ? "active" : ""} onClick={() => setTab(`module:${module.key}`)} key={module.key}>{module.name}<em>Модуль</em></button>)}<button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>Публикация</button></nav>
+  return <><header className="editorHeader"><a className="panelLinkButton" href={cancelHref}>← {meta.title}</a><div><small>{entity.id > 100000 ? "НОВАЯ ЗАПИСЬ" : `ID ${entity.id}`}</small><h1>{draft.title || newEntityTitle[entity.kind]}</h1></div><span className={`statusDot ${draft.status === "Опубликовано" ? "live" : ""}`}>{draft.status}</span><button onClick={() => onPreview(draft)}>Предпросмотр <PanelIcon name="external" /></button><button className="primary" onClick={saveDraft}>Сохранить</button></header><nav className="editorTabs"><button className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>Содержание</button>{hasSeo && <button className={tab === "seo" ? "active" : ""} onClick={() => setTab("seo")}>SEO и соцсети <em>Pro</em></button>}{editorModules.map(module => <button className={tab === `module:${module.key}` ? "active" : ""} onClick={() => setTab(`module:${module.key}`)} key={module.key}>{module.name}<em>Модуль</em></button>)}<button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>Публикация</button></nav>
     {tab === "content" && <div className="editorLayout"><section className="editorMain"><div className="fieldCard"><label>Название<input value={draft.title} onChange={event => update("title", event.target.value)} placeholder={`Название: ${meta.singular}`} /></label><label>Адрес страницы<div className="slugField"><span>demo.bypcms.ru</span><input value={draft.slug} onChange={event => update("slug", event.target.value)} /></div></label></div>{commerce && <div className="fieldCard fieldGrid"><label>Артикул<input value={draft.sku || ""} onChange={event => update("sku", event.target.value)} /></label><label>Производитель<select value={draft.brand || ""} onChange={event => update("brand", event.target.value)}><option>Forma</option><option>Nord</option><option>Lumo</option></select></label><label>Цена, ₽<input type="number" value={draft.price || 0} onChange={event => update("price", Number(event.target.value))} /></label><label>Старая цена, ₽<input type="number" value={draft.oldPrice || 0} onChange={event => update("oldPrice", Number(event.target.value))} /></label><label>Остаток<input type="number" value={draft.stock || 0} onChange={event => update("stock", Number(event.target.value))} /></label><label>Категория<select value={draft.category || ""} onChange={event => update("category", event.target.value)}><option>Мебель</option><option>Освещение</option></select></label></div>}{entity.kind === "services" && <div className="fieldCard fieldGrid businessFields"><label>Цена услуги, ₽<input type="number" min="0" value={draft.price || 0} onChange={event => update("price", Number(event.target.value))} /></label><label>Срок выполнения<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Например: от 20 рабочих дней" /></label><label>Направление<input value={draft.category || ""} onChange={event => update("category", event.target.value)} placeholder="Дизайн, разработка, аудит…" /></label><label>Формат цены<select value={draft.oldPrice ? "fixed" : "from"} onChange={event => update("oldPrice", event.target.value === "fixed" ? draft.price || 1 : 0)}><option value="from">Стоимость от</option><option value="fixed">Фиксированная цена</option></select></label></div>}{entity.kind === "projects" && <div className="fieldCard fieldGrid businessFields"><label>Направление проекта<input value={draft.category || ""} onChange={event => update("category", event.target.value)} placeholder="Разработка, дизайн, брендинг…" /></label><label>Клиент / отрасль<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Название клиента или отрасль" /></label><label>Дата завершения<input type="date" value={draft.date || ""} onChange={event => update("date", event.target.value)} /></label><label>Ссылка на результат<input value={draft.phone || ""} onChange={event => update("phone", event.target.value)} placeholder="https://example.ru" /></label></div>}{entity.kind === "forms" && <div className="fieldCard fieldGrid businessFields"><label>Получатель заявок<input type="email" value={draft.email || ""} onChange={event => update("email", event.target.value)} placeholder="manager@example.ru" /></label><label>Кнопка отправки<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Отправить заявку" /></label><label>Сообщение после отправки<input value={draft.body || ""} onChange={event => update("body", event.target.value)} placeholder="Спасибо! Мы свяжемся с вами." /></label><label>Сценарий<select value={draft.category || "email"} onChange={event => update("category", event.target.value)}><option value="email">Email и CRM</option><option value="crm">Только CRM</option><option value="callback">Обратный звонок</option></select></label></div>}{contact && <div className="fieldCard fieldGrid"><label>Email<input type="email" value={draft.email || ""} onChange={event => update("email", event.target.value)} /></label><label>Телефон<input value={draft.phone || ""} onChange={event => update("phone", event.target.value)} /></label>{draft.value !== undefined && <label>Сумма, ₽<input type="number" value={draft.value} onChange={event => update("value", Number(event.target.value))} /></label>}<label>{entity.kind === "authors" ? "Должность автора" : entity.kind === "team" ? "Должность сотрудника" : entity.kind === "leads" ? "Источник / задача" : "Дополнительная информация"}<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder={entity.kind === "authors" ? "Редактор, эксперт, фотограф…" : entity.kind === "leads" ? "Форма услуги, звонок, консультация…" : ""} /></label></div>}{transactional && <OrderFields draft={draft} update={update} />}
       {commerce && <ProductInventoryFields draft={draft} update={update} />}
       {entity.kind === "promos" && <PromoFields draft={draft} update={update} />}
@@ -418,9 +437,13 @@ function MediaPicker({ selected, onSelect, onClose }: { selected: number; onSele
   return <div className="demoModal mediaPicker" onMouseDown={onClose}><section onMouseDown={event => event.stopPropagation()}><header><div><small>МЕДИАТЕКА</small><h2>Выберите изображение</h2></div><button onClick={onClose}><PanelIcon name="close" /></button></header><div>{mediaItems.map(item => <button className={selected === item.id ? "selected" : ""} onClick={() => onSelect(item.id)} key={item.id}><MediaThumb index={item.id} large /><span>{item.name}</span></button>)}</div></section></div>;
 }
 
-function SeoCenter({ entities, onEdit, flash }: { entities: DemoEntity[]; onEdit: (item: DemoEntity) => void; flash: (message: string) => void }) {
+function SeoCenter({ entities, editHref, flash }: { entities: DemoEntity[]; editHref: (item: DemoEntity) => string; flash: (message: string) => void }) {
   const pages = entities.filter(item => ["pages", "articles", "products", "services", "projects", "categories"].includes(item.kind));
-  return <><PageHeading eyebrow="SEO PRO" title="Поисковая оптимизация" description="SEO встроено во все страницы, материалы и карточки каталога" actions={<button onClick={() => flash("Повторный SEO-аудит завершён")}>Запустить аудит</button>} /><section className="seoSummary"><article><strong>94</strong><span><b>Общая оценка</b><small>Отличный результат</small></span></article><article><strong>{pages.length}</strong><span><b>Страниц проверено</b><small>2 требуют внимания</small></span></article><article><strong>100%</strong><span><b>Доступность</b><small>Ошибок сервера нет</small></span></article><article><strong>3</strong><span><b>Редиректа</b><small>Все работают</small></span></article></section><section className="seoPages"><header><span>Страница</span><span>SEO Title</span><span>Meta Description</span><span>Оценка</span><span /></header>{pages.slice(0, 8).map((item, index) => { const titleOk = item.seoTitle.length > 20; const descriptionOk = item.seoDescription.length > 80; return <button onClick={() => onEdit(item)} key={item.id}><MediaThumb index={item.image} /><span><b>{item.title}</b><small>{item.slug}</small></span><span className={`seoState ${titleOk ? "ok" : "issue"}`}><i>{titleOk ? "✓" : "!"}</i><small>{titleOk ? "Заполнен" : "Слишком короткий"}</small></span><span className={`seoState ${descriptionOk ? "ok" : "issue"}`}><i>{descriptionOk ? "✓" : "!"}</i><small>{descriptionOk ? "Заполнено" : "Добавьте описание"}</small></span><strong>{index % 4 === 0 ? 82 : 100}</strong><em>Редактировать <PanelIcon name="chevron" /></em></button>; })}</section><section className="seoTools"><article><small>ТЕХНИЧЕСКОЕ SEO</small><h3>Sitemap.xml</h3><p>Обновлён 12 минут назад · {pages.length} URL</p><button onClick={() => flash("Sitemap.xml обновлён")}>Обновить карту сайта</button></article><article><small>ПЕРЕНАПРАВЛЕНИЯ</small><h3>Редиректы</h3><p>3 активных правила · ошибок нет</p><button onClick={() => flash("Редактор редиректов открыт: 3 активных правила")}>Управлять редиректами</button></article><article><small>ИНДЕКСАЦИЯ</small><h3>Robots.txt</h3><p>Правила настроены корректно</p><button onClick={() => flash("Редактор robots.txt открыт")}>Открыть редактор</button></article></section></>;
+  return <><PageHeading eyebrow="SEO PRO" title="Поисковая оптимизация" description="SEO встроено во все страницы, материалы и карточки каталога" actions={<button onClick={() => flash("Повторный SEO-аудит завершён")}>Запустить аудит</button>} /><section className="seoSummary"><article><strong>94</strong><span><b>Общая оценка</b><small>Отличный результат</small></span></article><article><strong>{pages.length}</strong><span><b>Страниц проверено</b><small>2 требуют внимания</small></span></article><article><strong>100%</strong><span><b>Доступность</b><small>Ошибок сервера нет</small></span></article><article><strong>3</strong><span><b>Редиректа</b><small>Все работают</small></span></article></section><PanelTable label="SEO страниц" rows={pages} rowId={item => item.id} rowLabel={item => item.title} columns={[
+    { key: "title", label: "Страница", render: item => <span className="panelCellText"><a href={editHref(item)}>{item.title}</a><small>{item.slug}</small></span> },
+    { key: "seoTitle", label: "SEO Title", render: item => item.seoTitle.length > 20 ? "Заполнен" : "Слишком короткий" },
+    { key: "description", label: "Meta Description", render: item => item.seoDescription.length > 80 ? "Заполнено" : "Добавьте описание" },
+  ]} actions={item => [{ label: "Редактировать SEO", href: editHref(item) }]} /><section className="seoTools"><article><small>ТЕХНИЧЕСКОЕ SEO</small><h3>Sitemap.xml</h3><p>Обновлён 12 минут назад · {pages.length} URL</p><button onClick={() => flash("Sitemap.xml обновлён")}>Обновить карту сайта</button></article><article><small>ПЕРЕНАПРАВЛЕНИЯ</small><h3>Редиректы</h3><p>3 активных правила · ошибок нет</p><button onClick={() => flash("Редактор редиректов открыт: 3 активных правила")}>Управлять редиректами</button></article><article><small>ИНДЕКСАЦИЯ</small><h3>Robots.txt</h3><p>Правила настроены корректно</p><button onClick={() => flash("Редактор robots.txt открыт")}>Открыть редактор</button></article></section></>;
 }
 
 function Analytics({ edition, flash }: { edition: EditionKey; flash: (message: string) => void }) {
@@ -452,8 +475,51 @@ function EditorModuleSlot({ module, entity, flash }: { module: DemoModule; entit
   return <div className="moduleSlotPage"><PageHeading eyebrow="ВСТРОЕННЫЙ МОДУЛЬ" title={module.name} description={module.description} /><section className="fieldCard"><p>Модуль встроен в редактор сущности «{entityTitles[entity.kind].title}» через API-слот <code>editor.sidebar</code>.</p><label className="checkLine"><input type="checkbox" defaultChecked />Использовать для этой записи</label><button onClick={() => flash(`Настройки ${module.name} сохранены`)}>Сохранить настройки</button></section></div>;
 }
 
-function InjectedModulePage({ module, flash }: { module: DemoModule; flash: (message: string) => void }) {
-  return <><PageHeading eyebrow="РАЗДЕЛ ИЗ МОДУЛЯ" title={module.name} description={`${module.description} Этот пункт меню добавлен манифестом модуля.`} actions={<button onClick={() => flash(`Создана новая запись в ${module.name}`)}><PanelIcon name="plus" /> Добавить</button>} /><section className="injectedModuleBanner" style={{ "--module-color": module.color } as React.CSSProperties}><i>{module.name[0]}</i><div><small>РАСШИРЕНИЕ ПОДКЛЮЧЕНО</small><h2>{module.name}</h2><p>Раздел работает как родная часть BYPCMS, но обновляется независимо от ядра.</p></div><code>slot: menu.main</code></section><section className="entityTable"><header><span>Название</span><span>Информация</span><span>Статус</span><span>Обновлено</span><span /></header>{["Новая запись", "Основной сценарий", "Архивная запись"].map((name, index) => <button key={name}><span className="moduleRowIcon">{index + 1}</span><span><b>{name}</b><small>{module.key}-{100 + index}</small></span><span>{module.description.slice(0, 34)}…</span><em>{index === 2 ? "Черновик" : "Активен"}</em><time>Сегодня</time><i>•••</i></button>)}</section></>;
+type ModuleEntry = { id: number; title: string; description: string; status: string; updated: string };
+
+function InjectedModulePage({ module, edition }: { module: DemoModule; edition: EditionKey }) {
+  const [rows, setRows] = useState<ModuleEntry[]>([]);
+  const [draft, setDraft] = useState<ModuleEntry | null>(null);
+  const [error, setError] = useState("");
+  const storageKey = `bypcms-demo-module-${edition}-${module.key}`;
+  const listHref = panelHref({ edition, section: module.key });
+  const editHref = (id: string | number) => panelHref({ edition, section: module.key, entry: id });
+  useEffect(() => {
+    let records: ModuleEntry[] = ["Новая запись", "Основной сценарий", "Архивная запись"].map((title, id) => ({ id: id + 1, title, description: module.description, status: id === 2 ? "Черновик" : "Активен", updated: "Сегодня" }));
+    try { const saved = JSON.parse(sessionStorage.getItem(storageKey) || "null"); if (Array.isArray(saved)) records = saved; } catch { /* Use the demo records if the saved session is corrupt. */ }
+    setRows(records);
+    const entry = new URLSearchParams(location.search).get("entry");
+    if (entry === "new") setDraft({ id: Date.now(), title: "", description: "", status: "Черновик", updated: "Только что" });
+    else if (entry) {
+      const record = records.find(item => String(item.id) === entry);
+      if (record) setDraft(record); else setError("Запись не найдена.");
+    }
+  }, [module, storageKey]);
+  function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!draft) return;
+    const form = new FormData(event.currentTarget);
+    const next = { ...draft, title: String(form.get("title") || "").trim(), description: String(form.get("description") || ""), status: String(form.get("status")), updated: "Только что" };
+    if (!next.title) { setError("Укажите название записи."); return; }
+    const records = rows.some(item => item.id === next.id) ? rows.map(item => item.id === next.id ? next : item) : [next, ...rows];
+    sessionStorage.setItem(storageKey, JSON.stringify(records));
+    window.location.assign(listHref);
+  }
+  if (draft) return <form className="workspaceEditorForm" onSubmit={save}><header><a className="editorBack" href={listHref}>← К списку</a><div><small>{module.name}</small><h2>{draft.title || "Новая запись"}</h2></div></header><div className="editorFormSurface">
+    {error && <p role="alert">{error}</p>}<label>Название<input name="title" required defaultValue={draft.title} /></label><label>Описание<textarea name="description" rows={5} defaultValue={draft.description} /></label><label>Статус<select name="status" defaultValue={draft.status}><option>Черновик</option><option>Активен</option></select></label><button type="submit" className="panelLinkButton">Сохранить</button>
+  </div></form>;
+  return <><PageHeading eyebrow="РАЗДЕЛ МОДУЛЯ" title={module.name} description={module.description} actions={<a className="panelLinkButton panelPrimaryLink" href={editHref("new")}><PanelIcon name="plus" /> Добавить</a>} />{error && <p role="alert">{error}</p>}
+    <PanelTable label={module.name} rows={rows} rowId={item => item.id} rowLabel={item => item.title} columns={[
+      { key: "title", label: "Название", render: item => <span className="panelCellText"><a href={editHref(item.id)}>{item.title}</a><small>{module.key}-{item.id}</small></span> },
+      { key: "description", label: "Информация", render: item => item.description },
+      { key: "status", label: "Статус", render: item => <em>{item.status}</em> },
+      { key: "updated", label: "Обновлено", render: item => item.updated },
+    ]} actions={item => [{ label: "Редактировать", href: editHref(item.id) }, { label: "Удалить", danger: true, onClick: () => {
+      if (!window.confirm(`Удалить «${item.title}»?`)) return;
+      const next = rows.filter(row => row.id !== item.id);
+      sessionStorage.setItem(storageKey, JSON.stringify(next)); setRows(next);
+    } }]} />
+  </>;
 }
 
 function SettingsPanel({ settings, setSettings, modules, flash }: { settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; modules: DemoModule[]; flash: (message: string) => void }) {
@@ -542,9 +608,9 @@ function SettingsPanelV2({ edition, settings, setSettings, modules, flash }: { e
   <button className="resetDemo" onClick={() => { sessionStorage.removeItem("bypcms-real-demo-v1"); window.location.reload(); }}>Сбросить все изменения демо</button></>;
 }
 
-function PublicPreview({ entity, edition, theme, settings, onClose }: { entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; onClose: () => void }) {
+function PublicPreview({ entity, edition, theme, settings, closeHref, onClose }: { entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; closeHref?: string; onClose?: () => void }) {
   const [viewport, setViewport] = useState("desktop");
-  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>Изменения видны только вам</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div><button onClick={onClose}>Закрыть ×</button></header><LiveSite edition={edition} entity={entity} theme={theme} settings={settings} /></div>;
+  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>Изменения видны только вам</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div>{closeHref ? <a className="panelLinkButton" href={closeHref}>Закрыть ×</a> : <button onClick={onClose}>Закрыть ×</button>}</header><LiveSite edition={edition} entity={entity} theme={theme} settings={settings} /></div>;
 }
 
 function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
@@ -561,18 +627,7 @@ function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; e
   const act = (text: string) => { setMessage(text); window.setTimeout(() => setMessage(""), 2600); };
   const openSitePage = (page: SitePage, text: string) => {
     setSitePage(page); setMenuOpen(false); act(text);
-    const url = new URL(location.href);
-    url.searchParams.set("preview", page);
-    history.pushState(null, "", url.pathname + url.search);
   };
-  useEffect(() => {
-    const restore = () => {
-      const value = new URLSearchParams(location.search).get("preview");
-      if (["home","listing","about","contacts","product","cart","checkout"].includes(value || "")) setSitePage(value as SitePage);
-    };
-    restore(); window.addEventListener("popstate", restore);
-    return () => window.removeEventListener("popstate", restore);
-  }, []);
   const addToCart = (product: DemoEntity) => { setCart(items => { const found = items.find(item => item.product.id === product.id); return found ? items.map(item => item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item) : [...items, { product, quantity: 1 }]; }); act(`«${product.title}» добавлен в корзину`); };
   const openProduct = (product: DemoEntity) => { setSelectedProduct(product); openSitePage("product", `Открыта карточка «${product.title}»`); };
   const customMarkup = (theme.customTemplateSource || "")

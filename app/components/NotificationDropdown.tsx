@@ -18,9 +18,10 @@ type Props = {
   items?: NotificationItem[];
   onRead?: (id: number) => Promise<void>;
   onSelect?: (id: number) => void;
+  hrefForItem?: (item: NotificationItem) => string;
 };
 
-export default function NotificationDropdown({ items = [], onRead, onSelect }: Props) {
+export default function NotificationDropdown({ items = [], onRead, onSelect, hrefForItem }: Props) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const root = useRef<HTMLDivElement>(null);
@@ -66,7 +67,12 @@ export default function NotificationDropdown({ items = [], onRead, onSelect }: P
     {open && <section id={popoverId} className="notificationPopover" aria-label="Центр событий">
       <header><div><small>ЦЕНТР СОБЫТИЙ</small><h3>Важное сегодня</h3></div><button type="button" aria-label="Закрыть оповещения" onClick={() => { setOpen(false); trigger.current?.focus(); }}><PanelIcon name="close" /></button></header>
       <div className="notificationItems">
-        {items.length ? items.slice(0, 20).map(item => <button type="button" className="notificationRow" key={item.id} onClick={() => void select(item)}>
+        {items.length ? items.slice(0, 20).map(item => hrefForItem ? <a className="notificationRow" key={item.id} href={hrefForItem(item)} onClick={() => {
+          if (onRead && !Number(item.is_read)) void onRead(item.id).catch(() => setError("Не удалось обновить оповещение."));
+        }}>
+          <i><PanelIcon name={item.icon ?? panelIconBySection[item.entity_type ?? ""] ?? "bell"} /></i>
+          <span><b>{item.title}</b><small>{item.message}</small></span><PanelIcon name="chevron" />
+        </a> : <button type="button" className="notificationRow" key={item.id} onClick={() => void select(item)}>
           <i><PanelIcon name={item.icon ?? panelIconBySection[item.entity_type ?? ""] ?? "bell"} /></i>
           <span><b>{item.title}</b><small title={item.created_at ? new Date(item.created_at).toLocaleString("ru-RU") : undefined}>{item.message}</small></span>
           <PanelIcon name="chevron" />

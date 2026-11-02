@@ -2,6 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import PanelTable from "../components/PanelTable";
+import { panelHref } from "../components/panel-route";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
@@ -27,6 +29,8 @@ const navigation = [
   ["modules", "Модули"],
   ["settings", "Настройки"],
 ];
+
+const pageStatuses: Record<string, string> = { draft: "Черновик", published: "Опубликовано", archived: "В архиве" };
 
 async function api<T>(
   action: string,
@@ -63,15 +67,22 @@ export default function AdminPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<PageItem | null>(null);
   const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
-  const [routeReady,setRouteReady]=useState(false);
-  useEffect(()=>{
-    if(loading||!user)return;
-    const restore=()=>{const query=new URLSearchParams(location.search);setActive(query.get("section")||"overview");if(query.has("page")&&!pages.length)return;if(query.has("module")&&!modules.length)return;setCreateOpen(query.get("editor")==="new-page");setEditingPage(pages.find(item=>String(item.id)===query.get("page"))||null);setEditingModule(modules.find(item=>item.module_key===query.get("module"))||null);setRouteReady(true);};
-    if(!routeReady)restore();window.addEventListener("popstate",restore);return()=>window.removeEventListener("popstate",restore);
-  },[loading,user,pages,modules,routeReady]);
-  useEffect(()=>{
-    if(!routeReady)return;const query=new URLSearchParams();query.set("section",active);if(createOpen)query.set("editor","new-page");if(editingPage)query.set("page",String(editingPage.id));if(editingModule)query.set("module",editingModule.module_key);const next=location.pathname+"?"+query.toString();if(next!==location.pathname+location.search)history.pushState(null,"",next);
-  },[active,createOpen,editingPage,editingModule,routeReady]);
+  const [route, setRoute] = useState<URLSearchParams | null>(null);
+  useEffect(() => {
+    const query = new URLSearchParams(location.search);
+    setRoute(query);
+    const section = query.get("section") || "overview";
+    setActive(navigation.some(([key]) => key === section) ? section : "overview");
+  }, []);
+  const sectionHref = (section: string) => panelHref({ section });
+  const pageHref = (page: PageItem) => panelHref({ section: "content", page: page.id });
+  const moduleHref = (module: ModuleItem) => panelHref({ section: "modules", module: module.module_key });
+  useEffect(() => {
+    if (!route) return;
+    setCreateOpen(route.get("section") === "content" && route.get("editor") === "new-page");
+    setEditingPage(route.get("section") === "content" ? pages.find(item => String(item.id) === route.get("page")) || null : null);
+    setEditingModule(route.get("section") === "modules" ? modules.find(item => item.module_key === route.get("module")) || null : null);
+  }, [route, pages, modules]);
 
   const loadSession = useCallback(async () => {
     setLoading(true);
@@ -120,10 +131,6 @@ export default function AdminPage() {
 
   useEffect(() => { void loadSession(); }, [loadSession]);
   useEffect(() => {
-    const sync=()=>{const section=new URLSearchParams(window.location.search).get("section");setActive(section&&navigation.some(([key])=>key===section)?section:"overview")};
-    sync();window.addEventListener("popstate",sync);return()=>window.removeEventListener("popstate",sync);
-  },[]);
-  useEffect(() => {
     if (user) {
       void loadDashboard();
       void loadPages();
@@ -170,9 +177,7 @@ export default function AdminPage() {
           status: form.get("status"),
         }),
       }, csrf);
-      setCreateOpen(false);
-      setNotice("Страница создана");
-      await Promise.all([loadPages(), loadDashboard()]);
+      window.location.assign(sectionHref("content"));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Не удалось создать страницу");
     }
@@ -209,9 +214,7 @@ export default function AdminPage() {
           status: form.get("status"),
         }),
       }, csrf);
-      setEditingPage(null);
-      setNotice("Страница сохранена");
-      await Promise.all([loadPages(), loadDashboard()]);
+      window.location.assign(sectionHref("content"));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Не удалось сохранить страницу");
     }
@@ -231,9 +234,7 @@ export default function AdminPage() {
         method: "POST",
         body: JSON.stringify({ module_key: editingModule.module_key, settings: moduleSettings }),
       }, csrf);
-      setEditingModule(null);
-      setNotice(`${editingModule.name}: настройки сохранены`);
-      await loadConfiguration();
+      window.location.assign(sectionHref("modules"));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Не удалось сохранить настройки модуля");
     }
@@ -284,7 +285,7 @@ export default function AdminPage() {
     () => navigation.find(([key]) => key === active)?.[1] ?? "Обзор",
     [active],
   );
-  function selectSection(section:string){setCreateOpen(false);setEditingPage(null);setEditingModule(null);setActive(section);const url=new URL(window.location.href);if(section==="overview")url.searchParams.delete("section");else url.searchParams.set("section",section);window.history.pushState({},"",url);}
+
 
   if (loading) {
     return <main className="adminLoading"><span>B</span><p>Проверяем BYPCMS…</p></main>;
@@ -324,9 +325,9 @@ export default function AdminPage() {
         <Link href="/" className="cmsBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Admin</i></Link>
         <nav aria-label="Разделы CMS">
           {navigation.map(([key, label]) => (
-            <button type="button" key={key} className={(createOpen||editingPage?"content":editingModule?"modules":active) === key ? "active" : ""} onClick={() => selectSection(key)}>
+            <a key={key} href={sectionHref(key)} aria-label={label} title={label} aria-current={active === key ? "page" : undefined} className={active === key ? "active" : ""}>
               <i><WorkspaceIcon symbol={key}/></i><span>{label}</span>
-            </button>
+            </a>
           ))}
         </nav>
         <div className="cmsUser workspaceMenuStatus">
@@ -345,7 +346,7 @@ export default function AdminPage() {
         <div className={`cmsContent ${createOpen||editingPage||editingModule?"editorRouteOpen":""}`}>
           <div className="cmsHeading">
             <div><p>ПАНЕЛЬ УПРАВЛЕНИЯ</p><h1>{pageTitle}</h1><span>{notice || "Все системы работают штатно"}</span></div>
-            {active === "content" && <button type="button" onClick={() => setCreateOpen(true)}><WorkspaceIcon symbol="＋"/> Создать страницу</button>}
+            {active === "content" && <a className="panelLinkButton panelPrimaryLink" href={panelHref({ section: "content", editor: "new-page" })}><WorkspaceIcon symbol="＋"/> Создать страницу</a>}
           </div>
           {error && <div className="systemError">{error}<button type="button" onClick={() => setError("")}><WorkspaceIcon symbol="×"/></button></div>}
 
@@ -368,13 +369,12 @@ export default function AdminPage() {
 
               <div className="dashboardPanels">
                 <article className="recentPanel">
-                  <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><button type="button" onClick={() => setActive("content")}>Все страницы <WorkspaceIcon symbol="→"/></button></header>
-                  <div className="tableRows">
-                    {(dashboard?.recent_pages ?? []).length === 0 && <div className="emptyRow">Создайте первую страницу</div>}
-                    {(dashboard?.recent_pages ?? []).map((page) => (
-                      <div key={page.id}><span className="pageGlyph">{page.title[0]}</span><p><strong>{page.title}</strong><small>/{page.slug}</small></p><em className={page.status}>{page.status}</em><time>{new Date(page.updated_at).toLocaleDateString("ru-RU")}</time></div>
-                    ))}
-                  </div>
+                  <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><a className="panelLinkButton" href={sectionHref("content")}>Все страницы <WorkspaceIcon symbol="→"/></a></header>
+                  <PanelTable label="Последние страницы" rows={dashboard?.recent_pages ?? []} rowId={page => page.id} rowLabel={page => page.title} columns={[
+                    { key: "title", label: "Название", render: page => <span className="panelCellText"><a href={pageHref(page)}>{page.title}</a><small>/{page.slug}</small></span> },
+                    { key: "status", label: "Статус", render: page => <em>{pageStatuses[page.status] || page.status}</em> },
+                    { key: "updated", label: "Обновлено", render: page => new Date(page.updated_at).toLocaleDateString("ru-RU") },
+                  ]} actions={page => [{ label: "Редактировать", href: pageHref(page) }]} />
                 </article>
                 <article className="licenseCard">
                   <header><p>ЛИЦЕНЗИЯ</p><span className={dashboard?.license?.status ?? "trial"}>{dashboard?.license?.status ?? "trial"}</span></header>
@@ -390,12 +390,11 @@ export default function AdminPage() {
           {active === "content" && (
             <section className="dataPanel">
               <header><div><p>СТРУКТУРА САЙТА</p><h2>Страницы</h2></div><span>{pages.length} материалов</span></header>
-              <div className="contentTable">
-                <div className="tableHead"><span>Название</span><span>URL</span><span>Статус</span><span>Управление</span></div>
-                {pages.map((page) => (
-                  <div key={page.id}><p><strong>{page.title}</strong><small>{page.excerpt || page.template}</small></p><code>/{page.slug}</code><em className={page.status}>{page.status}</em><button type="button" className="rowAction" onClick={() => setEditingPage(page)}>Редактировать</button></div>
-                ))}
-              </div>
+              <PanelTable label="Страницы" rows={pages} rowId={page => page.id} rowLabel={page => page.title} columns={[
+                { key: "title", label: "Название", render: page => <span className="panelCellText"><a href={pageHref(page)}>{page.title}</a><small>{page.excerpt || page.template}</small></span> },
+                { key: "url", label: "URL", render: page => <code>/{page.slug}</code> },
+                { key: "status", label: "Статус", render: page => <em>{pageStatuses[page.status] || page.status}</em> },
+              ]} actions={page => [{ label: "Редактировать", href: pageHref(page) }]} />
             </section>
           )}
 
@@ -404,15 +403,11 @@ export default function AdminPage() {
           {active === "modules" && (
             <section className="dataPanel">
               <header><div><p>ЭКОСИСТЕМА</p><h2>Установленные модули</h2></div><span>{modules.length} пакетов</span></header>
-              <div className="moduleGrid">
-                {modules.map((module) => (
-                  <article key={module.module_key}>
-                    <span className="moduleIcon"><WorkspaceIcon symbol="modules"/></span>
-                    <div><h3>{module.name}</h3><p>{module.module_key} · v{module.version}</p></div>
-                    <div className="moduleActions"><button type="button" className={module.status} onClick={() => void toggleModule(module)}>{module.status === "active" ? "Включён" : "Выключен"}</button><button type="button" onClick={() => setEditingModule(module)}>Настроить</button></div>
-                  </article>
-                ))}
-              </div>
+              <PanelTable label="Установленные модули" rows={modules} rowId={module => module.module_key} rowLabel={module => module.name} columns={[
+                { key: "name", label: "Модуль", render: module => <span className="panelCellText"><a href={moduleHref(module)}>{module.name}</a><small>{module.module_key}</small></span> },
+                { key: "version", label: "Версия", render: module => module.version },
+                { key: "status", label: "Статус", render: module => <em>{module.status === "active" ? "Включён" : "Выключен"}</em> },
+              ]} actions={module => [{ label: "Редактировать", href: moduleHref(module) }, { label: module.status === "active" ? "Выключить" : "Включить", onClick: () => void toggleModule(module) }]} />
             </section>
           )}
 
@@ -441,7 +436,7 @@ export default function AdminPage() {
       {createOpen && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={createPage}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div></header><div className="editorFormSurface">
+            <header><a className="editorBack" href={sectionHref("content")}><WorkspaceIcon symbol="←"/> К страницам</a><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div></header><div className="editorFormSurface">
             <label>Заголовок<input name="title" required placeholder="Например, О компании" /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" placeholder="about" /></label>
             <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
@@ -454,7 +449,7 @@ export default function AdminPage() {
       {editingPage && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={updatePage}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div></header><div className="editorFormSurface">
+            <header><a className="editorBack" href={sectionHref("content")}><WorkspaceIcon symbol="←"/> К страницам</a><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div></header><div className="editorFormSurface">
             <label>Заголовок<input name="title" required defaultValue={editingPage.title} /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" defaultValue={editingPage.slug} /></label>
             <label>Описание<textarea name="excerpt" rows={5} defaultValue={editingPage.excerpt || ""} /></label>
@@ -469,7 +464,7 @@ export default function AdminPage() {
       {editingModule && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={saveModuleSettings}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("modules")}><WorkspaceIcon symbol="←"/> К модулям</button><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div></header><div className="editorFormSurface">
+            <header><a className="editorBack" href={sectionHref("modules")}><WorkspaceIcon symbol="←"/> К модулям</a><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div></header><div className="editorFormSurface">
             <p className="moduleMeta">Ключ: <code>{editingModule.module_key}</code> · версия {editingModule.version}</p>
             <label className="checkSetting"><input name="notifications" type="checkbox" defaultChecked /> Системные уведомления модуля</label>
             <label className="checkSetting"><input name="public_access" type="checkbox" /> Разрешить публичные API-методы</label>

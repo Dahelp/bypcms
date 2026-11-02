@@ -31,25 +31,25 @@
   display:block;flex-shrink:0;width:100%;margin:0;padding:20px 12px 8px;
   color:#8795ad!important;font-size:11px!important;font-weight:600!important;line-height:1.5!important;letter-spacing:.1em!important;text-transform:uppercase;
 }
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button{
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a){
   display:grid!important;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;justify-content:normal;
   gap:11px!important;width:100%;height:auto;min-height:48px!important;margin:0;padding:10px 13px!important;
   border:0;border-radius:8px;background:transparent;box-shadow:none;color:#bac5d6!important;
   font-size:14px!important;font-weight:500!important;line-height:1.4!important;letter-spacing:normal!important;text-align:left;cursor:pointer;
 }
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button>span{display:block;min-width:0;font:inherit!important;letter-spacing:normal!important}
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button>i{
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a)>span{display:block;min-width:0;font:inherit!important;letter-spacing:normal!important}
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a)>i{
   display:grid;place-items:center;flex:0 0 28px;width:28px;height:28px;margin:0;
   border-radius:7px;color:#9ca398!important;font-style:normal;
 }
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button>i>.panelIcon{display:block;margin:0!important}
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button:hover{background:#23271f}
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button.active{
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a)>i>.panelIcon{display:block;margin:0!important}
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a):hover{background:#23271f}
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a).active{
   background:#39433e!important;box-shadow:inset 3px 0 #a5b8ac!important;color:#fff!important;
 }
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button.active>i{color:#d2e1d6!important}
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button:focus-visible{outline:2px solid #a5b8ac;outline-offset:-2px}
-:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button>em{
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a).active>i{color:#d2e1d6!important}
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a):focus-visible{outline:2px solid #a5b8ac;outline-offset:-2px}
+:is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a)>em{
   display:block;margin:0 0 0 auto;padding:5px 8px;border-radius:99px;
   background:#39465f;color:#e0ddff;font-size:11px!important;font-weight:800!important;font-style:normal;line-height:1!important;
 }
@@ -67,8 +67,8 @@
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu{width:78px;padding-inline:7px;scrollbar-gutter:auto}
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu .workspaceMenuBrand{justify-content:center;padding-inline:0!important}
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu :is(.workspaceMenuBrand>span,.workspaceMenuBrand>i,.workspaceMenuGroup,.workspaceMenuStatus,.workspaceMenuExit),
-  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button>:is(span,em){display:none}
-  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button{display:flex!important;justify-content:center;padding-inline:0!important}
+  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a)>:is(span,em){display:none}
+  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a){display:flex!important;justify-content:center;padding-inline:0!important}
 }
 @media(max-width:650px){
   :is(.realDemo,.ownerApp,.cms):has(>.workspaceMenu){display:block;padding-bottom:68px}
@@ -80,5 +80,7 @@
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu :is(.workspaceMenuBrand,.workspaceMenuGroup,.workspaceMenuStatus,.workspaceMenuExit){display:none}
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav{display:flex;justify-content:flex-start;gap:4px;overflow-x:auto;overflow-y:hidden}
   :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav>div{display:block;flex:0 0 64px;min-width:64px}
-  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav button{flex:0 0 64px;width:64px;min-width:64px;height:54px;min-height:54px!important}
+  :is(.realDemo,.ownerApp,.cms) .workspaceMenu.workspaceMenu nav :is(button,a){flex:0 0 64px;width:64px;min-width:64px;height:54px;min-height:54px!important}
 }
+
+.workspaceMenu nav a{text-decoration:none}

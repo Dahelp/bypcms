@@ -3,6 +3,7 @@ import "./globals.css";
 import "./panel-system.css";
 import "./workspace-common.css";
 import "./workspace-menu.css";
+import "./panel-tables.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(

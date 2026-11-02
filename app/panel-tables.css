@@ -1,0 +1,39 @@
+/* One table and action pattern for demo, owner and admin. */
+:is(.realDemo,.ownerApp,.cms) .panelTable{min-width:0;margin:16px 0;border:1px solid #dfe5de;border-radius:12px;background:#fff;color:#26352e;font:14px/1.5 "Segoe UI",Arial,sans-serif;overflow:hidden}
+.panelTable .panelSelectionBar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:50px;padding:10px 18px;color:#68746d;font-size:13px;border-bottom:1px solid #e5eae5}
+.panelTable .panelSelectionBar>button{border:0;background:transparent;color:#405e4b;padding:4px;cursor:pointer}
+.panelTable .panelTableScroll{overflow-x:auto}
+.realDemo.previewDocument{display:block}
+.panelTable table{width:100%;min-width:720px;border-collapse:collapse;text-align:left;table-layout:auto}
+.panelTable :is(th,td){padding:16px;vertical-align:middle;border:0;border-bottom:1px solid #e9ede8;font-size:14px;line-height:1.5}
+.panelTable th{padding-block:13px;background:#f7f9f6;color:#717d74;font-weight:500;white-space:nowrap}
+.panelTable tbody tr:last-child td{border-bottom:0}
+.panelTable tbody tr:hover{background:#f8faf7}
+.panelTable tbody tr[data-selected]{background:#edf3ed}
+.panelTable :is(.panelSelectCell,.panelActionsCell){width:60px;padding-inline:18px}
+.panelTable .panelActionsCell{position:sticky;right:0;background:#fff;box-shadow:-1px 0 #e9ede8}
+.panelTable th.panelActionsCell{background:#f7f9f6}
+.panelTable tr[data-selected] .panelActionsCell{background:#edf3ed}
+.panelTable input.panelCheckbox{display:block;width:18px;height:18px;min-height:18px;margin:0;padding:0;accent-color:#52675e;cursor:pointer}
+.panelTable .panelCellTitle{display:flex;align-items:center;gap:12px;min-width:200px}
+.panelTable :is(.panelCellTitle>span,.panelCellText){display:grid;gap:3px}
+.panelTable :is(p,small){margin:0}
+.panelTable small{display:block;color:#78837b;font-size:13px!important;line-height:1.5;max-width:420px;overflow-wrap:anywhere}
+.panelTable a{color:#304f3b;text-decoration:none;font-weight:600}
+.panelTable a:hover{text-decoration:underline}
+.panelTable a:focus-visible,.panelActionMenu :is(a,button):focus-visible{outline:2px solid #52675e;outline-offset:3px}
+.panelTable em{display:inline-block;border-radius:6px;padding:4px 9px;background:#eef3ea;color:#53694d;font-size:13px;font-style:normal;white-space:nowrap}
+.panelTable code{font-size:13px;overflow-wrap:anywhere}
+.panelTable .panelTableEmpty{text-align:center;padding:36px;color:#78837b}
+.panelTable .panelActionTrigger.panelActionTrigger{display:grid;place-items:center;width:36px;height:36px;min-height:36px;padding:0!important;border:1px solid #d9e0d7;border-radius:8px;background:#fff;color:#5d6c61;cursor:pointer}
+.panelTable .panelActionTrigger:hover,.panelTable .panelActionTrigger[aria-expanded=true]{background:#eaf0e7;border-color:#a6b5a7}
+.panelActionMenu{position:fixed;z-index:1000;width:224px;max-height:calc(100vh - 16px);overflow-y:auto;padding:7px;border:1px solid #d8e0d5;border-radius:10px;background:#fff;box-shadow:0 12px 40px #18221b26;color:#26352e;font:14px/1.5 "Segoe UI",Arial,sans-serif;box-sizing:border-box}
+.panelActionMenu :is(a,button){display:flex;align-items:center;box-sizing:border-box;width:100%;min-height:44px;padding:10px 12px;border:0;border-radius:6px;background:#fff;color:inherit;font:inherit;text-align:left;text-decoration:none;cursor:pointer}
+.panelActionMenu :is(a,button):hover,.panelActionMenu :is(a,button):focus{background:#f0f4ed}
+.panelActionMenu .danger{color:#b34236;border-top:1px solid #e9ede8;border-radius:0 0 6px 6px}
+.panelVisuallyHidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+:is(.realDemo,.ownerApp,.cms) .panelLinkButton{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border:1px solid #d5ded3;border-radius:8px;background:#fff;color:#34513e;font-size:14px;font-weight:600;text-decoration:none;line-height:1.4;box-sizing:border-box}
+:is(.realDemo,.ownerApp,.cms) .panelLinkButton:hover{background:#eef3eb}
+:is(.realDemo,.ownerApp,.cms) .panelPrimaryLink{background:#52675e;color:#fff;border-color:#52675e}
+:is(.realDemo,.ownerApp,.cms) .panelPrimaryLink:hover{background:#40594c}
+@media(max-width:650px){.panelTable .panelSelectionBar{align-items:flex-start;flex-wrap:wrap;gap:6px;padding:12px}.panelTable :is(th,td){padding:12px}}

@@ -37,7 +37,7 @@
 @media(max-width:750px){.workspaceEditorForm>.editorFormSurface{padding:18px}}
 :is(.ownerGate,.loginScreen) :is(label,a,p,em){font-size:15px!important;line-height:1.6!important;font-weight:400!important}:is(.ownerGate,.loginScreen) small{font-size:13px!important;letter-spacing:normal!important}
 .ownerApp .ownerTable header>button{font-size:14px!important;padding:10px 14px!important;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
-.ownerApp .quickActions>button{gap:14px!important;min-height:74px;align-items:center;padding:16px 0!important}
+.ownerApp .quickActions>:is(button,a){gap:14px!important;min-height:74px;align-items:center;padding:16px 0!important}
 .ownerApp .ownerServices :is(p,small){letter-spacing:normal!important;line-height:1.6!important}.ownerApp .ownerServices small{display:block;margin-top:5px}
 :is(.cms,.ownerApp,.ownerGate,.loginScreen){--workspace-accent:#52675e;font-family:"Segoe UI",Arial,sans-serif!important;font-size:15px;line-height:1.5;color:#26362d}
 :is(.cms,.ownerApp,.ownerGate,.loginScreen) :is(button,input,textarea,select,a,label,span,small,p,b,strong,h1,h2,h3){font-family:"Segoe UI",Arial,sans-serif!important;letter-spacing:normal!important}
@@ -76,3 +76,15 @@
 
 .workspaceNotifications.workspaceNotifications .notificationPopover{font-size:14px!important;line-height:1.5!important}
 .workspaceNotifications.workspaceNotifications .notificationPopover header small{display:block;line-height:18px!important}
+
+.workspaceNotifications a.notificationRow{text-decoration:none;box-sizing:border-box}
+.panelDashboardLink{text-decoration:none;color:inherit}
+.editionTabs>a{display:grid;align-content:center;text-decoration:none;border:0;border-radius:7px;line-height:1.4;font-size:14px;font-weight:600;box-sizing:border-box}
+.realPageHeading .panelDashboardLink{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:10px 16px;background:#52675e;color:#fff;border-radius:8px;font-size:14px;font-weight:600;box-sizing:border-box}
+.recentWidget>header>a{display:inline-flex;align-items:center;gap:8px;color:#52675e}
+.ownerApp .quickActions>a{display:grid;grid-template-columns:38px 1fr 20px;border-top:1px solid #e9eae5;color:inherit;text-decoration:none}
+.ownerApp .quickActions>a>i{display:grid;place-items:center;width:38px;height:38px;background:#eeeaff;border-radius:8px;color:#6750cb}
+.ownerApp .quickActions>a span{display:grid;gap:4px}
+.ownerApp .quickActions>a small{color:#7f827a}
+.ownerProfileButton{text-decoration:none;color:inherit;display:flex;align-items:center;gap:10px}
+.panelSectionHeader{display:flex;align-items:center;justify-content:space-between;gap:16px}

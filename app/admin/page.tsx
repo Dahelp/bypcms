@@ -441,20 +441,20 @@ export default function AdminPage() {
       {createOpen && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={createPage}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div></header>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>НОВЫЙ МАТЕРИАЛ</p><h2>Создать страницу</h2></div></header><div className="editorFormSurface">
             <label>Заголовок<input name="title" required placeholder="Например, О компании" /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" placeholder="about" /></label>
             <label>Краткое описание<textarea name="excerpt" rows={4} placeholder="Описание страницы для списка и SEO" /></label>
             <label>Статус<select name="status"><option value="draft">Черновик</option><option value="published">Опубликовать</option></select></label>
             <button type="submit" className="saveButton">Создать страницу <WorkspaceIcon symbol="→"/></button>
-          </form>
+          </div></form>
         </div>
       )}
 
       {editingPage && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={updatePage}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div></header>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("content")}><WorkspaceIcon symbol="←"/> К страницам</button><div><p>РЕДАКТОР КОНТЕНТА</p><h2>{editingPage.title}</h2></div></header><div className="editorFormSurface">
             <label>Заголовок<input name="title" required defaultValue={editingPage.title} /></label>
             <label>URL<input name="slug" required pattern="[a-z0-9][a-z0-9\-/]*" defaultValue={editingPage.slug} /></label>
             <label>Описание<textarea name="excerpt" rows={5} defaultValue={editingPage.excerpt || ""} /></label>
@@ -462,20 +462,20 @@ export default function AdminPage() {
             <label>Шаблон<select name="template" defaultValue={editingPage.template || "default"}><option value="default">Стандартная</option><option value="landing">Лендинг</option><option value="catalog">Каталог</option><option value="services">Услуги</option><option value="order">Заказ</option><option value="demo">Демонстрация</option></select></label>
             <label>Статус<select name="status" defaultValue={editingPage.status}><option value="draft">Черновик</option><option value="published">Опубликована</option><option value="archived">Архив</option></select></label>
             <button type="submit" className="saveButton">Сохранить изменения <WorkspaceIcon symbol="→"/></button>
-          </form>
+          </div></form>
         </div>
       )}
 
       {editingModule && (
         <div className="cmsEditorPage">{error&&<p className="systemError" role="alert">{error}</p>}
           <form className="cmsEditorForm workspaceEditorForm" onSubmit={saveModuleSettings}>
-            <header><button type="button" className="editorBack" onClick={() => selectSection("modules")}><WorkspaceIcon symbol="←"/> К модулям</button><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div></header>
+            <header><button type="button" className="editorBack" onClick={() => selectSection("modules")}><WorkspaceIcon symbol="←"/> К модулям</button><div><p>НАСТРОЙКИ МОДУЛЯ</p><h2>{editingModule.name}</h2></div></header><div className="editorFormSurface">
             <p className="moduleMeta">Ключ: <code>{editingModule.module_key}</code> · версия {editingModule.version}</p>
             <label className="checkSetting"><input name="notifications" type="checkbox" defaultChecked /> Системные уведомления модуля</label>
             <label className="checkSetting"><input name="public_access" type="checkbox" /> Разрешить публичные API-методы</label>
             <label>Записей на странице<input name="records_per_page" type="number" min="5" max="100" defaultValue="20" /></label>
             <button type="submit" className="saveButton">Сохранить настройки <WorkspaceIcon symbol="→"/></button>
-          </form>
+          </div></form>
         </div>
       )}
       </section>

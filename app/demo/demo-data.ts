@@ -18,6 +18,10 @@ export type DemoEntity = {
   seoDescription: string;
   category?: string;
   author?: string;
+  publishAt?: string;
+  includeInSitemap?: boolean;
+  passwordProtected?: boolean;
+  allowIndexing?: boolean;
   price?: number;
   oldPrice?: number;
   stock?: number;

@@ -9,12 +9,12 @@ import { panelIconBySection as iconByMenu } from "../components/panel-icons";
 import NotificationDropdown from "../components/NotificationDropdown";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { defaultInstalledModules, DemoContentBlock, DemoEntity, DemoModule, EditionKey, EntityKind, editions, entityTitles, mediaItems, moduleRegistry, seedEntities } from "./demo-data";
+import { cameFromEditor, clearEditorSession, commitDemoEntity, isEditorTab, isPersistedEntity, readEditorSession, writeEditorSession, type EditorContext, type EditorTab } from "./editor-session";
 import "./demo.css";
 import "./site-preview.css";
 
 type ThemeState = { template: string; editionTemplates?: Partial<Record<EditionKey, string>>; accent: string; background: string; font: string; headingFont?: string; customFont?: string; radius: number; header: string; container: number; menuPosition?: "left" | "center" | "right" | "drawer"; customTemplateName?: string; customTemplateSource?: string };
 type SettingsState = { siteName: string; slogan?: string; logo?: string; domain: string; email: string; phone: string; address: string; language: string; timezone: string; notifications: boolean; maintenance: boolean; currency?: string; taxRate?: number; minOrder?: number; inventoryTracking?: boolean };
-type EditorTab = "content" | "seo" | "settings" | `module:${string}`;
 
 const templateCatalog: Record<EditionKey, { id: string; name: string; note: string }[]> = {
   content: [{ id: "journal", name: "Journal", note: "Журнальная сетка и крупные истории" }, { id: "chronicle", name: "Chronicle", note: "Строгая редакционная колонка" }, { id: "focus", name: "Focus", note: "Современная медиа-витрина" }],
@@ -35,7 +35,6 @@ export default function DemoPage() {
   const [editing, setEditing] = useState<DemoEntity | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>("content");
   const [preview, setPreview] = useState<DemoEntity | null>(null);
-  const [routedPreview, setRoutedPreview] = useState(false);
   const [routeError, setRouteError] = useState("");
   const [theme, setTheme] = useState(initialTheme);
   const [settings, setSettings] = useState(initialSettings);
@@ -78,12 +77,18 @@ export default function DemoPage() {
     if (route.get("editor") === "new" && item?.kind) setEditing(createEntity(item.kind));
     else if (route.has("record")) {
       const record = records.find(record => String(record.id) === route.get("record") && record.kind === item?.kind);
-      if (record) setEditing(record); else setRouteError("Запись не найдена в этом разделе.");
+      if (record) {
+        setEditing(record);
+        const snapshot=readEditorSession(sessionStorage,{edition:nextEdition,kind:record.kind,id:record.id});
+        setEditorTab(snapshot?.tab || (isEditorTab(route.get("tab")) ? route.get("tab") as EditorTab : "content"));
+      } else setRouteError("Запись не найдена в этом разделе.");
     }
-    if (route.get("tab") === "seo") setEditorTab("seo");
     if (route.has("preview")) {
       const record = records.find(record => String(record.id) === route.get("preview"));
-      if (record) { setPreview(record); setRoutedPreview(true); } else setRouteError("Запись для просмотра не найдена.");
+      if (record) {
+        const snapshot=route.get("record")===String(record.id)?readEditorSession(sessionStorage,{edition:nextEdition,kind:record.kind,id:record.id}):null;
+        setPreview(snapshot?.draft || record);
+      } else setRouteError("Запись для просмотра не найдена.");
     }
     setReady(true);
   }, []);
@@ -121,7 +126,8 @@ export default function DemoPage() {
   }
   const sectionHref = (section: string) => panelHref({ edition, section });
   const entityHref = (item: DemoEntity, extra: Record<string, string | number> = {}) => panelHref({ edition, section: currentMenu.find(menu => menu.kind === item.kind)?.id || item.kind, record: item.id, ...extra });
-  const previewHref = (item: DemoEntity) => panelHref({ edition, section: view, record: editing?.id, editor: editing && !entities.some(item => item.id === editing.id) ? "new" : undefined, preview: item.id });
+  const editingSaved=editing ? isPersistedEntity(entities,editing) : false;
+  const previewHref = (item: DemoEntity) => panelHref({ edition, section: view, record: editingSaved ? editing?.id : undefined, preview: item.id, tab: editingSaved ? editorTab : undefined });
   function persistEntities(next: DemoEntity[]) {
     sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities: next, theme, settings, installedModules }));
   }
@@ -136,13 +142,17 @@ export default function DemoPage() {
     return [...statusBulkActions<DemoEntity>(choices,(rows,status)=>batchEntities(rows,"status",status)),deleteBulkAction<DemoEntity>(rows=>batchEntities(rows,"delete"))];
   }
   function saveEntity(item: DemoEntity) {
-    const next = entities.some(entry => entry.id === item.id) ? entities.map(entry => entry.id === item.id ? { ...item, updated: "Только что" } : entry) : [{ ...item, updated: "Только что" }, ...entities];
-    persistEntities(next);
-    window.location.assign(sectionHref(view));
+    try {
+      commitDemoEntity(sessionStorage,{entities,theme,settings,installedModules},item);
+      clearEditorSession(sessionStorage,{edition,kind:item.kind,id:item.id});
+      window.location.assign(entityHref(item,{tab:editorTab}));
+      return true;
+    } catch { flash("Не удалось сохранить материал в демо-сессии. Проверьте свободное место и доступ к хранилищу браузера. Введённые данные сохранены в редакторе."); return false; }
   }
   function deleteEntity(item: DemoEntity) {
     const next = entities.filter(entry => entry.id !== item.id);
     persistEntities(next);
+    clearEditorSession(sessionStorage,{edition,kind:item.kind,id:item.id});
     if (editing) { window.location.assign(sectionHref(view)); return; }
     setEntities(next);
     const masculine = ["articles", "projects", "team", "orders", "products", "brands", "customers", "promos", "payments"].includes(item.kind);
@@ -151,7 +161,7 @@ export default function DemoPage() {
 
   if (!ready) return <main className="panelBoot" aria-label="Загрузка панели"><span>BYPCMS</span><p>Загрузка рабочего пространства…</p></main>;
   if (!logged) return <Login onLogin={() => { sessionStorage.setItem("bypcms-demo-auth", "active"); setLogged(true); }} notice={notice} flash={flash} />;
-  if (routedPreview && preview) return <main className="realDemo previewDocument"><PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} closeHref={panelHref({ edition, section: view, record: editing?.id })} /></main>;
+  if (preview) return <main className="realDemo previewDocument"><PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} closeHref={panelHref({ edition, section: view, record: editing?.id, tab: editing ? editorTab : undefined })} /></main>;
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
     <aside className="realSidebar workspaceMenu">
@@ -173,14 +183,14 @@ export default function DemoPage() {
           { id: 2, title: "SEO-аудит завершён", message: "Найдены 2 рекомендации", created_at: "", is_read: 0, icon: "seo" },
           { id: 3, title: "Доступны обновления", message: "2 модуля готовы", created_at: "", is_read: 0, icon: "modules" },
         ]} hrefForItem={item => sectionHref(item.id === 1 ? (edition === "commerce" ? "orders" : edition === "business" ? "leads" : "articles") : item.id === 2 ? "seo" : "extensions")} />
-        <a className="openSite panelLinkButton" href={previewHref(entities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects")) || seedEntities[0])}>Открыть сайт <PanelIcon name="external" /></a>
+        {(!editing || editingSaved) && <a className="openSite panelLinkButton" href={previewHref(editing || entities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects")) || seedEntities[0])}>Открыть сайт <PanelIcon name="external" /></a>}
       </header>
       <div className="realContent">
         {notice && <div className="demoNotice">{notice}<button onClick={() => setNotice("")}><PanelIcon name="close" /></button></div>}
         {routeError && <p role="alert">{routeError} <a href={sectionHref(view)}>К списку</a></p>}
         {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} sectionHref={sectionHref} entityHref={entityHref} bulkActionsForKind={entityBulkActions} />}
         {currentKind && !editing && <EntityList key={currentKind} kind={currentKind} entities={entities.filter(item => item.kind === currentKind)} editHref={entityHref} createHref={panelHref({ edition, section: view, editor: "new" })} previewHref={previewHref} onDelete={deleteEntity} bulkActions={entityBulkActions(currentKind)} />}
-        {currentKind && editing && <EntityEditor key={editing.id} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} cancelHref={sectionHref(view)} onPreview={setPreview} flash={flash} />}
+        {currentKind && editing && <EntityEditor key={editing.id} edition={edition} isSaved={editingSaved} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} cancelHref={sectionHref(view)} previewHref={previewHref(editing)} flash={flash} />}
         {view === "media" && <MediaLibrary flash={flash} />}
         {view === "seo" && <SeoCenter bulkActions={statusBulkActions<DemoEntity>([["Опубликовано","Опубликовать"],["Черновик","В черновики"]],(rows,status)=>batchEntities(rows,"status",status))} entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
         {view === "analytics" && <Analytics edition={edition} flash={flash} />}
@@ -190,7 +200,6 @@ export default function DemoPage() {
         {view === "settings" && <SettingsPanelV2 edition={edition} settings={settings} setSettings={setSettings} modules={moduleRegistry.filter(module => activeModules.includes(module.key) && module.slots.includes("settings.section"))} flash={flash} />}
       </div>
     </section>
-    {preview && <PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} onClose={() => setPreview(null)} />}
     {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <a key={item.id} href={sectionHref(item.id)}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></a>)}{searchQuery && entities.filter(item => currentMenu.some(menu => menu.kind === item.kind) && item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <a key={`entity-${item.id}`} href={entityHref(item)}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></a>)}</div></section></div>}
   </main>;
 }
@@ -266,10 +275,13 @@ function EntityList({ kind, entities, editHref, createHref, previewHref, onDelet
     <footer className="listFooter"><span>Найдено записей: {visible.length}</span><nav className="panelPagination" aria-label="Страницы списка"><button className="paginationPrevious" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><PanelIcon name="chevron" />Назад</button><span aria-live="polite">Страница <b>{currentPage}</b> из <b>{total}</b></span><button disabled={currentPage >= total} onClick={() => setPage(currentPage + 1)}>Далее<PanelIcon name="chevron" /></button></nav></footer></>;
 }
 
-function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDelete, cancelHref, onPreview, flash }: { entity: DemoEntity; tab: EditorTab; setTab: (tab: EditorTab) => void; entities: DemoEntity[]; installed: DemoModule[]; onSave: (item: DemoEntity) => void; onDelete: (item: DemoEntity) => void; cancelHref: string; onPreview: (item: DemoEntity) => void; flash: (message: string) => void }) {
-  const [draft, setDraft] = useState(entity);
+function EntityEditor({ entity, edition, isSaved, tab, setTab, entities, installed, onSave, onDelete, cancelHref, previewHref, flash }: { entity: DemoEntity; edition: EditionKey; isSaved: boolean; tab: EditorTab; setTab: (tab: EditorTab) => void; entities: DemoEntity[]; installed: DemoModule[]; onSave: (item: DemoEntity) => boolean; onDelete: (item: DemoEntity) => void; cancelHref: string; previewHref: string; flash: (message: string) => void }) {
+  const context: EditorContext={edition,kind:entity.kind,id:entity.id};
+  const [restored]=useState(()=>isSaved?readEditorSession(sessionStorage,context):null);
+  const [draft, setDraft] = useState(restored?.draft || entity);
+  const committed=useRef(false);
   const [mediaOpen, setMediaOpen] = useState(false);
-  const [blockOrder, setBlockOrder] = useState(["excerpt", "text", "image"]);
+  const [blockOrder, setBlockOrder] = useState(restored?.blockOrder || ["excerpt", "text", "image"]);
   function reorderBlock(id: string, offset: number) {
     setBlockOrder(order => {
       const next = [...order];
@@ -285,10 +297,26 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
     return <nav className="blockOrderActions" aria-label="Порядок блока"><button type="button" title="Переместить выше" aria-label="Переместить блок выше" disabled={index === 0} onClick={() => reorderBlock(id, -1)}><PanelIcon name="chevron" /></button><button type="button" title="Переместить ниже" aria-label="Переместить блок ниже" disabled={index === blockOrder.length - 1} onClick={() => reorderBlock(id, 1)}><PanelIcon name="chevron" /></button></nav>;
   }
   const [draggedBlock, setDraggedBlock] = useState<string | null>(null);
-  const [codeBlock, setCodeBlock] = useState(false);
+  const [codeBlock, setCodeBlock] = useState(restored?.codeBlock || false);
   const [blockPickerOpen, setBlockPickerOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [customCode, setCustomCode] = useState('<section class="promo"><h2>Собственный HTML-блок</h2><p>Разметка шаблона или код виджета.</p></section>');
+  const [customCode, setCustomCode] = useState(restored?.customCode || '<section class="promo"><h2>Собственный HTML-блок</h2><p>Разметка шаблона или код виджета.</p></section>');
+  useEffect(()=>{
+    if(!isSaved)return;
+    const remember=()=>{if(committed.current)return;try{writeEditorSession(sessionStorage,context,{draft,tab,scrollY:window.scrollY,blockOrder,codeBlock,customCode});}catch{/* Keep the live editor usable; opening preview performs a checked write. */}};
+    remember();window.addEventListener("pagehide",remember);
+    return()=>window.removeEventListener("pagehide",remember);
+  },[draft,tab,blockOrder,codeBlock,customCode,isSaved,edition,entity.id,entity.kind]);
+  useEffect(()=>{
+    if(!restored)return;
+    let frame=window.requestAnimationFrame(()=>{frame=window.requestAnimationFrame(()=>window.scrollTo({top:restored.scrollY,behavior:"instant"}));});
+    return()=>window.cancelAnimationFrame(frame);
+  },[restored]);
+  function preparePreview(event:React.MouseEvent<HTMLAnchorElement>){
+    if(!isSaved){event.preventDefault();return;}
+    try{writeEditorSession(sessionStorage,context,{draft,tab,scrollY:window.scrollY,blockOrder,codeBlock,customCode});}
+    catch{event.preventDefault();flash("Не удалось подготовить предпросмотр: браузер не сохранил состояние редактора. Введённые данные остаются на странице.");}
+  }
   const meta = entityTitles[entity.kind];
   const newEntityTitle: Record<EntityKind, string> = {
     pages: "Новая страница", articles: "Новый материал", categories: "Новая категория", authors: "Новый автор",
@@ -320,9 +348,9 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
     const title = draft.title.trim();
     const rawSlug = draft.slug.trim();
     if (!title) { setTab("content"); flash("Укажите название записи — пустой материал сохранить нельзя"); return; }
-    if (!rawSlug || (rawSlug === "/" && entity.id > 100000)) { setTab("content"); flash("Укажите уникальный адрес страницы"); return; }
+    if (!rawSlug || (rawSlug === "/" && !isSaved)) { setTab("content"); flash("Укажите уникальный адрес страницы"); return; }
     const slug = rawSlug.startsWith("/") ? rawSlug : `/${rawSlug}`;
-    onSave({ ...draft, title, slug });
+    if(onSave({ ...draft, title, slug })) committed.current=true;
   };
   const blockProps = (id: string) => ({
     draggable: true,
@@ -340,7 +368,7 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
       flash("Порядок блоков изменён");
     },
   });
-  return <><header className="editorHeader"><a className="panelLinkButton" href={cancelHref}>← {meta.title}</a><div><small>{entity.id > 100000 ? "НОВАЯ ЗАПИСЬ" : `ID ${entity.id}`}</small><h1>{draft.title || newEntityTitle[entity.kind]}</h1></div><span className={`statusDot ${draft.status === "Опубликовано" ? "live" : ""}`}>{draft.status}</span><button onClick={() => onPreview(draft)}>Предпросмотр <PanelIcon name="external" /></button><button className="primary" onClick={saveDraft}>Сохранить</button></header><nav className="editorTabs"><button className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>Содержание</button>{hasSeo && <button className={tab === "seo" ? "active" : ""} onClick={() => setTab("seo")}>SEO и соцсети <em>Pro</em></button>}{editorModules.map(module => <button className={tab === `module:${module.key}` ? "active" : ""} onClick={() => setTab(`module:${module.key}`)} key={module.key}>{module.name}<em>Модуль</em></button>)}<button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>Публикация</button></nav>
+  return <><header className="editorHeader" data-new={!isSaved || undefined}><a className="panelLinkButton" href={cancelHref}>← {meta.title}</a><div><small>{!isSaved ? "НОВАЯ ЗАПИСЬ" : `ID ${entity.id}`}</small><h1>{draft.title || newEntityTitle[entity.kind]}</h1></div><span className={`statusDot ${draft.status === "Опубликовано" ? "live" : ""}`}>{draft.status}</span>{isSaved && <a className="panelLinkButton" href={previewHref} onClick={preparePreview}>Предпросмотр <PanelIcon name="external" /></a>}<button className="primary" onClick={saveDraft}>Сохранить</button></header><nav className="editorTabs"><button className={tab === "content" ? "active" : ""} onClick={() => setTab("content")}>Содержание</button>{hasSeo && <button className={tab === "seo" ? "active" : ""} onClick={() => setTab("seo")}>SEO и соцсети <em>Pro</em></button>}{editorModules.map(module => <button className={tab === `module:${module.key}` ? "active" : ""} onClick={() => setTab(`module:${module.key}`)} key={module.key}>{module.name}<em>Модуль</em></button>)}<button className={tab === "settings" ? "active" : ""} onClick={() => setTab("settings")}>Публикация</button></nav>
     {tab === "content" && <div className="editorLayout"><section className="editorMain"><div className="fieldCard"><label>Название<input value={draft.title} onChange={event => update("title", event.target.value)} placeholder={`Название: ${meta.singular}`} /></label><label>Адрес страницы<div className="slugField"><span>demo.bypcms.ru</span><input value={draft.slug} onChange={event => update("slug", event.target.value)} /></div></label></div>{commerce && <div className="fieldCard fieldGrid"><label>Артикул<input value={draft.sku || ""} onChange={event => update("sku", event.target.value)} /></label><label>Производитель<select value={draft.brand || ""} onChange={event => update("brand", event.target.value)}><option>Forma</option><option>Nord</option><option>Lumo</option></select></label><label>Цена, ₽<input type="number" value={draft.price || 0} onChange={event => update("price", Number(event.target.value))} /></label><label>Старая цена, ₽<input type="number" value={draft.oldPrice || 0} onChange={event => update("oldPrice", Number(event.target.value))} /></label><label>Остаток<input type="number" value={draft.stock || 0} onChange={event => update("stock", Number(event.target.value))} /></label><label>Категория<select value={draft.category || ""} onChange={event => update("category", event.target.value)}><option>Мебель</option><option>Освещение</option></select></label></div>}{entity.kind === "services" && <div className="fieldCard fieldGrid businessFields"><label>Цена услуги, ₽<input type="number" min="0" value={draft.price || 0} onChange={event => update("price", Number(event.target.value))} /></label><label>Срок выполнения<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Например: от 20 рабочих дней" /></label><label>Направление<input value={draft.category || ""} onChange={event => update("category", event.target.value)} placeholder="Дизайн, разработка, аудит…" /></label><label>Формат цены<select value={draft.oldPrice ? "fixed" : "from"} onChange={event => update("oldPrice", event.target.value === "fixed" ? draft.price || 1 : 0)}><option value="from">Стоимость от</option><option value="fixed">Фиксированная цена</option></select></label></div>}{entity.kind === "projects" && <div className="fieldCard fieldGrid businessFields"><label>Направление проекта<input value={draft.category || ""} onChange={event => update("category", event.target.value)} placeholder="Разработка, дизайн, брендинг…" /></label><label>Клиент / отрасль<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Название клиента или отрасль" /></label><label>Дата завершения<input type="date" value={draft.date || ""} onChange={event => update("date", event.target.value)} /></label><label>Ссылка на результат<input value={draft.phone || ""} onChange={event => update("phone", event.target.value)} placeholder="https://example.ru" /></label></div>}{entity.kind === "forms" && <div className="fieldCard fieldGrid businessFields"><label>Получатель заявок<input type="email" value={draft.email || ""} onChange={event => update("email", event.target.value)} placeholder="manager@example.ru" /></label><label>Кнопка отправки<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder="Отправить заявку" /></label><label>Сообщение после отправки<input value={draft.body || ""} onChange={event => update("body", event.target.value)} placeholder="Спасибо! Мы свяжемся с вами." /></label><label>Сценарий<select value={draft.category || "email"} onChange={event => update("category", event.target.value)}><option value="email">Email и CRM</option><option value="crm">Только CRM</option><option value="callback">Обратный звонок</option></select></label></div>}{contact && <div className="fieldCard fieldGrid"><label>Email<input type="email" value={draft.email || ""} onChange={event => update("email", event.target.value)} /></label><label>Телефон<input value={draft.phone || ""} onChange={event => update("phone", event.target.value)} /></label>{draft.value !== undefined && <label>Сумма, ₽<input type="number" value={draft.value} onChange={event => update("value", Number(event.target.value))} /></label>}<label>{entity.kind === "authors" ? "Должность автора" : entity.kind === "team" ? "Должность сотрудника" : entity.kind === "leads" ? "Источник / задача" : "Дополнительная информация"}<input value={draft.extra || ""} onChange={event => update("extra", event.target.value)} placeholder={entity.kind === "authors" ? "Редактор, эксперт, фотограф…" : entity.kind === "leads" ? "Форма услуги, звонок, консультация…" : ""} /></label></div>}{transactional && <OrderFields draft={draft} update={update} />}
       {commerce && <ProductInventoryFields draft={draft} update={update} />}
       {entity.kind === "promos" && <PromoFields draft={draft} update={update} />}
@@ -359,7 +387,7 @@ function EntityEditor({ entity, tab, setTab, entities, installed, onSave, onDele
       </div></section><aside className="editorAside"><div className="sideCard"><small>ОБЛОЖКА</small><MediaThumb index={draft.image} large /><button onClick={() => setMediaOpen(true)}>Выбрать изображение</button><label>Alt-текст<input value={mediaItems[draft.image]?.alt || ""} readOnly /></label></div><div className="sideCard"><small>ПАРАМЕТРЫ</small>{!commerce && !contact && !transactional && !businessDetails && <label>Категория<input value={draft.category || ""} onChange={event => update("category", event.target.value)} placeholder="Без категории" /></label>}<label>Статус<select value={draft.status} onChange={event => update("status", event.target.value)}><option>Черновик</option><option>Опубликовано</option><option>Скрыт</option><option>Новый</option><option>В работе</option><option>Согласовано</option><option>Оплачен</option><option>Доставляется</option></select></label><label className="checkLine"><input type="checkbox" checked={!!draft.featured} onChange={event => update("featured", event.target.checked)} />Показывать на главной</label></div><div className="sideCard dangerCard"><button onClick={() => setConfirmDelete(true)}>Удалить запись</button></div></aside></div>}
     {tab === "seo" && <SeoEditorV2 draft={draft} update={update} />}
     {tab.startsWith("module:") && <EditorModuleSlot module={installed.find(item => item.key === tab.replace("module:", ""))!} entity={draft} flash={flash} />}
-    {tab === "settings" && <PublishEditor draft={draft} update={update} onSave={saveDraft} onPreview={() => onPreview(draft)} />}
+    {tab === "settings" && <PublishEditor draft={draft} update={update} onSave={saveDraft} previewHref={isSaved ? previewHref : undefined} preparePreview={preparePreview} />}
     {mediaOpen && <MediaPicker selected={draft.image} onSelect={index => { update("image", index); setMediaOpen(false); }} onClose={() => setMediaOpen(false)} />}
     {confirmDelete && <div className="demoModal"><section className="confirmDialog deleteConfirm"><small>УДАЛЕНИЕ ЗАПИСИ</small><h2>Удалить «{draft.title || newEntityTitle[draft.kind]}»?</h2><p>Запись исчезнет из списка и публичного предпросмотра. В демо данные можно восстановить общим сбросом сессии.</p><div><button onClick={() => setConfirmDelete(false)}>Отмена</button><button className="dangerAction" onClick={() => onDelete(draft)}>Удалить запись</button></div></section></div>}
   </>;
@@ -400,12 +428,12 @@ function OrderFields({ draft, update }: { draft: DemoEntity; update: <K extends 
 
 function SeoEditor({ draft, update }: { draft: DemoEntity; update: <K extends keyof DemoEntity>(key: K, value: DemoEntity[K]) => void }) {
   const score = Math.min(100, 58 + (draft.seoTitle.length > 20 ? 16 : 0) + (draft.seoDescription.length > 80 ? 16 : 0) + (draft.image >= 0 ? 10 : 0));
-  return <div className="seoEditorLayout"><section><div className="seoScore"><strong>{score}</strong><div><b>SEO-оценка страницы</b><span>{score === 100 ? "Страница полностью оптимизирована" : "Заполните рекомендации ниже"}</span></div></div><div className="fieldCard"><small>ПОИСКОВАЯ ВЫДАЧА</small><h2>Метаданные</h2><label>Title <span>{draft.seoTitle.length}/60</span><input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Description <span>{draft.seoDescription.length}/160</span><textarea rows={4} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label><label>Канонический URL<input value={`https://demo.bypcms.ru${draft.slug}`} readOnly /></label><label className="checkLine"><input type="checkbox" defaultChecked />Разрешить индексацию страницы</label></div><div className="fieldCard"><small>СОЦИАЛЬНЫЕ СЕТИ</small><h2>Open Graph</h2><div className="ogEditor"><MediaThumb index={draft.image} large /><div><label>Заголовок<input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Описание<textarea rows={3} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label></div></div></div></section><aside><GoogleResultPreview entity={draft} /><div className="seoChecklist"><b>Рекомендации</b>{[["Заголовок страницы", draft.seoTitle.length > 20], ["Описание 80–160 символов", draft.seoDescription.length > 80], ["Читаемый URL", draft.slug.length > 1], ["Изображение для соцсетей", draft.image >= 0], ["Ключевая фраза в тексте", draft.body.length > 40]].map(([name, done]) => <p key={String(name)}><i className={done ? "done" : ""}>{done ? "✓" : "!"}</i>{String(name)}</p>)}</div></aside></div>;
+  return <div className="seoEditorLayout"><section><div className="seoScore"><strong>{score}</strong><div><b>SEO-оценка страницы</b><span>{score === 100 ? "Страница полностью оптимизирована" : "Заполните рекомендации ниже"}</span></div></div><div className="fieldCard"><small>ПОИСКОВАЯ ВЫДАЧА</small><h2>Метаданные</h2><label>Title <span>{draft.seoTitle.length}/60</span><input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Description <span>{draft.seoDescription.length}/160</span><textarea rows={4} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label><label>Канонический URL<input value={`https://demo.bypcms.ru${draft.slug}`} readOnly /></label><label className="checkLine"><input type="checkbox" checked={draft.allowIndexing !== false} onChange={event => update("allowIndexing",event.target.checked)} />Разрешить индексацию страницы</label></div><div className="fieldCard"><small>СОЦИАЛЬНЫЕ СЕТИ</small><h2>Open Graph</h2><div className="ogEditor"><MediaThumb index={draft.image} large /><div><label>Заголовок<input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Описание<textarea rows={3} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label></div></div></div></section><aside><GoogleResultPreview entity={draft} /><div className="seoChecklist"><b>Рекомендации</b>{[["Заголовок страницы", draft.seoTitle.length > 20], ["Описание 80–160 символов", draft.seoDescription.length > 80], ["Читаемый URL", draft.slug.length > 1], ["Изображение для соцсетей", draft.image >= 0], ["Ключевая фраза в тексте", draft.body.length > 40]].map(([name, done]) => <p key={String(name)}><i className={done ? "done" : ""}>{done ? "✓" : "!"}</i>{String(name)}</p>)}</div></aside></div>;
 }
 
-function PublishEditor({ draft, update, onSave, onPreview }: { draft: DemoEntity; update: <K extends keyof DemoEntity>(key: K, value: DemoEntity[K]) => void; onSave: () => void; onPreview: () => void }) {
+function PublishEditor({ draft, update, onSave, previewHref, preparePreview }: { draft: DemoEntity; update: <K extends keyof DemoEntity>(key: K, value: DemoEntity[K]) => void; onSave: () => void; previewHref?: string; preparePreview: (event:React.MouseEvent<HTMLAnchorElement>)=>void }) {
   const [revision, setRevision] = useState(0);
-  return <div className="publishLayout"><section className="fieldCard"><small>ПУБЛИКАЦИЯ</small><h2>Статус и расписание</h2><label>Статус<select value={draft.status} onChange={event => update("status", event.target.value)}><option>Черновик</option><option>Опубликовано</option><option>Скрыт</option></select></label><label>Дата публикации<input type="datetime-local" defaultValue="2026-07-28T12:00" /></label><label>Автор<select defaultValue={draft.author || "Администратор BYPCMS"}><option>Администратор BYPCMS</option><option>Анна Левина</option><option>Илья Морозов</option></select></label><label className="checkLine"><input type="checkbox" defaultChecked />Добавить в sitemap.xml</label><label className="checkLine"><input type="checkbox" />Защитить паролем</label></section><aside><div className="revisionCard"><small>ИСТОРИЯ ИЗМЕНЕНИЙ</small><h3>Версии записи</h3>{["Текущая версия · только что", "Автосохранение · 12 минут назад", "Опубликовано · вчера, 18:40"].map((text, i) => <button className={revision === i ? "active" : ""} onClick={() => setRevision(i)} key={text}><i>{i + 1}</i>{text}<span>{revision === i ? "Выбрана" : "Восстановить"}</span></button>)}</div><button className="previewWide" onClick={onPreview}>Предпросмотр на сайте <PanelIcon name="external" /></button><button className="saveWide" onClick={onSave}>Сохранить и опубликовать</button></aside></div>;
+  return <div className="publishLayout"><section className="fieldCard"><small>ПУБЛИКАЦИЯ</small><h2>Статус и расписание</h2><label>Статус<select value={draft.status} onChange={event => update("status", event.target.value)}><option>Черновик</option><option>Опубликовано</option><option>Скрыт</option></select></label><label>Дата публикации<input type="datetime-local" value={draft.publishAt || "2026-07-28T12:00"} onChange={event => update("publishAt",event.target.value)} /></label><label>Автор<select value={draft.author || "Администратор BYPCMS"} onChange={event => update("author",event.target.value)}><option>Администратор BYPCMS</option><option>Анна Левина</option><option>Илья Морозов</option></select></label><label className="checkLine"><input type="checkbox" checked={draft.includeInSitemap !== false} onChange={event => update("includeInSitemap",event.target.checked)} />Добавить в sitemap.xml</label><label className="checkLine"><input type="checkbox" checked={!!draft.passwordProtected} onChange={event => update("passwordProtected",event.target.checked)} />Защитить паролем</label></section><aside><div className="revisionCard"><small>ИСТОРИЯ ИЗМЕНЕНИЙ</small><h3>Версии записи</h3>{["Текущая версия · только что", "Автосохранение · 12 минут назад", "Опубликовано · вчера, 18:40"].map((text, i) => <button className={revision === i ? "active" : ""} onClick={() => setRevision(i)} key={text}><i>{i + 1}</i>{text}<span>{revision === i ? "Выбрана" : "Восстановить"}</span></button>)}</div>{previewHref && <a className="previewWide panelLinkButton" href={previewHref} onClick={preparePreview}>Предпросмотр на сайте <PanelIcon name="external" /></a>}<button className="saveWide" onClick={onSave}>Сохранить и опубликовать</button></aside></div>;
 }
 
 type MediaRecord = { id: number; name: string; alt: string; caption: string; type: "image" | "document"; details: string; preview?: string };
@@ -583,7 +611,7 @@ function SeoEditorV2({ draft, update }: { draft: DemoEntity; update: <K extends 
   ];
   const doneCount = recommendations.filter(item => item.done).length;
   const score = 45 + doneCount * 11;
-  return <div className="seoEditorLayout"><section><div className="seoScore"><strong>{score}</strong><div><b>SEO-оценка страницы</b><span>{doneCount === recommendations.length ? "Все основные рекомендации выполнены" : `Осталось исправить: ${recommendations.length - doneCount}`}</span></div></div><div className="fieldCard"><small>ПОИСКОВАЯ ВЫДАЧА</small><h2>Метаданные</h2><label>Title <span className={draft.seoTitle.length > 60 ? "limitBad" : ""}>{draft.seoTitle.length}/60</span><input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Description <span className={draft.seoDescription.length > 160 ? "limitBad" : ""}>{draft.seoDescription.length}/160</span><textarea rows={4} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label><label>Канонический URL<input value={`https://demo.bypcms.ru${draft.slug}`} readOnly /></label><label className="checkLine"><input type="checkbox" defaultChecked />Разрешить индексацию страницы</label></div><div className="fieldCard"><small>СОЦИАЛЬНЫЕ СЕТИ</small><h2>Open Graph</h2><div className="ogEditor"><MediaThumb index={draft.image} large /><div><label>Заголовок<input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Описание<textarea rows={3} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label></div></div></div></section><aside><GoogleResultPreview entity={draft} /><div className="seoChecklist seoChecklistV2"><b>Что исправить</b>{recommendations.map(item => <article className={item.done ? "done" : ""} key={item.key}><i>{item.done ? "✓" : "!"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span>{!item.done && <button onClick={item.fix}>Исправить</button>}</article>)}</div></aside></div>;
+  return <div className="seoEditorLayout"><section><div className="seoScore"><strong>{score}</strong><div><b>SEO-оценка страницы</b><span>{doneCount === recommendations.length ? "Все основные рекомендации выполнены" : `Осталось исправить: ${recommendations.length - doneCount}`}</span></div></div><div className="fieldCard"><small>ПОИСКОВАЯ ВЫДАЧА</small><h2>Метаданные</h2><label>Title <span className={draft.seoTitle.length > 60 ? "limitBad" : ""}>{draft.seoTitle.length}/60</span><input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Description <span className={draft.seoDescription.length > 160 ? "limitBad" : ""}>{draft.seoDescription.length}/160</span><textarea rows={4} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label><label>Канонический URL<input value={`https://demo.bypcms.ru${draft.slug}`} readOnly /></label><label className="checkLine"><input type="checkbox" checked={draft.allowIndexing !== false} onChange={event => update("allowIndexing",event.target.checked)} />Разрешить индексацию страницы</label></div><div className="fieldCard"><small>СОЦИАЛЬНЫЕ СЕТИ</small><h2>Open Graph</h2><div className="ogEditor"><MediaThumb index={draft.image} large /><div><label>Заголовок<input value={draft.seoTitle} onChange={event => update("seoTitle", event.target.value)} /></label><label>Описание<textarea rows={3} value={draft.seoDescription} onChange={event => update("seoDescription", event.target.value)} /></label></div></div></div></section><aside><GoogleResultPreview entity={draft} /><div className="seoChecklist seoChecklistV2"><b>Что исправить</b>{recommendations.map(item => <article className={item.done ? "done" : ""} key={item.key}><i>{item.done ? "✓" : "!"}</i><span><strong>{item.title}</strong><small>{item.detail}</small></span>{!item.done && <button onClick={item.fix}>Исправить</button>}</article>)}</div></aside></div>;
 }
 
 function ExtensionCenterV2({ edition, installed, setInstalled, flash }: { edition: EditionKey; installed: string[]; setInstalled: (keys: string[]) => void; flash: (message: string) => void }) {
@@ -626,9 +654,9 @@ function SettingsPanelV2({ edition, settings, setSettings, modules, flash }: { e
   <button className="resetDemo" onClick={() => { sessionStorage.removeItem("bypcms-real-demo-v1"); window.location.reload(); }}>Сбросить все изменения демо</button></>;
 }
 
-function PublicPreview({ entity, edition, theme, settings, closeHref, onClose }: { entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; closeHref?: string; onClose?: () => void }) {
+function PublicPreview({ entity, edition, theme, settings, closeHref }: { entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; closeHref: string }) {
   const [viewport, setViewport] = useState("desktop");
-  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>Изменения видны только вам</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div>{closeHref ? <a className="panelLinkButton" href={closeHref}>Закрыть ×</a> : <button onClick={onClose}>Закрыть ×</button>}</header><LiveSite edition={edition} entity={entity} theme={theme} settings={settings} /></div>;
+  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>Изменения видны только вам</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div><a className="panelLinkButton" href={closeHref} onClick={event=>{if(cameFromEditor(document.referrer,closeHref,location.href)&&history.length>1){event.preventDefault();history.back();}}}>Закрыть ×</a></header><LiveSite edition={edition} entity={entity} theme={theme} settings={settings} /></div>;
 }
 
 function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {

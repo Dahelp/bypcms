@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import "./concepts-admin.css";
 import PanelTable from "../components/PanelTable";
+import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
 import { panelHref } from "../components/panel-route";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 
@@ -42,6 +43,11 @@ export default function ConceptManager({csrf}:{csrf:string}) {
       catch{setError("Не удалось прочитать переводы концепции.");}
     }
   },[items,loaded]);
+  const reloadRecords=async()=>{const result=await request("concepts.list");setItems(result.concepts);};
+  const bulkActions=[
+    ...statusBulkActions<Concept>([["shared","Открыть доступ по ссылке"],["draft","В черновики"],["archived","В архив"]],async(rows,status)=>refreshAfterBulk(await requestPanelBulk("concepts","status",rows.map(row=>row.id),csrf,status),reloadRecords)),
+    deleteBulkAction<Concept>(async rows=>refreshAfterBulk(await requestPanelBulk("concepts","delete",rows.map(row=>row.id),csrf),reloadRecords)),
+  ];
   async function save(event:FormEvent<HTMLFormElement>){event.preventDefault();const f=new FormData(event.currentTarget);setError("");try{
     await request("concepts.save",{id:editing?.id||0,slug:f.get("slug"),title:f.get("title"),status:f.get("status"),asset_base:f.get("asset_base"),translations});
     window.location.assign(listHref);
@@ -54,7 +60,7 @@ export default function ConceptManager({csrf}:{csrf:string}) {
   return <section className="conceptManager">
     <div className="conceptIntro"><div><p>ПЕРСОНАЛЬНЫЕ ПРЕЗЕНТАЦИИ</p><h2>Концепции</h2><span>Содержимое выдаётся только по ссылке с ключом. Ключ можно отозвать в любой момент.</span></div><a className="panelLinkButton panelPrimaryLink" href={panelHref({section:"concepts",concept:"new"})}>＋ Создать концепцию</a></div>
     {message&&<p className="conceptNotice">{message}</p>}{error&&<p className="conceptError">{error}</p>}
-    <PanelTable label="Концепции" rows={items} rowId={item=>item.id} rowLabel={item=>item.title} columns={[
+    <PanelTable bulkActions={bulkActions} label="Концепции" rows={items} rowId={item=>item.id} rowLabel={item=>item.title} columns={[
       {key:"title",label:"Название",render:item=><span className="panelCellText"><a href={editHref(item)}>{item.title}</a><small>/concepts/{item.slug}/</small></span>},
       {key:"status",label:"Доступ",render:item=><em>{item.status==="shared"?"Доступна по ссылке":item.status==="draft"?"Черновик":"Архив"}</em>},
       {key:"languages",label:"Языки",render:item=>Object.keys(JSON.parse(item.translations||"{}")).map(x=>x.toUpperCase()).join(" / ")},

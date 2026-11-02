@@ -2,6 +2,18 @@
 :is(.realDemo,.ownerApp,.cms) .panelTable{min-width:0;margin:16px 0;border:1px solid #dfe5de;border-radius:12px;background:#fff;color:#26352e;font:14px/1.5 "Segoe UI",Arial,sans-serif;overflow:hidden}
 .panelTable .panelSelectionBar{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:50px;padding:10px 18px;color:#68746d;font-size:13px;border-bottom:1px solid #e5eae5}
 .panelTable .panelSelectionBar>button{border:0;background:transparent;color:#405e4b;padding:4px;cursor:pointer}
+.panelTable .panelSelectionBar{flex-wrap:wrap}
+.panelTable .panelBulkControls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.panelTable .panelBulkControls :is(select,button){min-height:40px;padding:8px 12px;border:1px solid #ced8ce;border-radius:7px;background:#fff;color:#354e3e;font:inherit;cursor:pointer}
+.panelTable .panelBulkControls .panelBulkApply{background:#52675e;color:#fff;border-color:#52675e}
+.panelTable .panelBulkControls :disabled{opacity:.5;cursor:default}
+.panelTable .panelBulkConfirm,.panelTable .panelBulkOutcome{padding:14px 18px;border-bottom:1px solid #e1e8df;background:#f2f6ef;font-size:14px;overflow-wrap:anywhere}
+.panelTable .panelBulkConfirm p+p{margin-top:6px;color:#68746d}
+.panelTable .panelBulkConfirm>div{display:flex;gap:10px;margin-top:12px}
+.panelTable .panelBulkConfirm button{min-height:40px;padding:8px 16px;border:1px solid #ccd7ca;border-radius:7px;background:#fff;color:#354e3e;cursor:pointer}
+.panelTable .panelBulkConfirm button.danger{background:#b34236;color:#fff;border-color:#b34236}
+.panelTable .panelBulkOutcome.hasErrors{background:#fff7ef;color:#8a4b25}
+.panelTable .panelBulkOutcome ul{margin:8px 0 0;padding-left:20px}
 .panelTable .panelTableScroll{overflow-x:auto}
 .realDemo.previewDocument{display:block}
 .panelTable table{width:100%;min-width:720px;border-collapse:collapse;text-align:left;table-layout:auto}

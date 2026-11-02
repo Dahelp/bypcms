@@ -89,6 +89,21 @@ try {
         $auth->verifyCsrf();
     }
 
+    if ($action === 'panel.bulk' && $method === 'POST') {
+        require_once __DIR__ . '/../_core/PanelBulk.php';
+        try {
+            $spec = \BYPCMS\Core\PanelBulk::validate($input, $user);
+        } catch (DomainException $error) {
+            Response::error($error->getMessage(), 403);
+        } catch (InvalidArgumentException $error) {
+            Response::error($error->getMessage(), 422);
+        }
+        $bulk = new \BYPCMS\Core\PanelBulk($db->pdo(), function (string $collection, int $id, array $meta) use ($db, $user): void {
+            byp_audit($db, $user, 'panel.bulk.' . $meta['operation'], $collection, $id, $meta);
+        });
+        Response::ok($bulk->run($spec));
+    }
+
     if ($action === 'concepts.list' && $method === 'GET') {
         Response::ok(['concepts'=>$db->all('SELECT id,slug,title,status,share_token,asset_base,translations,updated_at FROM byp_concepts ORDER BY updated_at DESC')]);
     }

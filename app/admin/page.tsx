@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import PanelTable from "../components/PanelTable";
+import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
 import { panelHref } from "../components/panel-route";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
@@ -281,6 +282,18 @@ export default function AdminPage() {
     }
   }
 
+  async function refreshRecords() {
+    const [pageResult, moduleResult, overview] = await Promise.all([
+      api<{ pages: PageItem[] }>("pages.list"), api<{ modules: ModuleItem[] }>("modules.list"), api<DashboardData>("dashboard"),
+    ]);
+    setPages(pageResult.pages); setModules(moduleResult.modules); setDashboard(overview);
+  }
+  const pageBulkActions = [
+    ...statusBulkActions<PageItem>([["published", "Опубликовать"], ["draft", "В черновики"], ["archived", "В архив"]], async (rows, status) => refreshAfterBulk(await requestPanelBulk("pages", "status", rows.map(row => row.id), csrf, status), refreshRecords)),
+    deleteBulkAction<PageItem>(async rows => refreshAfterBulk(await requestPanelBulk("pages", "delete", rows.map(row => row.id), csrf), refreshRecords)),
+  ];
+  const moduleBulkActions = statusBulkActions<ModuleItem>([["active", "Включить"], ["inactive", "Выключить"]], async (rows, status) => refreshAfterBulk(await requestPanelBulk("modules", "status", rows.map(row => row.module_key), csrf, status), refreshRecords));
+
   const pageTitle = useMemo(
     () => navigation.find(([key]) => key === active)?.[1] ?? "Обзор",
     [active],
@@ -370,7 +383,7 @@ export default function AdminPage() {
               <div className="dashboardPanels">
                 <article className="recentPanel">
                   <header><div><p>КОНТЕНТ</p><h2>Последние страницы</h2></div><a className="panelLinkButton" href={sectionHref("content")}>Все страницы <WorkspaceIcon symbol="→"/></a></header>
-                  <PanelTable label="Последние страницы" rows={dashboard?.recent_pages ?? []} rowId={page => page.id} rowLabel={page => page.title} columns={[
+                  <PanelTable bulkActions={pageBulkActions} label="Последние страницы" rows={dashboard?.recent_pages ?? []} rowId={page => page.id} rowLabel={page => page.title} columns={[
                     { key: "title", label: "Название", render: page => <span className="panelCellText"><a href={pageHref(page)}>{page.title}</a><small>/{page.slug}</small></span> },
                     { key: "status", label: "Статус", render: page => <em>{pageStatuses[page.status] || page.status}</em> },
                     { key: "updated", label: "Обновлено", render: page => new Date(page.updated_at).toLocaleDateString("ru-RU") },
@@ -390,7 +403,7 @@ export default function AdminPage() {
           {active === "content" && (
             <section className="dataPanel">
               <header><div><p>СТРУКТУРА САЙТА</p><h2>Страницы</h2></div><span>{pages.length} материалов</span></header>
-              <PanelTable label="Страницы" rows={pages} rowId={page => page.id} rowLabel={page => page.title} columns={[
+              <PanelTable bulkActions={pageBulkActions} label="Страницы" rows={pages} rowId={page => page.id} rowLabel={page => page.title} columns={[
                 { key: "title", label: "Название", render: page => <span className="panelCellText"><a href={pageHref(page)}>{page.title}</a><small>{page.excerpt || page.template}</small></span> },
                 { key: "url", label: "URL", render: page => <code>/{page.slug}</code> },
                 { key: "status", label: "Статус", render: page => <em>{pageStatuses[page.status] || page.status}</em> },
@@ -403,7 +416,7 @@ export default function AdminPage() {
           {active === "modules" && (
             <section className="dataPanel">
               <header><div><p>ЭКОСИСТЕМА</p><h2>Установленные модули</h2></div><span>{modules.length} пакетов</span></header>
-              <PanelTable label="Установленные модули" rows={modules} rowId={module => module.module_key} rowLabel={module => module.name} columns={[
+              <PanelTable bulkActions={moduleBulkActions} label="Установленные модули" rows={modules} rowId={module => module.module_key} rowLabel={module => module.name} columns={[
                 { key: "name", label: "Модуль", render: module => <span className="panelCellText"><a href={moduleHref(module)}>{module.name}</a><small>{module.module_key}</small></span> },
                 { key: "version", label: "Версия", render: module => module.version },
                 { key: "status", label: "Статус", render: module => <em>{module.status === "active" ? "Включён" : "Выключен"}</em> },

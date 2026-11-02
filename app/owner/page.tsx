@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import PanelTable from "../components/PanelTable";
+import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
 import { panelHref } from "../components/panel-route";
 import PanelSearch from "../components/PanelSearch";
 import WorkspaceIcon from "../components/WorkspaceIcon";
@@ -87,6 +88,16 @@ export default function Owner(){
     catch(e){setError(e instanceof Error?e.message:"Ошибка входа")}
   };
   const save=async(action:string,payload:Record<string,unknown>)=>{setError("");try{await request(action,{method:"POST",body:JSON.stringify(payload)});if(editor){window.location.assign(sectionHref(editorSection[editor.type]));return;}await load();notify("Изменения сохранены")}catch(e){setError(e instanceof Error?e.message:"Ошибка сохранения")}};
+  async function batchOwner<T extends {id:number}>(collection:string,rows:T[],operation:string,status?:string){
+    const result=await requestPanelBulk(collection,operation,rows.map(row=>row.id),data?.csrf||"",status);
+    return refreshAfterBulk(result,async()=>{setData(await request("owner.bootstrap"));});
+  }
+  const clientBulk=statusBulkActions<Client>(Object.entries(clientStatuses),(rows,status)=>batchOwner("owner.clients",rows,"status",status));
+  const taskBulk=statusBulkActions<Task>(Object.entries(taskStatuses),(rows,status)=>batchOwner("owner.tasks",rows,"status",status));
+  const licenseBulk=statusBulkActions<License>(Object.entries(licenseStatuses),(rows,status)=>batchOwner("owner.licenses",rows,"status",status));
+  const moduleBulk=statusBulkActions<Module>([["published","Опубликовать"],["draft","В черновики"],["archived","В архив"]],(rows,status)=>batchOwner("owner.modules",rows,"status",status));
+  const serviceBulk=statusBulkActions<Service>([["active","Активировать"],["inactive","Скрыть"]],(rows,status)=>batchOwner("owner.services",rows,"status",status));
+  const portfolioBulk=[...statusBulkActions<Portfolio>([["published","Опубликовать"],["draft","В черновики"],["archived","В архив"]],(rows,status)=>batchOwner("owner.portfolio",rows,"status",status)),deleteBulkAction<Portfolio>(rows=>batchOwner("owner.portfolio",rows,"delete"))];
   const initials=(data?.user.name||"Владелец").split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase();
   const unread=data?.notifications.filter(n=>!Number(n.is_read)).length||0;
   const compatibility=useMemo(()=>new Map((data?.edition_modules||[]).filter(x=>x.edition===edition).map(x=>[x.module_key,x.availability])),[data,edition]);
@@ -119,20 +130,20 @@ export default function Owner(){
         <article><span className="kpiIcon k1"><WorkspaceIcon symbol="licenses"/></span><div><small>Активные лицензии</small><strong>{activeLicenses}</strong><em>из {data?.licenses.length||0}</em></div></article>
         <article><span className="kpiIcon k2"><WorkspaceIcon symbol="tasks"/></span><div><small>Работы в процессе</small><strong>{openTasks}</strong><em>контролируются</em></div></article>
         <article><span className="kpiIcon k3"><WorkspaceIcon symbol="clients"/></span><div><small>Клиенты</small><strong>{data?.clients.length||0}</strong><em>в единой базе</em></div></article>
-      </div><div className="ownerDashboard lower"><article className="ownerTable"><header><div><small>ДОГОВОРНЫЕ ОБЯЗАТЕЛЬСТВА</small><h2>Текущие работы</h2></div><a className="panelLinkButton" href={sectionHref("clients")}>Все работы <WorkspaceIcon symbol="→"/></a></header><PanelTable label="Текущие работы" rows={(data?.tasks||[]).slice(0,6)} rowId={t=>t.id} rowLabel={t=>t.title} columns={[
+      </div><div className="ownerDashboard lower"><article className="ownerTable"><header><div><small>ДОГОВОРНЫЕ ОБЯЗАТЕЛЬСТВА</small><h2>Текущие работы</h2></div><a className="panelLinkButton" href={sectionHref("clients")}>Все работы <WorkspaceIcon symbol="→"/></a></header><PanelTable bulkActions={taskBulk} label="Текущие работы" rows={(data?.tasks||[]).slice(0,6)} rowId={t=>t.id} rowLabel={t=>t.title} columns={[
         {key:"title",label:"Работа",render:t=><span className="panelCellText"><a href={editorHref("task",t.id)}>{t.title}</a><small>{t.client_name} · {t.contract_ref||"без договора"}</small></span>},
         {key:"status",label:"Статус",render:t=><em>{taskStatuses[t.status]||t.status}</em>},
         {key:"progress",label:"Готовность",render:t=>`${t.progress}%`},
       ]} actions={t=>[{label:"Редактировать",href:editorHref("task",t.id)}]}/></article><article className="quickActions"><small>БЫСТРЫЕ ДЕЙСТВИЯ</small><h2>Создать</h2><a href={editorHref("client")}><i><WorkspaceIcon symbol="clients"/></i><span><b>Клиента</b><small>Контакты и реквизиты</small></span><WorkspaceIcon symbol="→"/></a><a href={editorHref("task")}><i><WorkspaceIcon symbol="✓"/></i><span><b>Договорную работу</b><small>Срок, стоимость, ответственный</small></span><WorkspaceIcon symbol="→"/></a><a href={sectionHref("builder")}><i><WorkspaceIcon symbol="builder"/></i><span><b>Сборку CMS</b><small>Редакция и совместимые модули</small></span><WorkspaceIcon symbol="→"/></a></article></div></>}
 
       {section==="clients"&&<div className="clientWorkspace">
-        <section><h2>Клиенты</h2><PanelTable label="Клиенты" rows={filteredClients} rowId={c=>c.id} rowLabel={c=>c.company||c.name} columns={[
+        <section><h2>Клиенты</h2><PanelTable bulkActions={clientBulk} label="Клиенты" rows={filteredClients} rowId={c=>c.id} rowLabel={c=>c.company||c.name} columns={[
           {key:"name",label:"Клиент",render:c=><span className="panelCellText"><a href={editorHref("client",c.id)}>{c.company||c.name}</a><small>{c.email||"email не указан"} · {c.phone||"телефон не указан"}</small></span>},
           {key:"status",label:"Статус",render:c=><em>{clientStatuses[c.status]||c.status}</em>},
           {key:"tasks",label:"Работы",render:c=>`${c.done_count} из ${c.task_count} завершено`},
           {key:"total",label:"По договорам",render:c=>`${Number(c.contract_total).toLocaleString("ru-RU")} ₽`},
         ]} actions={c=>[{label:"Редактировать",href:editorHref("client",c.id)},{label:"Добавить работу",href:editorHref("task",undefined,c.id)}]}/></section>
-        <section><header className="panelSectionHeader"><h2>Работы по договорам</h2><a className="panelLinkButton" href={editorHref("task")}>Добавить работу</a></header><PanelTable label="Работы по договорам" rows={data?.tasks||[]} rowId={t=>t.id} rowLabel={t=>t.title} columns={[
+        <section><header className="panelSectionHeader"><h2>Работы по договорам</h2><a className="panelLinkButton" href={editorHref("task")}>Добавить работу</a></header><PanelTable bulkActions={taskBulk} label="Работы по договорам" rows={data?.tasks||[]} rowId={t=>t.id} rowLabel={t=>t.title} columns={[
           {key:"title",label:"Работа",render:t=><span className="panelCellText"><a href={editorHref("task",t.id)}>{t.title}</a><small>{t.client_name} · {t.contract_ref||"без договора"}</small><small>{t.description}</small></span>},
           {key:"service",label:"Услуга",render:t=>t.service_name||"Индивидуальная работа"},
           {key:"assignee",label:"Ответственный",render:t=>t.assignee||"Не назначен"},
@@ -141,7 +152,7 @@ export default function Owner(){
         ]} actions={t=>[{label:"Редактировать",href:editorHref("task",t.id)}]}/></section>
       </div>}
 
-      {section==="licenses"&&<PanelTable label="Лицензии" rows={data?.licenses||[]} rowId={l=>l.id} rowLabel={l=>l.client_name} columns={[
+      {section==="licenses"&&<PanelTable bulkActions={licenseBulk} label="Лицензии" rows={data?.licenses||[]} rowId={l=>l.id} rowLabel={l=>l.client_name} columns={[
         {key:"client",label:"Клиент / домен",render:l=><span className="panelCellText"><a href={editorHref("license",l.id)}>{l.client_name}</a><small>{l.domain||"домен не привязан"}</small></span>},
         {key:"key",label:"Лицензия",render:l=><code>{l.license_hint}</code>},
         {key:"edition",label:"Редакция и модули",render:l=><span className="panelCellText"><b>BYPCMS {l.edition}</b><small>{safeJson(l.entitlements).join(" · ")||"базовая комплектация"}</small></span>},
@@ -155,21 +166,21 @@ export default function Owner(){
         <div className="buildBlock"><span>03</span><div><small>СОВМЕСТИМЫЕ МОДУЛИ</small><h2>Для {edition} показаны только подходящие расширения</h2><div className="buildModules">{availableModules.map(m=>{const mode=compatibility.get(m.module_key);return <label className={mode==="included"?"included":""} key={m.module_key}><input type="checkbox" disabled={mode==="included"} checked={selectedModules.includes(m.module_key)} onChange={()=>setSelectedModules(list=>list.includes(m.module_key)?list.filter(x=>x!==m.module_key):[...list,m.module_key])}/><span><b>{m.name}</b><small>{m.description}</small></span><strong>{mode==="included"?"В редакции":`+${Number(m.price).toLocaleString("ru-RU")} ₽`}</strong></label>})}</div></div></div></section>
         <aside className="buildSummary"><small>СОСТАВ СБОРКИ</small><h2>{buildName}</h2><p>BYPCMS {edition} · {licenseTerm==="annual"?"1 год":"пожизненно"} · Core 2.1.0</p><ul>{availableModules.filter(m=>selectedModules.includes(m.module_key)).map(m=><li key={m.module_key}><span>{m.name}<small>{compatibility.get(m.module_key)==="included"?"включён":"дополнительно"}</small></span><b>{compatibility.get(m.module_key)==="included"?"0 ₽":`${Number(m.price).toLocaleString("ru-RU")} ₽`}</b></li>)}</ul><div><span>Лицензия</span><b>{editionPrice.toLocaleString("ru-RU")} ₽</b></div><div><span>Доп. модули</span><b>{moduleTotal.toLocaleString("ru-RU")} ₽</b></div><strong><span>Итого</span>{(editionPrice+moduleTotal).toLocaleString("ru-RU")} ₽</strong><a className="panelLinkButton panelPrimaryLink" href={`/api/index.php?action=build.download&edition=${edition}&term=${licenseTerm}&modules=${selectedModules.join(",")}`}><WorkspaceIcon symbol="builder"/> Собрать ZIP-архив</a></aside></div>}
 
-      {section==="modules"&&<PanelTable label="Модули" rows={data?.modules||[]} rowId={m=>m.id} rowLabel={m=>m.name} columns={[
+      {section==="modules"&&<PanelTable bulkActions={moduleBulk} label="Модули" rows={data?.modules||[]} rowId={m=>m.id} rowLabel={m=>m.name} columns={[
         {key:"name",label:"Модуль",render:m=><span className="panelCellText"><a href={editorHref("module",m.id)}>{m.name}</a><small>{m.category} · v{m.current_version}</small><small>{m.description}</small></span>},
         {key:"price",label:"Цена",render:m=>`${Number(m.price).toLocaleString("ru-RU")} ₽`},
         {key:"compatibility",label:"Совместимость",render:m=>m.compatibility},
         {key:"editions",label:"Редакции",render:m=>(data?.edition_modules||[]).filter(x=>x.module_key===m.module_key&&x.availability!=="hidden").map(x=>x.edition).join(", ")},
-        {key:"status",label:"Статус",render:m=><em>{m.status==="active"?"Активен":m.status==="inactive"?"Выключен":m.status}</em>},
+        {key:"status",label:"Статус",render:m=><em>{m.status==="published"?"Опубликован":m.status==="draft"?"Черновик":m.status==="archived"?"В архиве":m.status}</em>},
       ]} actions={m=>[{label:"Редактировать",href:editorHref("module",m.id)}]}/>}
 
-      {section==="services"&&<PanelTable label="Услуги" rows={data?.services||[]} rowId={s=>s.id} rowLabel={s=>s.name} columns={[
+      {section==="services"&&<PanelTable bulkActions={serviceBulk} label="Услуги" rows={data?.services||[]} rowId={s=>s.id} rowLabel={s=>s.name} columns={[
         {key:"name",label:"Услуга",render:s=><span className="panelCellText"><a href={editorHref("service",s.id)}>{s.name}</a><small>{s.description}</small></span>},
         {key:"price",label:"Стоимость",render:s=>`${Number(s.price_from).toLocaleString("ru-RU")} ₽ / ${s.billing_unit}`},
         {key:"status",label:"Статус",render:s=><em>{s.status==="active"?"Активна":"Скрыта"}</em>},
       ]} actions={s=>[{label:"Редактировать",href:editorHref("service",s.id)}]}/>}
 
-      {section==="portfolio"&&<PanelTable label="Портфолио" rows={data?.portfolio||[]} rowId={p=>p.id} rowLabel={p=>p.title} columns={[
+      {section==="portfolio"&&<PanelTable bulkActions={portfolioBulk} label="Портфолио" rows={data?.portfolio||[]} rowId={p=>p.id} rowLabel={p=>p.title} columns={[
         {key:"title",label:"Проект",render:p=><span className="panelCellText"><a href={editorHref("portfolio",p.id)}>{p.title}</a><small>{p.category} · {p.project_year}</small><small>{p.lead}</small></span>},
         {key:"edition",label:"Редакция",render:p=>p.edition},
         {key:"status",label:"Статус",render:p=><em>{p.status==="published"?"Опубликован":p.status==="archived"?"В архиве":"Черновик"}</em>},

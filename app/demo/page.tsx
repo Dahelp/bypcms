@@ -1,6 +1,7 @@
 "use client";
 
-import PanelTable from "../components/PanelTable";
+import PanelTable, { type PanelBulkAction } from "../components/PanelTable";
+import { deleteBulkAction, statusBulkActions } from "../components/panel-bulk";
 import { panelHref } from "../components/panel-route";
 import PanelSearch from "../components/PanelSearch";
 import PanelIcon from "../components/PanelIcon";
@@ -124,6 +125,16 @@ export default function DemoPage() {
   function persistEntities(next: DemoEntity[]) {
     sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities: next, theme, settings, installedModules }));
   }
+  function batchEntities(records:DemoEntity[],operation:"delete"|"status",status?:string){
+    const ids=new Set(records.map(record=>record.id));
+    const next=operation==="delete"?entities.filter(item=>!ids.has(item.id)):entities.map(item=>ids.has(item.id)?{...item,status:status!,updated:"Только что"}:item);
+    persistEntities(next);setEntities(next);
+    return {succeeded:records.map(record=>record.id),failed:[]};
+  }
+  function entityBulkActions(kind:EntityKind):PanelBulkAction<DemoEntity>[]{
+    const choices:[string,string][]=kind==="payments"?[]:kind==="leads"?[["Новый","Новые"],["В работе","В работу"],["Согласовано","Согласовано"]]:kind==="orders"?[["Новый","Новые"],["В работе","В работу"],["Доставляется","Доставляется"]]:[["Опубликовано","Опубликовать"],["Черновик","В черновики"],["Скрыт","Скрыть"]];
+    return [...statusBulkActions<DemoEntity>(choices,(rows,status)=>batchEntities(rows,"status",status)),deleteBulkAction<DemoEntity>(rows=>batchEntities(rows,"delete"))];
+  }
   function saveEntity(item: DemoEntity) {
     const next = entities.some(entry => entry.id === item.id) ? entities.map(entry => entry.id === item.id ? { ...item, updated: "Только что" } : entry) : [{ ...item, updated: "Только что" }, ...entities];
     persistEntities(next);
@@ -167,11 +178,11 @@ export default function DemoPage() {
       <div className="realContent">
         {notice && <div className="demoNotice">{notice}<button onClick={() => setNotice("")}><PanelIcon name="close" /></button></div>}
         {routeError && <p role="alert">{routeError} <a href={sectionHref(view)}>К списку</a></p>}
-        {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} sectionHref={sectionHref} entityHref={entityHref} />}
-        {currentKind && !editing && <EntityList key={currentKind} kind={currentKind} entities={entities.filter(item => item.kind === currentKind)} editHref={entityHref} createHref={panelHref({ edition, section: view, editor: "new" })} previewHref={previewHref} onDelete={deleteEntity} />}
+        {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} sectionHref={sectionHref} entityHref={entityHref} bulkActionsForKind={entityBulkActions} />}
+        {currentKind && !editing && <EntityList key={currentKind} kind={currentKind} entities={entities.filter(item => item.kind === currentKind)} editHref={entityHref} createHref={panelHref({ edition, section: view, editor: "new" })} previewHref={previewHref} onDelete={deleteEntity} bulkActions={entityBulkActions(currentKind)} />}
         {currentKind && editing && <EntityEditor key={editing.id} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} cancelHref={sectionHref(view)} onPreview={setPreview} flash={flash} />}
         {view === "media" && <MediaLibrary flash={flash} />}
-        {view === "seo" && <SeoCenter entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
+        {view === "seo" && <SeoCenter bulkActions={statusBulkActions<DemoEntity>([["Опубликовано","Опубликовать"],["Черновик","В черновики"]],(rows,status)=>batchEntities(rows,"status",status))} entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
         {view === "analytics" && <Analytics edition={edition} flash={flash} />}
         {view === "design" && <DesignStudioV2 edition={edition} theme={theme} setTheme={setTheme} settings={settings} setSettings={setSettings} flash={flash} />}
         {view === "extensions" && <ExtensionCenterV2 edition={edition} installed={activeModules} setInstalled={keys => setInstalledModules(value => ({ ...value, [edition]: keys }))} flash={flash} />}
@@ -198,14 +209,14 @@ function ProjectBadge({ edition, project }: { edition: EditionKey; project: stri
   return <div className="projectBadge"><span>{project[0]}</span><div><b>{project}</b><small>BYPCMS {editions[edition].name}</small></div><i><PanelIcon name="chevron"/></i></div>;
 }
 
-function Dashboard({ edition, entities, modules, sectionHref, entityHref }: { edition: EditionKey; entities: DemoEntity[]; modules: DemoModule[]; sectionHref: (id: string) => string; entityHref: (item: DemoEntity) => string }) {
+function Dashboard({ edition, entities, modules, sectionHref, entityHref, bulkActionsForKind }: { edition: EditionKey; entities: DemoEntity[]; modules: DemoModule[]; sectionHref: (id: string) => string; entityHref: (item: DemoEntity) => string; bulkActionsForKind: (kind:EntityKind)=>PanelBulkAction<DemoEntity>[] }) {
   const data = edition === "commerce"
     ? { title: "Магазин сегодня", stats: [["684 200 ₽", "Выручка", "+18,4%"], ["148", "Заказы", "+12,8%"], ["3,82%", "Конверсия", "+0,7%"], ["7", "Требуют внимания", "2 без остатка"]], primary: "orders", recent: entities.filter(i => i.kind === "orders") }
     : edition === "business"
       ? { title: "Работа с клиентами", stats: [["494 000 ₽", "Сделки в работе", "+14,1%"], ["87", "Обращения", "+7,2%"], ["18", "Активные услуги", "3 направления"], ["3", "Новые заявки", "ответьте сегодня"]], primary: "leads", recent: entities.filter(i => i.kind === "leads") }
       : { title: "Работа редакции", stats: [["184 600", "Просмотры", "+18,4%"], ["32", "Материалы", "+4 за неделю"], ["7:42", "Время чтения", "+12%"], ["3", "Черновики", "готовы к выпуску"]], primary: "articles", recent: entities.filter(i => i.kind === "articles") };
   const moduleWidgets = modules.filter(module => module.slots.includes("dashboard.widget"));
-  return <><PageHeading eyebrow={`BYPCMS ${editions[edition].name}`} title={data.title} description={editions[edition].note} actions={<a className="panelDashboardLink" href={sectionHref(data.primary)}>Открыть рабочий раздел <PanelIcon name="arrow" /></a>} /><section className="dashboardWidgets">{data.stats.map(([value, label, delta]) => <article key={label}><small>{label}</small><strong>{value}</strong><span>{delta}</span></article>)}</section><section className="dashboardGrid"><article className="performanceWidget"><header><div><small>ДИНАМИКА ЗА 30 ДНЕЙ</small><h2>{edition === "commerce" ? "Продажи" : edition === "business" ? "Новые обращения" : "Аудитория"}</h2></div><select><option>30 дней</option><option>7 дней</option><option>Год</option></select></header><div className="realChart">{[42, 54, 48, 69, 63, 78, 72, 88, 76, 96, 82, 100].map((height, i) => <i key={i} style={{ height: `${height}%` }} />)}</div><footer><b>+18,4%</b><span>по сравнению с прошлым периодом</span></footer></article><article className="attentionWidget"><small>ТРЕБУЕТ ВНИМАНИЯ</small><h2>Задачи</h2>{["Заполнить SEO у 2 страниц", "Ответить на новые обращения", "Проверить неопубликованный материал", "Обновить резервную копию"].map((item, index) => <a className="panelDashboardLink" href={sectionHref(index === 0 ? "seo" : index === 1 ? data.primary : index === 2 ? (edition === "content" ? "articles" : data.primary) : "settings")} key={item}><i>{index + 1}</i><span>{item}<small>{index < 2 ? "Сегодня" : "На этой неделе"}</small></span><PanelIcon name="arrow" /></a>)}</article></section><section className="moduleWidgetRow">{moduleWidgets.map((module, index) => <a className="panelDashboardLink" href={sectionHref(module.menu?.id || (module.key === "seo" ? "seo" : module.key === "analytics" ? "analytics" : "extensions"))} style={{ "--module-color": module.color } as React.CSSProperties} key={module.key}><i>{module.name[0]}</i><span><small>ВИДЖЕТ МОДУЛЯ</small><b>{module.name}</b><em>{module.key === "faq" ? "3 вопроса без ответа" : module.key === "reviews" ? "4 отзыва на модерации" : index % 2 ? "Все события передаются" : "Работает штатно"}</em></span><PanelIcon name="arrow" /></a>)}</section><section className="recentWidget"><header><div><small>ПОСЛЕДНИЕ ИЗМЕНЕНИЯ</small><h2>{entityTitles[data.recent[0]?.kind || "pages"].title}</h2></div><a className="panelDashboardLink" href={sectionHref(data.primary)}>Все записи <PanelIcon name="arrow" /></a></header><PanelTable label="Последние изменения" rows={data.recent.slice(0, 3)} rowId={item => item.id} rowLabel={item => item.title} columns={[
+  return <><PageHeading eyebrow={`BYPCMS ${editions[edition].name}`} title={data.title} description={editions[edition].note} actions={<a className="panelDashboardLink" href={sectionHref(data.primary)}>Открыть рабочий раздел <PanelIcon name="arrow" /></a>} /><section className="dashboardWidgets">{data.stats.map(([value, label, delta]) => <article key={label}><small>{label}</small><strong>{value}</strong><span>{delta}</span></article>)}</section><section className="dashboardGrid"><article className="performanceWidget"><header><div><small>ДИНАМИКА ЗА 30 ДНЕЙ</small><h2>{edition === "commerce" ? "Продажи" : edition === "business" ? "Новые обращения" : "Аудитория"}</h2></div><select><option>30 дней</option><option>7 дней</option><option>Год</option></select></header><div className="realChart">{[42, 54, 48, 69, 63, 78, 72, 88, 76, 96, 82, 100].map((height, i) => <i key={i} style={{ height: `${height}%` }} />)}</div><footer><b>+18,4%</b><span>по сравнению с прошлым периодом</span></footer></article><article className="attentionWidget"><small>ТРЕБУЕТ ВНИМАНИЯ</small><h2>Задачи</h2>{["Заполнить SEO у 2 страниц", "Ответить на новые обращения", "Проверить неопубликованный материал", "Обновить резервную копию"].map((item, index) => <a className="panelDashboardLink" href={sectionHref(index === 0 ? "seo" : index === 1 ? data.primary : index === 2 ? (edition === "content" ? "articles" : data.primary) : "settings")} key={item}><i>{index + 1}</i><span>{item}<small>{index < 2 ? "Сегодня" : "На этой неделе"}</small></span><PanelIcon name="arrow" /></a>)}</article></section><section className="moduleWidgetRow">{moduleWidgets.map((module, index) => <a className="panelDashboardLink" href={sectionHref(module.menu?.id || (module.key === "seo" ? "seo" : module.key === "analytics" ? "analytics" : "extensions"))} style={{ "--module-color": module.color } as React.CSSProperties} key={module.key}><i>{module.name[0]}</i><span><small>ВИДЖЕТ МОДУЛЯ</small><b>{module.name}</b><em>{module.key === "faq" ? "3 вопроса без ответа" : module.key === "reviews" ? "4 отзыва на модерации" : index % 2 ? "Все события передаются" : "Работает штатно"}</em></span><PanelIcon name="arrow" /></a>)}</section><section className="recentWidget"><header><div><small>ПОСЛЕДНИЕ ИЗМЕНЕНИЯ</small><h2>{entityTitles[data.recent[0]?.kind || "pages"].title}</h2></div><a className="panelDashboardLink" href={sectionHref(data.primary)}>Все записи <PanelIcon name="arrow" /></a></header><PanelTable bulkActions={bulkActionsForKind(data.recent[0]?.kind||"pages")} label="Последние изменения" rows={data.recent.slice(0, 3)} rowId={item => item.id} rowLabel={item => item.title} columns={[
     { key: "title", label: "Название", render: item => <span className="panelCellText"><a href={entityHref(item)}>{item.title}</a><small>{item.extra || item.excerpt}</small></span> },
     { key: "status", label: "Статус", render: item => <em>{item.status}</em> },
     { key: "updated", label: "Обновлено", render: item => item.updated },
@@ -235,7 +246,7 @@ function createEntity(kind: EntityKind): DemoEntity {
   return { id: Date.now(), kind, title: "", slug: "/", status: ["leads", "orders"].includes(kind) ? "Новый" : "Черновик", updated: "Только что", image: kind === "products" ? 2 : 0, excerpt: "", body: "", seoTitle: "", seoDescription: "", price: ["products", "services"].includes(kind) ? 0 : undefined, stock: kind === "products" ? 0 : undefined, sku: kind === "products" ? "" : undefined, value: ["leads", "orders", "payments"].includes(kind) ? 0 : undefined, extra: "" };
 }
 
-function EntityList({ kind, entities, editHref, createHref, previewHref, onDelete }: { kind: EntityKind; entities: DemoEntity[]; editHref: (item: DemoEntity) => string; createHref: string; previewHref: (item: DemoEntity) => string; onDelete: (item: DemoEntity) => void }) {
+function EntityList({ kind, entities, editHref, createHref, previewHref, onDelete, bulkActions }: { kind: EntityKind; entities: DemoEntity[]; editHref: (item: DemoEntity) => string; createHref: string; previewHref: (item: DemoEntity) => string; onDelete: (item: DemoEntity) => void; bulkActions: PanelBulkAction<DemoEntity>[] }) {
   const meta = entityTitles[kind];
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("Все статусы");
@@ -246,7 +257,7 @@ function EntityList({ kind, entities, editHref, createHref, previewHref, onDelet
   const currentPage = Math.min(page, total);
   return <><PageHeading eyebrow="УПРАВЛЕНИЕ САЙТОМ" title={meta.title} description={meta.description} actions={<a className="panelLinkButton panelPrimaryLink" href={createHref}><PanelIcon name="plus" /> Добавить {meta.singular}</a>} />
     <div className="listToolbar"><PanelSearch value={query} onChange={value => { setQuery(value); setPage(1); }} placeholder={`Поиск: ${meta.title.toLowerCase()}`} /><select aria-label="Статус" value={status} onChange={event => { setStatus(event.target.value); setPage(1); }}><option>Все статусы</option>{Array.from(new Set(entities.map(item => item.status))).map(status => <option key={status}>{status}</option>)}</select><select aria-label="Сортировка" value={sort} onChange={event => { setSort(event.target.value); setPage(1); }}><option>Сначала новые</option><option>По названию</option></select><button onClick={() => { setQuery(""); setStatus("Все статусы"); setSort("Сначала новые"); setPage(1); }}>Сбросить фильтры</button></div>
-    <PanelTable label={meta.title} rows={visible.slice((currentPage - 1) * 12, currentPage * 12)} rowId={item => item.id} rowLabel={item => item.title} empty="Записи не найдены. Измените фильтры или добавьте запись." columns={[
+    <PanelTable bulkActions={bulkActions} label={meta.title} rows={visible.slice((currentPage - 1) * 12, currentPage * 12)} rowId={item => item.id} rowLabel={item => item.title} empty="Записи не найдены. Измените фильтры или добавьте запись." columns={[
       { key: "title", label: "Название", render: item => <div className="panelCellTitle"><MediaThumb index={item.image} /><span><a href={editHref(item)}>{item.title}</a><small>{item.slug}</small></span></div> },
       { key: "info", label: "Информация", render: item => <span className="panelCellText">{item.extra || item.email || item.category || item.brand || "—"}{(item.price !== undefined || item.value !== undefined) && <small>{(item.price ?? item.value ?? 0).toLocaleString("ru-RU")} ₽</small>}</span> },
       { key: "status", label: "Статус", render: item => <em>{item.status}</em> },
@@ -437,9 +448,9 @@ function MediaPicker({ selected, onSelect, onClose }: { selected: number; onSele
   return <div className="demoModal mediaPicker" onMouseDown={onClose}><section onMouseDown={event => event.stopPropagation()}><header><div><small>МЕДИАТЕКА</small><h2>Выберите изображение</h2></div><button onClick={onClose}><PanelIcon name="close" /></button></header><div>{mediaItems.map(item => <button className={selected === item.id ? "selected" : ""} onClick={() => onSelect(item.id)} key={item.id}><MediaThumb index={item.id} large /><span>{item.name}</span></button>)}</div></section></div>;
 }
 
-function SeoCenter({ entities, editHref, flash }: { entities: DemoEntity[]; editHref: (item: DemoEntity) => string; flash: (message: string) => void }) {
+function SeoCenter({ entities, editHref, flash, bulkActions }: { entities: DemoEntity[]; editHref: (item: DemoEntity) => string; flash: (message: string) => void; bulkActions: PanelBulkAction<DemoEntity>[] }) {
   const pages = entities.filter(item => ["pages", "articles", "products", "services", "projects", "categories"].includes(item.kind));
-  return <><PageHeading eyebrow="SEO PRO" title="Поисковая оптимизация" description="SEO встроено во все страницы, материалы и карточки каталога" actions={<button onClick={() => flash("Повторный SEO-аудит завершён")}>Запустить аудит</button>} /><section className="seoSummary"><article><strong>94</strong><span><b>Общая оценка</b><small>Отличный результат</small></span></article><article><strong>{pages.length}</strong><span><b>Страниц проверено</b><small>2 требуют внимания</small></span></article><article><strong>100%</strong><span><b>Доступность</b><small>Ошибок сервера нет</small></span></article><article><strong>3</strong><span><b>Редиректа</b><small>Все работают</small></span></article></section><PanelTable label="SEO страниц" rows={pages} rowId={item => item.id} rowLabel={item => item.title} columns={[
+  return <><PageHeading eyebrow="SEO PRO" title="Поисковая оптимизация" description="SEO встроено во все страницы, материалы и карточки каталога" actions={<button onClick={() => flash("Повторный SEO-аудит завершён")}>Запустить аудит</button>} /><section className="seoSummary"><article><strong>94</strong><span><b>Общая оценка</b><small>Отличный результат</small></span></article><article><strong>{pages.length}</strong><span><b>Страниц проверено</b><small>2 требуют внимания</small></span></article><article><strong>100%</strong><span><b>Доступность</b><small>Ошибок сервера нет</small></span></article><article><strong>3</strong><span><b>Редиректа</b><small>Все работают</small></span></article></section><PanelTable bulkActions={bulkActions} label="SEO страниц" rows={pages} rowId={item => item.id} rowLabel={item => item.title} columns={[
     { key: "title", label: "Страница", render: item => <span className="panelCellText"><a href={editHref(item)}>{item.title}</a><small>{item.slug}</small></span> },
     { key: "seoTitle", label: "SEO Title", render: item => item.seoTitle.length > 20 ? "Заполнен" : "Слишком короткий" },
     { key: "description", label: "Meta Description", render: item => item.seoDescription.length > 80 ? "Заполнено" : "Добавьте описание" },
@@ -495,6 +506,13 @@ function InjectedModulePage({ module, edition }: { module: DemoModule; edition: 
       if (record) setDraft(record); else setError("Запись не найдена.");
     }
   }, [module, storageKey]);
+  function batchModule(records:ModuleEntry[],operation:"delete"|"status",status?:string){
+    const ids=new Set(records.map(record=>record.id));
+    const next=operation==="delete"?rows.filter(item=>!ids.has(item.id)):rows.map(item=>ids.has(item.id)?{...item,status:status!,updated:"Только что"}:item);
+    sessionStorage.setItem(storageKey,JSON.stringify(next));setRows(next);
+    return {succeeded:records.map(record=>record.id),failed:[]};
+  }
+  const moduleBulk=[...statusBulkActions<ModuleEntry>([["Активен","Активировать"],["Черновик","В черновики"]],(rows,status)=>batchModule(rows,"status",status)),deleteBulkAction<ModuleEntry>(rows=>batchModule(rows,"delete"))];
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft) return;
@@ -509,7 +527,7 @@ function InjectedModulePage({ module, edition }: { module: DemoModule; edition: 
     {error && <p role="alert">{error}</p>}<label>Название<input name="title" required defaultValue={draft.title} /></label><label>Описание<textarea name="description" rows={5} defaultValue={draft.description} /></label><label>Статус<select name="status" defaultValue={draft.status}><option>Черновик</option><option>Активен</option></select></label><button type="submit" className="panelLinkButton">Сохранить</button>
   </div></form>;
   return <><PageHeading eyebrow="РАЗДЕЛ МОДУЛЯ" title={module.name} description={module.description} actions={<a className="panelLinkButton panelPrimaryLink" href={editHref("new")}><PanelIcon name="plus" /> Добавить</a>} />{error && <p role="alert">{error}</p>}
-    <PanelTable label={module.name} rows={rows} rowId={item => item.id} rowLabel={item => item.title} columns={[
+    <PanelTable bulkActions={moduleBulk} label={module.name} rows={rows} rowId={item => item.id} rowLabel={item => item.title} columns={[
       { key: "title", label: "Название", render: item => <span className="panelCellText"><a href={editHref(item.id)}>{item.title}</a><small>{module.key}-{item.id}</small></span> },
       { key: "description", label: "Информация", render: item => item.description },
       { key: "status", label: "Статус", render: item => <em>{item.status}</em> },

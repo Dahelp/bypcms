@@ -61,7 +61,9 @@
 .ownerApp .buildSummary{padding:28px}.ownerApp .buildSummary li,.ownerApp .buildSummary>div,.ownerApp .buildSummary>strong{padding:15px 0}
 .ownerApp .servicesManager>div{grid-template-columns:minmax(360px,1fr) 220px 120px 150px;gap:16px;min-height:78px}
 .ownerApp .servicesManager>div>button{min-height:44px;padding:0 16px;white-space:nowrap}
-.ownerApp .ownerEditorForm input,.ownerApp .ownerEditorForm select{min-height:50px}.ownerApp .ownerEditorForm textarea{min-height:110px}
+.ownerApp .ownerEditorForm :is(input:not([type=checkbox]):not([type=radio]),select){height:44px;min-height:44px;padding:10px 12px!important;line-height:1.4!important}.ownerApp .ownerEditorForm textarea{min-height:110px}
+.ownerEditorForm .formGrid{align-items:start}
+.ownerEditorForm .formGrid>label{min-width:0;align-content:start}
 @media(max-width:1050px){.ownerApp .ownerContent{padding:30px 24px 50px}.ownerApp .buildLayout{grid-template-columns:1fr}.ownerApp .buildSummary{position:static}}
 .ownerApp .termSelect{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ownerApp .termSelect button{display:grid;gap:7px;text-align:left;padding:20px;border:1px solid #d8dad3;border-radius:9px;background:#f8f8f5}.ownerApp .termSelect button.active{border-color:#725ee0;background:#eeeaff;color:#5e48c0}.ownerApp .termSelect button strong{font-size:20px!important}
 .ownerApp .licenseModulePicker{border:1px solid #d8dad3;border-radius:9px;margin-top:20px;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.ownerApp .licenseModulePicker legend{padding:0 8px;font-weight:850}.ownerApp .licenseModulePicker label{display:flex;align-items:center;gap:10px;padding:12px;background:#f6f7f3;border-radius:7px}.ownerApp .licenseModulePicker label>span{display:grid}.ownerApp .licenseModulePicker input{width:18px!important;min-height:18px!important}

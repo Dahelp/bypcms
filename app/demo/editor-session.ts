@@ -13,6 +13,16 @@ export function isPersistedEntity(records: DemoEntity[], entity: DemoEntity): bo
   return records.some(record => record.id === entity.id && record.kind === entity.kind);
 }
 
+export function createEntity(kind: EntityKind): DemoEntity {
+  return { id: Date.now(), kind, title: "", slug: "/", status: ["leads", "orders"].includes(kind) ? "Новый" : "Черновик", updated: "", image: -1, publishAt: "", excerpt: "", body: "", seoTitle: "", seoDescription: "", price: ["products", "services"].includes(kind) ? 0 : undefined, stock: kind === "products" ? 0 : undefined, sku: kind === "products" ? "" : undefined, value: ["leads", "orders", "payments"].includes(kind) ? 0 : undefined, extra: "" };
+}
+
+export function prepareEntitySave(entity: DemoEntity, publish = false, now = new Date()): DemoEntity {
+  if (!publish) return entity;
+  const localTime = new Date(now.getTime() - now.getTimezoneOffset() * 60_000).toISOString().slice(0,16);
+  return { ...entity, status: "Опубликовано", publishAt: entity.publishAt || localTime };
+}
+
 export function isEditorTab(value: unknown): value is EditorTab {
   return typeof value === "string" && (["content", "seo", "settings"].includes(value) || /^module:[a-z0-9_-]+$/.test(value));
 }
@@ -41,7 +51,9 @@ export function clearEditorSession(storage: EditorStorage, context: EditorContex
 }
 
 export function commitDemoEntity(storage: Pick<Storage, "setItem">, payload: { entities: DemoEntity[] } & Record<string, unknown>, entity: DemoEntity): DemoEntity[] {
-  const saved = { ...entity, updated: "Только что" };
+  const previous = payload.entities.find(record => record.id === entity.id);
+  const saveHistory = [{ savedAt: new Date().toISOString(), title: entity.title, status: entity.status }, ...(previous?.saveHistory || [])].slice(0,50);
+  const saved = { ...entity, updated: "Только что", saveHistory };
   const entities = payload.entities.some(record => record.id === entity.id)
     ? payload.entities.map(record => record.id === entity.id ? saved : record) : [saved, ...payload.entities];
   // Do not return success or navigate until the actual demo session write succeeds.

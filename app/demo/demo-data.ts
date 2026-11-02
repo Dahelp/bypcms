@@ -22,6 +22,7 @@ export type DemoEntity = {
   includeInSitemap?: boolean;
   passwordProtected?: boolean;
   allowIndexing?: boolean;
+  saveHistory?: { savedAt: string; title: string; status: string }[];
   price?: number;
   oldPrice?: number;
   stock?: number;

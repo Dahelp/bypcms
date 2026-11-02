@@ -8,7 +8,7 @@ const source=readFileSync(new URL('../app/demo/editor-session.ts',import.meta.ur
 const {outputText}=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}});
 const module={exports:{}};
 new Function('require','module','exports',outputText)(createRequire(import.meta.url),module,module.exports);
-const {editorSessionKey,isPersistedEntity,readEditorSession,writeEditorSession,clearEditorSession,commitDemoEntity,cameFromEditor}=module.exports;
+const {createEntity,prepareEntitySave,editorSessionKey,isPersistedEntity,readEditorSession,writeEditorSession,clearEditorSession,commitDemoEntity,cameFromEditor}=module.exports;
 class MemoryStorage{
   values=new Map();fail=false;
   getItem(key){return this.values.get(key)??null;}
@@ -18,6 +18,36 @@ class MemoryStorage{
 const entity={id:12,kind:'articles',title:'Свет',slug:'/journal/light',body:'Saved body',excerpt:'Saved excerpt',seoTitle:'SEO',seoDescription:'Description',status:'Черновик',updated:'Сегодня',image:0};
 const context={edition:'content',kind:'articles',id:12};
 const snapshot={draft:{...entity,title:'Unsaved title',body:'Unsaved body',author:'Анна Левина',publishAt:'2026-12-20T12:30',includeInSitemap:false,passwordProtected:true,allowIndexing:false,blocks:[{id:1,type:'heading',title:'Unsaved block',content:'Block text'}]},tab:'settings',scrollY:624,blockOrder:['image','text','excerpt'],codeBlock:true,customCode:'<p>Unsaved HTML</p>'};
+
+test('creation starts without a cover, publication date or invented save history',()=>{
+  for(const kind of ['articles','pages','products','projects']){
+    const draft=createEntity(kind);
+    assert.equal(draft.image,-1);assert.equal(draft.publishAt,'');assert.equal(draft.updated,'');
+    assert.equal(draft.saveHistory,undefined);assert.equal(draft.body,'');assert.equal(draft.title,'');
+  }
+});
+
+test('history records successful writes only and uses the last committed history',()=>{
+  const storage=new MemoryStorage();const draft={...createEntity('articles'),title:'New',slug:'/new'};
+  storage.fail=true;assert.throws(()=>commitDemoEntity(storage,{entities:[]},draft));
+  assert.equal(storage.getItem('bypcms-real-demo-v1'),null);assert.equal(draft.saveHistory,undefined);
+  storage.fail=false;
+  const first=commitDemoEntity(storage,{entities:[]},draft)[0];
+  assert.equal(first.saveHistory.length,1);assert.equal(first.saveHistory[0].title,'New');
+  assert.equal(first.saveHistory[0].status,'Черновик');assert.ok(Number.isFinite(Date.parse(first.saveHistory[0].savedAt)));
+  const second=commitDemoEntity(storage,{entities:[first]},{...first,title:'Changed',saveHistory:[]})[0];
+  assert.equal(second.saveHistory.length,2);assert.equal(second.saveHistory[0].title,'Changed');
+  assert.deepEqual(second.saveHistory[1],first.saveHistory[0]);assert.equal(first.saveHistory.length,1);
+});
+
+test('explicit publication sets the actual status and date without changing an ordinary draft save',()=>{
+  const draft=createEntity('articles');const now=new Date('2026-11-02T12:30:00Z');
+  assert.equal(prepareEntitySave(draft),draft);assert.equal(draft.publishAt,'');
+  const published=prepareEntitySave(draft,true,now);
+  assert.equal(published.status,'Опубликовано');assert.equal(draft.status,'Черновик');
+  assert.equal(published.publishAt,new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16));
+  assert.equal(prepareEntitySave({...draft,publishAt:'2026-12-20T12:30'},true,now).publishAt,'2026-12-20T12:30');
+});
 
 test('working copies preserve editor data, active tab and scroll without saving a material',()=>{
   const storage=new MemoryStorage();

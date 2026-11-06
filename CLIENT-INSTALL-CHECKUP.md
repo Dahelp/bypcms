@@ -2,6 +2,11 @@
 
 Status: not release-certified. A successful frontend build is not an installation test.
 
+Update 2026-11-07: isolated Apache/MySQL installation acceptance for real ZIPs of all
+three editions passed. See [the recorded results](docs/ACCEPTANCE-2026-11-07.md) for
+scope, fixes and remaining release gates. Theme parity, module business flows,
+activation and update/backup/rollback remain unverified.
+
 ## Confirmed by source inspection
 
 - Demo frontend is React; package builder copies deployed files and adds edition/module manifest.

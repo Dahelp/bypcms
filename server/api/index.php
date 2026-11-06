@@ -474,6 +474,7 @@ try {
     }
 
     if ($action === 'build.download' && $method === 'GET') {
+        if (($user['role'] ?? '') !== 'owner') Response::error('Сборка CMS доступна только владельцу', 403);
         if (!class_exists('ZipArchive')) {
             Response::error('На сервере не включено расширение PHP ZipArchive', 501);
         }
@@ -496,8 +497,9 @@ try {
         $root = realpath(BYPCMS_ROOT);
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
-            if (!$file->isFile()) continue;
+            if (!$file->isFile() || $file->isLink()) continue;
             $full = $file->getRealPath();
+            if ($full === false || !str_starts_with($full, $root . DIRECTORY_SEPARATOR)) continue;
             $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
             if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
             $topDirectory = explode('/', $relative)[0];
@@ -507,7 +509,7 @@ try {
         }
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
         $zip->addFromString('site/index.php', "<?php\nrequire __DIR__ . '/_core/client-front.php';\n");
-        $zip->addFromString('site/.htaccess', "DirectoryIndex index.php\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
+        $zip->addFromString('site/.htaccess', "DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
         $zip->addFromString('database.sql', implode(";\n\n", $schema) . ";\n");
         $zip->addFromString('build-manifest.json', json_encode([
             'product' => 'BYPCMS',

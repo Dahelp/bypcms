@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { panelRequest } from "../components/panel-api";
+import { PanelSessionGate, usePanelSession } from "../components/PanelSession";
+import PanelDraftForm, {clearPanelDrafts} from "../components/PanelDraftForm";
 import PanelTable from "../components/PanelTable";
 import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
 import { panelHref } from "../components/panel-route";
@@ -35,7 +38,8 @@ const editorSection:Record<string,string>={client:"clients",task:"clients",licen
 const nav=[["overview","Обзор"],["clients","Клиенты и работы"],["licenses","Лицензии"],["builder","Конструктор"],["modules","Модули"],["services","Услуги"],["portfolio","Портфолио"],["notifications","Оповещения"],["settings","Настройки"]];
 
 export default function Owner(){
-  const[access,setAccess]=useState<"loading"|"login"|"granted">("loading");
+  const session=usePanelSession();
+  const[loadError,setLoadError]=useState("");
   const[data,setData]=useState<OwnerData|null>(null);
   const[section,setSection]=useState("overview");
   const[editor,setEditor]=useState<EditorRoute>(null);
@@ -45,7 +49,8 @@ export default function Owner(){
     if(!data||routeReady)return;
     const query=new URLSearchParams(location.search);
     const next=query.get("section")||"overview";
-    const section=nav.some(item=>item[0]===next)?next:"overview";
+    const section=next;
+    if(!nav.some(item=>item[0]===next))setRouteError("Раздел не найден. Выберите доступный раздел в меню.");
     setSection(section);
     const type=query.get("editor") as NonNullable<EditorRoute>["type"];
     const collections:Record<string,unknown[]>={client:data.clients,task:data.tasks,service:data.services,license:data.licenses,module:data.modules,portfolio:data.portfolio||[]};
@@ -59,37 +64,30 @@ export default function Owner(){
         setEditor({type,record:prepared});
       }
     }
+    if(type && (!Object.hasOwn(collections,type) || editorSection[type]!==section))setRouteError("Некорректный адрес редактора.");
+    if(query.has("record")&&!type)setRouteError("Не указан редактор записи.");
     setRouteReady(true);
   },[data,routeReady]);
   const sectionHref=(section:string)=>panelHref({section});
   const editorHref=(type:NonNullable<EditorRoute>["type"],record?:number,client?:number)=>panelHref({section:editorSection[type],editor:type,record,client});
   const[error,setError]=useState("");
   const[toast,setToast]=useState("");
+  useEffect(()=>{if(session.phase==="active")setError("");},[session.phase]);
   const[search,setSearch]=useState("");
   const[edition,setEdition]=useState("Business");
   const[licenseTerm,setLicenseTerm]=useState<"annual"|"lifetime">("annual");
   const[selectedModules,setSelectedModules]=useState<string[]>([]);
   const[buildName,setBuildName]=useState("Новый проект");
   const notify=(text:string)=>{setToast(text);window.setTimeout(()=>setToast(""),3000)};
-  const request=async(action:string,options:RequestInit={})=>{
-    const response=await fetch(`/api/index.php?action=${encodeURIComponent(action)}`,{credentials:"same-origin",headers:{"Content-Type":"application/json",...(data?.csrf?{"X-CSRF-Token":data.csrf}:{}),...(options.headers||{})},...options});
-    const payload=await response.json().catch(()=>({error:"Некорректный ответ сервера"}));
-    if(!response.ok||!payload.ok)throw new Error(payload.error||"Ошибка запроса");
-    return payload;
-  };
+  const request=(action:string,options:RequestInit={})=>panelRequest<any>(action,options,session.csrf);
   const load=async()=>{
-    try{const payload=await request("owner.bootstrap");setData(payload);setAccess("granted")}
-    catch(e){if(e instanceof Error&&e.message.includes("авторизац"))setAccess("login");else{setError(e instanceof Error?e.message:"Ошибка загрузки");setAccess("login")}}
+    try{const payload=await request("owner.bootstrap");setData(payload);setLoadError("")}
+    catch(e){setLoadError(e instanceof Error?e.message:"Ошибка загрузки")}
   };
-  useEffect(()=>{void load()},[]);
-  const login=async(event:FormEvent<HTMLFormElement>)=>{
-    event.preventDefault();setError("");const f=new FormData(event.currentTarget);
-    try{const r=await fetch("/api/index.php?action=auth.login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:f.get("email"),password:f.get("password")})});if(!r.ok)throw new Error("Неверный email или пароль");await load()}
-    catch(e){setError(e instanceof Error?e.message:"Ошибка входа")}
-  };
-  const save=async(action:string,payload:Record<string,unknown>)=>{setError("");try{await request(action,{method:"POST",body:JSON.stringify(payload)});if(editor){window.location.assign(sectionHref(editorSection[editor.type]));return;}await load();notify("Изменения сохранены")}catch(e){setError(e instanceof Error?e.message:"Ошибка сохранения")}};
+  useEffect(()=>{if(session.user?.role==="owner")void load();else if(!session.user){setData(null);setEditor(null);setRouteReady(false);}},[session.user?.id]);
+  const save=async(action:string,payload:Record<string,unknown>)=>{setError("");try{await request(action,{method:"POST",body:JSON.stringify(payload)});clearPanelDrafts();if(editor){window.location.assign(sectionHref(editorSection[editor.type]));return;}await load();notify("Изменения сохранены")}catch(e){setError(e instanceof Error?e.message:"Ошибка сохранения")}};
   async function batchOwner<T extends {id:number}>(collection:string,rows:T[],operation:string,status?:string){
-    const result=await requestPanelBulk(collection,operation,rows.map(row=>row.id),data?.csrf||"",status);
+    const result=await requestPanelBulk(collection,operation,rows.map(row=>row.id),session.csrf,status);
     return refreshAfterBulk(result,async()=>{setData(await request("owner.bootstrap"));});
   }
   const clientBulk=statusBulkActions<Client>(Object.entries(clientStatuses),(rows,status)=>batchOwner("owner.clients",rows,"status",status));
@@ -111,19 +109,16 @@ export default function Owner(){
   const activeLicenses=(data?.licenses||[]).filter(l=>l.status==="active").length;
   const openTasks=(data?.tasks||[]).filter(t=>t.status!=="done").length;
 
-  if(access==="loading")return <main className="ownerGate loading"><b>B</b><p>Загрузка центра управления…</p></main>;
-  if(access==="login")return <main className="ownerGate"><section><Link href="/" className="ownerBrand"><b>B</b><span>BYPCMS<strong>OWNER</strong></span></Link><div><small>ЗАЩИЩЁННАЯ ЗОНА</small><h1>Управление платформой.</h1><p>Клиенты, договорные работы, лицензии, сборки и обновления доступны только владельцу.</p></div></section><form onSubmit={login}><small>АВТОРИЗАЦИЯ ВЛАДЕЛЬЦА</small><h2>Войти в Control Center</h2>{error&&<em>{error}</em>}<label>Email<input name="email" type="email" required/></label><label>Пароль<input name="password" type="password" required/></label><button>Войти <WorkspaceIcon symbol="→"/></button><Link href="/"><WorkspaceIcon symbol="←"/> На главную</Link></form></main>;
-
-  return <main className="ownerApp">
-    <aside className="ownerSidebar workspaceMenu"><Link href="/" className="ownerBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Owner</i></Link><p className="workspaceMenuGroup">УПРАВЛЕНИЕ</p><nav aria-label="Разделы владельца">{nav.map(([id,label])=><a key={id} href={sectionHref(id)} aria-label={label} title={label} aria-current={section===id?"page":undefined} className={section===id?"active":""}><i><WorkspaceIcon symbol={id}/></i><span>{label}</span>{id==="notifications"&&unread>0&&<em>{unread}</em>}</a>)}</nav><div className="ownerStatus workspaceMenuStatus"><i/><span><b>Production</b><small>Данные подключены к MySQL</small></span></div><Link className="ownerExit workspaceMenuExit" href="/admin">Панель сайта <WorkspaceIcon symbol="↗"/></Link></aside>
+  return <PanelSessionGate session={session} owner>{!data ? session.user?.role==="owner" && <main className="ownerGate loading">{loadError ? <div role="alert"><p>{loadError}</p><button onClick={()=>void load()}>Повторить загрузку</button></div> : <p role="status">Загрузка центра управления…</p>}</main> : <main className="ownerApp">
+    <aside className="ownerSidebar workspaceMenu"><Link href="/" className="ownerBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Owner</i></Link><p className="workspaceMenuGroup">УПРАВЛЕНИЕ</p><nav aria-label="Разделы владельца">{nav.map(([id,label])=><a key={id} href={sectionHref(id)} aria-label={label} title={label} aria-current={section===id?"page":undefined} className={section===id?"active":""}><i><WorkspaceIcon symbol={id}/></i><span>{label}</span>{id==="notifications"&&unread>0&&<em>{unread}</em>}</a>)}</nav><div className="ownerStatus workspaceMenuStatus"><i/><span><b>Production</b><small>Данные подключены к MySQL</small></span></div><a className="ownerExit workspaceMenuExit" href="/admin/">Панель сайта <WorkspaceIcon symbol="↗"/></a><button className="ownerExit workspaceMenuExit" onClick={()=>void session.logout()} disabled={session.busy}>Выйти</button></aside>
     <section className="ownerMain"><header><PanelSearch value={search} onChange={setSearch} placeholder="Поиск клиента, лицензии, домена…" /><div><NotificationDropdown items={data?.notifications||[]} hrefForItem={()=>sectionHref("notifications")} onRead={async(id)=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id}),keepalive:true});}} /><a className="ownerProfileButton" href={sectionHref("settings")}><span className="ownerAvatar">{initials}</span><p><b>{data?.user.name}</b><small>{data?.user.role_name}</small></p></a></div></header>
-      <div className={`ownerContent ${editor ? "editorRouteOpen" : ""}`}><div className="ownerHeading"><div><small>BYPCMS CONTROL CENTER</small><h1>{nav.find(x=>x[0]===section)?.[1]}</h1><p>{section==="overview"?"Реальные данные платформы, клиентов и договорных обязательств.":"Создание, редактирование и контроль без перехода в демонстрационные экраны."}</p></div>
+      <div className={`ownerContent ${editor ? "editorRouteOpen" : ""}`}><div className="ownerHeading"><div><small>BYPCMS CONTROL CENTER</small><h1>{nav.find(x=>x[0]===section)?.[1]||"Раздел не найден"}</h1><p>{section==="overview"?"Реальные данные платформы, клиентов и договорных обязательств.":"Создание, редактирование и контроль без перехода в демонстрационные экраны."}</p></div>
         {section==="clients"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("client")}><WorkspaceIcon symbol="＋"/> Клиент</a>}
         {section==="licenses"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("license")}><WorkspaceIcon symbol="＋"/> Лицензия</a>}
         {section==="modules"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("module")}><WorkspaceIcon symbol="＋"/> Модуль</a>}
         {section==="services"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("service")}><WorkspaceIcon symbol="＋"/> Услуга</a>}
         {section==="portfolio"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("portfolio")}><WorkspaceIcon symbol="＋"/> Проект</a>}
-      </div>{routeError&&<p role="alert">{routeError} <a href={sectionHref(section)}>К списку</a></p>}{toast&&<div className="ownerToast"><WorkspaceIcon symbol="✓"/> {toast}<button onClick={()=>setToast("")}><WorkspaceIcon symbol="×"/></button></div>}{error&&<div className="ownerError">{error}<button onClick={()=>setError("")}><WorkspaceIcon symbol="×"/></button></div>}
+      </div>{routeError&&<p role="alert">{routeError} <a href={sectionHref(nav.some(item=>item[0]===section)?section:"overview")}>{nav.some(item=>item[0]===section)?"К списку":"К обзору панели"}</a></p>}{toast&&<div className="ownerToast"><WorkspaceIcon symbol="✓"/> {toast}<button onClick={()=>setToast("")}><WorkspaceIcon symbol="×"/></button></div>}{error&&<div className="ownerError">{error}<button onClick={()=>setError("")}><WorkspaceIcon symbol="×"/></button></div>}
 
       {section==="overview"&&<><div className="ownerKpis">
         <article><span className="kpiIcon"><WorkspaceIcon symbol="payments"/></span><div><small>Договорная стоимость</small><strong>{revenue.toLocaleString("ru-RU")} ₽</strong><em>по всем работам</em></div></article>
@@ -188,11 +183,11 @@ export default function Owner(){
 
       {section==="notifications"&&<article className="notificationCenter"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h2>Оповещения</h2></div><button onClick={async()=>{await save("owner.notification.read",{id:0})}}>Отметить все прочитанными</button></header>{(data?.notifications||[]).map(n=><button className={Number(n.is_read)?"read":""} key={n.id} onClick={async()=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id:n.id})});await load()}}><i className={n.severity}/><span><b>{n.title}</b><small>{n.message}</small></span><time>{new Date(n.created_at).toLocaleString("ru-RU")}</time></button>)}{!data?.notifications.length&&<div className="emptyState">Новых событий нет. Они создаются сервером из сроков лицензий, задач и системных операций.</div>}</article>}
 
-      {section==="settings"&&<Settings data={data!} onSave={payload=>save("owner.settings.save",{settings:payload})} onPassword={payload=>save("auth.password",payload)}/>}
+      {section==="settings"&&<><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button><Settings data={data!} onSave={payload=>save("owner.settings.save",{settings:payload})} onPassword={payload=>save("auth.password",payload)}/></>}
     </div>
-    {editor&&<Editor key={`${editor.type}-${editor.record?.id||"new"}`} editor={editor} data={data!} closeHref={sectionHref(editorSection[editor.type])} save={save} error={error}/>}
+    {editor&&<Editor key={`${editor.type}-${editor.record?.id||"new"}`} editor={editor} data={{...data!,csrf:session.csrf}} closeHref={sectionHref(editorSection[editor.type])} save={save} error={error}/>}
     </section>
-  </main>;
+  </main>}</PanelSessionGate>;
 }
 
 function safeJson(value:string|string[]){if(Array.isArray(value))return value;try{const parsed=JSON.parse(value||"[]");return Array.isArray(parsed)?parsed:[]}catch{return[]}}
@@ -207,7 +202,7 @@ function Editor({editor,data,closeHref,save,error}:{editor:NonNullable<EditorRou
   const licenseModules=data.modules.filter(m=>(editionAccess.get(m.module_key)||"hidden")!=="hidden");
   const existingEntitlements=Array.isArray(r?.entitlements)?r.entitlements.map(String):[];
   const submit=(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();const formData=new FormData(event.currentTarget);const values=Object.fromEntries(formData);const payload:Record<string,unknown>={...r,...values};if(editor.type==="module")payload.availability=Object.fromEntries(["Business","Commerce","Content"].map(e=>[e,values[`availability_${e}`]||"hidden"]));if(editor.type==="license")payload.entitlements=formData.getAll("entitlements").map(String);void save(`owner.${editor.type}.save`,payload)};
-  return <div className="ownerEditorPage"><form className="ownerEditorForm workspaceEditorForm" onSubmit={submit}><header><a className="editorBack" href={closeHref}><WorkspaceIcon symbol="←"/> К списку</a><div><small>РЕДАКТОР</small><h2>{({client:"Клиент",task:"Договорная работа",service:"Услуга",license:"Лицензия",module:"Модуль",portfolio:"Проект портфолио"} as Record<string,string>)[editor.type]}</h2></div></header><div className="editorFormSurface">{error&&<p className="ownerError" role="alert">{error}</p>}
+  return <div className="ownerEditorPage"><PanelDraftForm draftId="record" onRestore={draft=>{if(draft.fields.edition?.[0])setLicenseEdition(draft.fields.edition[0]);if(draft.fields.license_term?.[0])setLicenseTermValue(draft.fields.license_term[0]);}} className="ownerEditorForm workspaceEditorForm" onSubmit={submit}><header><a className="editorBack" href={closeHref}><WorkspaceIcon symbol="←"/> К списку</a><div><small>РЕДАКТОР</small><h2>{({client:"Клиент",task:"Договорная работа",service:"Услуга",license:"Лицензия",module:"Модуль",portfolio:"Проект портфолио"} as Record<string,string>)[editor.type]}</h2></div></header><div className="editorFormSurface">{error&&<p className="ownerError" role="alert">{error}</p>}
     {editor.type==="client"&&<><label>Имя контактного лица<input name="name" required defaultValue={field(r,"name")}/></label><label>Компания<input name="company" defaultValue={field(r,"company")}/></label><div className="formGrid"><label>Email<input name="email" type="email" defaultValue={field(r,"email")}/></label><label>Телефон<input name="phone" defaultValue={field(r,"phone")}/></label></div><label>Статус<select name="status" defaultValue={field(r,"status","active")}>{Object.entries(clientStatuses).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select></label><label>Заметки<textarea name="notes" rows={5} defaultValue={field(r,"notes")}/></label></>}
     {editor.type==="task"&&<><label>Клиент<select name="client_id" required defaultValue={field(r,"client_id")}><option value="">Выберите</option>{data.clients.map(c=><option value={c.id} key={c.id}>{c.company||c.name}</option>)}</select></label><label>Название работы<input name="title" required defaultValue={field(r,"title")}/></label><label>Описание<textarea name="description" rows={4} defaultValue={field(r,"description")}/></label><div className="formGrid"><label>Договор / приложение<input name="contract_ref" defaultValue={field(r,"contract_ref")}/></label><label>Услуга<select name="service_id" defaultValue={field(r,"service_id")}><option value="">Индивидуальная</option>{data.services.map(s=><option value={s.id} key={s.id}>{s.name}</option>)}</select></label><label>Ответственный<input name="assignee" defaultValue={field(r,"assignee",data.user.name)}/></label><label>Статус<select name="status" defaultValue={field(r,"status","planned")}>{Object.entries(taskStatuses).map(([k,v])=><option value={k} key={k}>{v}</option>)}</select></label><label>Готовность, %<input name="progress" type="number" min="0" max="100" defaultValue={field(r,"progress","0")}/></label><label>Стоимость, ₽<input name="price" type="number" min="0" defaultValue={field(r,"price","0")}/></label><label>Срок<input name="due_at" type="datetime-local" defaultValue={field(r,"due_at").replace(" ","T").slice(0,16)}/></label></div></>}
     {editor.type==="service"&&<><label>Название<input name="name" required defaultValue={field(r,"name")}/></label><label>Системный ключ<input name="service_key" defaultValue={field(r,"service_key")}/></label><label>Описание<textarea name="description" rows={4} defaultValue={field(r,"description")}/></label><div className="formGrid"><label>Цена от, ₽<input name="price_from" type="number" min="0" defaultValue={field(r,"price_from","0")}/></label><label>Единица оплаты<input name="billing_unit" defaultValue={field(r,"billing_unit","проект")}/></label><label>Статус<select name="status" defaultValue={field(r,"status","active")}><option value="active">Активна</option><option value="inactive">Скрыта</option></select></label></div></>}
@@ -215,7 +210,7 @@ function Editor({editor,data,closeHref,save,error}:{editor:NonNullable<EditorRou
     {editor.type==="portfolio"&&<><div className="formGrid"><label>Название проекта<input name="title" required defaultValue={field(r,"title")}/></label><label>Адрес страницы (slug)<input name="slug" placeholder="my-project" defaultValue={field(r,"slug")}/></label><label>Категория<input name="category" placeholder="Интернет-магазин" defaultValue={field(r,"category")}/></label><label>Редакция<select name="edition" defaultValue={field(r,"edition","Business")}><option>Business</option><option>Commerce</option><option>Content</option></select></label><label>Год<input name="project_year" defaultValue={field(r,"project_year",String(new Date().getFullYear()))}/></label><label>Порядок<input name="sort_order" type="number" defaultValue={field(r,"sort_order","100")}/></label><label>Обложка / URL изображения<input name="cover_image" placeholder="/uploads/project.webp" defaultValue={field(r,"cover_image")}/></label><label>Ссылка на сайт<input name="project_url" type="url" placeholder="https://example.ru" defaultValue={field(r,"project_url")}/></label></div><label>Краткое описание<textarea name="lead" rows={3} defaultValue={field(r,"lead")}/></label><label>Задача и решение<textarea name="description" rows={5} defaultValue={field(r,"description")}/></label><label>Результат<textarea name="result_text" rows={4} defaultValue={field(r,"result_text")}/></label><div className="formGrid"><label>Возможности — по одной в строке<textarea name="features" rows={6} defaultValue={safeJson(field(r,"features")).join("\n")}/></label><label>Модули — по одному в строке<textarea name="modules" rows={6} defaultValue={safeJson(field(r,"modules")).join("\n")}/></label><label>Выполненные услуги — по одной в строке<textarea name="services" rows={6} defaultValue={safeJson(field(r,"services")).join("\n")}/></label><label>Галерея — URL по одному в строке<textarea name="gallery" rows={6} defaultValue={safeJson(field(r,"gallery")).join("\n")}/></label></div><label>Статус<select name="status" defaultValue={field(r,"status","draft")}><option value="draft">Черновик</option><option value="published">Опубликован</option><option value="archived">Архив</option></select></label></>}
     {editor.type==="module"&&<><div className="formGrid"><label>Ключ<input name="module_key" required defaultValue={field(r,"module_key")}/></label><label>Название<input name="name" required defaultValue={field(r,"name")}/></label><label>Категория<input name="category" defaultValue={field(r,"category","Расширение")}/></label><label>Версия<input name="current_version" defaultValue={field(r,"current_version","1.0.0")}/></label><label>Цена, ₽<input name="price" type="number" min="0" defaultValue={field(r,"price","0")}/></label><label>Совместимость<input name="compatibility" defaultValue={field(r,"compatibility","Core >= 2.0")}/></label></div><label>Описание<textarea name="description" rows={4} defaultValue={field(r,"description")}/></label><div className="compatibilityEditor">{Object.keys(editions).map(e=><label key={e}>{e}<select name={`availability_${e}`} defaultValue={String((r?.availability as Record<string,string>|undefined)?.[e]||"hidden")}><option value="included">Включён в редакцию</option><option value="optional">Можно докупить</option><option value="hidden">Не показывать</option></select></label>)}</div></>}
     {editor.type==="portfolio"&&<PortfolioUploader csrf={data.csrf}/>}
-    <footer><a className="panelLinkButton" href={closeHref}>Отмена</a><button type="submit">Сохранить</button></footer></div></form></div>
+    <footer><a className="panelLinkButton" href={closeHref}>Отмена</a><button type="submit">Сохранить</button></footer></div></PanelDraftForm></div>
 }
 
 function PortfolioUploader({csrf}:{csrf:string}){
@@ -227,8 +222,7 @@ function PortfolioUploader({csrf}:{csrf:string}){
       const urls:string[]=[];
       for(const file of Array.from(files)){
         const body=new FormData();body.append("image",file);
-        const response=await fetch("/api/index.php?action=owner.portfolio.upload",{method:"POST",credentials:"same-origin",headers:{"X-CSRF-Token":csrf},body});
-        const payload=await response.json();if(!response.ok||!payload.ok)throw new Error(payload.error||"Ошибка загрузки");
+        const payload=await panelRequest<{url:string}>("owner.portfolio.upload",{method:"POST",body},csrf);
         urls.push(String(payload.url));
       }
       const field=document.querySelector<HTMLInputElement|HTMLTextAreaElement>(`[name="${target}"]`);
@@ -242,5 +236,5 @@ function PortfolioUploader({csrf}:{csrf:string}){
 function Settings({data,onSave,onPassword}:{data:OwnerData;onSave:(payload:Record<string,string>)=>Promise<void>;onPassword:(payload:Record<string,unknown>)=>Promise<void>}){
   const submit=(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();void onSave(Object.fromEntries(new FormData(event.currentTarget)) as Record<string,string>)};
   const password=(event:FormEvent<HTMLFormElement>)=>{event.preventDefault();void onPassword(Object.fromEntries(new FormData(event.currentTarget)))};
-  return <div className="settingsStack"><form className="ownerSettings" onSubmit={submit}><section><small>ПРОФИЛЬ ВЛАДЕЛЬЦА</small><h2>{data.user.name}</h2><p>{data.user.email} · {data.user.role_name}</p><div className="profileExplanation"><span className="ownerAvatar">{data.user.name.split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()}</span><p><b>Инициалы формируются из имени учётной записи</b><small>Это не отдельный логотип и не фиктивная надпись.</small></p></div></section><section><small>НАСТРОЙКИ OWNER CENTER</small><h2>Компания и уведомления</h2><label>Название платформы<input name="company_name" defaultValue={data.settings.company_name||"BYPCMS"}/></label><label>Email для уведомлений<input name="notification_email" type="email" defaultValue={data.settings.notification_email||data.user.email}/></label><label>Предупреждать о лицензии за, дней<input name="license_warning_days" type="number" min="1" defaultValue={data.settings.license_warning_days||"30"}/></label><label>Валюта<select name="currency" defaultValue={data.settings.currency||"RUB"}><option value="RUB">RUB — рубль</option><option value="USD">USD — доллар</option><option value="EUR">EUR — евро</option></select></label><button>Сохранить настройки</button></section></form><form className="passwordPanel" onSubmit={password}><small>БЕЗОПАСНОСТЬ</small><h2>Сменить пароль</h2><p>Одинаковая учётная запись используется в `/admin` и `/owner`, поэтому пароль изменится для обоих разделов.</p><div className="formGrid"><label>Текущий пароль<input name="current_password" type="password" autoComplete="current-password" required/></label><label>Новый пароль<input name="new_password" type="password" minLength={12} autoComplete="new-password" required/></label><label>Повторите новый пароль<input name="new_password_confirmation" type="password" minLength={12} autoComplete="new-password" required/></label></div><button>Изменить пароль</button></form></div>
+  return <div className="settingsStack"><PanelDraftForm draftId="settings"  className="ownerSettings" onSubmit={submit}><section><small>ПРОФИЛЬ ВЛАДЕЛЬЦА</small><h2>{data.user.name}</h2><p>{data.user.email} · {data.user.role_name}</p><div className="profileExplanation"><span className="ownerAvatar">{data.user.name.split(/\s+/).map(x=>x[0]).join("").slice(0,2).toUpperCase()}</span><p><b>Инициалы формируются из имени учётной записи</b><small>Это не отдельный логотип и не фиктивная надпись.</small></p></div></section><section><small>НАСТРОЙКИ OWNER CENTER</small><h2>Компания и уведомления</h2><label>Название платформы<input name="company_name" defaultValue={data.settings.company_name||"BYPCMS"}/></label><label>Email для уведомлений<input name="notification_email" type="email" defaultValue={data.settings.notification_email||data.user.email}/></label><label>Предупреждать о лицензии за, дней<input name="license_warning_days" type="number" min="1" defaultValue={data.settings.license_warning_days||"30"}/></label><label>Валюта<select name="currency" defaultValue={data.settings.currency||"RUB"}><option value="RUB">RUB — рубль</option><option value="USD">USD — доллар</option><option value="EUR">EUR — евро</option></select></label><button>Сохранить настройки</button></section></PanelDraftForm><form className="passwordPanel" onSubmit={password}><small>БЕЗОПАСНОСТЬ</small><h2>Сменить пароль</h2><p>Одинаковая учётная запись используется в `/admin` и `/owner`, поэтому пароль изменится для обоих разделов.</p><div className="formGrid"><label>Текущий пароль<input name="current_password" type="password" autoComplete="current-password" required/></label><label>Новый пароль<input name="new_password" type="password" minLength={12} autoComplete="new-password" required/></label><label>Повторите новый пароль<input name="new_password_confirmation" type="password" minLength={12} autoComplete="new-password" required/></label></div><button>Изменить пароль</button></form></div>
 }

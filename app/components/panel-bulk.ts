@@ -1,4 +1,5 @@
 import { isValidElement, type ReactNode } from "react";
+import { panelRequest } from "./panel-api";
 import type { PanelBulkAction, PanelBulkResult, PanelColumn } from "./PanelTable";
 
 function cellText(value: ReactNode): string {
@@ -30,10 +31,7 @@ export async function requestPanelBulk(collection: string, operation: string, id
   const combined: PanelBulkResult = { succeeded: [], failed: [] };
   for (let offset = 0; offset < ids.length; offset += 200) {
     try {
-      const response = await fetch("/api/index.php?action=panel.bulk", { method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify({ collection, operation, ids: ids.slice(offset, offset + 200), status }) });
-      const result = await response.json().catch(() => ({ error: "Некорректный ответ сервера" }));
-      if (!response.ok || !result.ok) throw new Error(result.error || "Не удалось получить результат массового действия");
+      const result = await panelRequest<PanelBulkResult>("panel.bulk", { method: "POST", body: JSON.stringify({ collection, operation, ids: ids.slice(offset, offset + 200), status }) }, csrf);
       combined.succeeded.push(...result.succeeded); combined.failed.push(...result.failed);
     } catch (error) {
       if (!offset) throw error;

@@ -1,4 +1,16 @@
-# BYPCMS checkup — 2026-11-01
+# BYPCMS checkup
+
+## Update — 2026-11-07
+
+Basic panel and installation acceptance is now recorded in
+[`docs/ACCEPTANCE-2026-11-07.md`](docs/ACCEPTANCE-2026-11-07.md).
+Real Content/Business/Commerce ZIPs were installed on isolated Apache/MySQL sites;
+direct routes, server auth/CSRF, private directories, local assets, persistence,
+reinstall protection and failed-install cleanup were exercised.
+Browser scenarios ran for Demo/Owner/Admin, including 390px documents.
+The remaining sale-certification gaps below still apply where not superseded by that report.
+
+## Baseline — 2026-11-01
 
 ## Executed successfully
 

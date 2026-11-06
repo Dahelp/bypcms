@@ -65,7 +65,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
     }
 
     if (!$errors) {
+        $createdTables = [];
+        $installLock = fopen(STORAGE_PATH . '/install.lock', 'c');
         try {
+            if (!$installLock || !flock($installLock, LOCK_EX | LOCK_NB)) {
+                throw new RuntimeException('Установка уже выполняется. Дождитесь завершения.');
+            }
+            if (is_file(CONFIG_PATH)) {
+                throw new RuntimeException('Система уже установлена. Повторная установка запрещена.');
+            }
             $dsn = sprintf('mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4', $dbHost, $dbPort, $dbName);
             $pdo = new PDO($dsn, $dbUser, $dbPassword, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -73,9 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
 
+            if ((int)$pdo->query("SELECT GET_LOCK(CONCAT('bypcms-install-', MD5(DATABASE())), 0)")->fetchColumn() !== 1) {
+                throw new RuntimeException('Эта база уже используется другой установкой.');
+            }
+            if ($pdo->query('SHOW TABLES')->fetchColumn() !== false) {
+                throw new RuntimeException('База данных не пустая. Создайте отдельную пустую базу; существующие данные не изменены.');
+            }
+
             $schema = require ROOT_PATH . '/_core/schema.php';
             foreach ($schema as $statement) {
                 $pdo->exec($statement);
+                if (preg_match('/^CREATE TABLE IF NOT EXISTS ([a-z0-9_]+)/i', $statement, $match)) $createdTables[] = $match[1];
             }
 
             $pdo->beginTransaction();
@@ -219,7 +235,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
             if (isset($pdo) && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
+            // MySQL DDL is not transactional. Only tables created in this previously
+            // empty database belong to this failed attempt and may be removed.
+            if (isset($pdo) && $createdTables && !is_file(CONFIG_PATH)) {
+                try {
+                    $pdo->exec('SET FOREIGN_KEY_CHECKS=0');
+                    foreach (array_reverse($createdTables) as $table) $pdo->exec('DROP TABLE IF EXISTS `' . $table . '`');
+                } catch (Throwable $cleanupError) {
+                    error_log('[BYPCMS install cleanup] ' . $cleanupError->getMessage());
+                    $errors[] = 'Не удалось очистить неполную установку. Для повторной попытки используйте новую пустую базу.';
+                } finally { $pdo->exec('SET FOREIGN_KEY_CHECKS=1'); }
+            }
             $errors[] = 'Установка не завершена: ' . $error->getMessage();
+        } finally {
+            if (isset($pdo)) $pdo->query("SELECT RELEASE_LOCK(CONCAT('bypcms-install-', MD5(DATABASE())))");
+            if (is_resource($installLock)) { flock($installLock, LOCK_UN); fclose($installLock); }
         }
     }
 }

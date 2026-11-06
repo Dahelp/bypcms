@@ -11,7 +11,7 @@ const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 function load(path){
   const {outputText}=ts.transpileModule(read(path),{compilerOptions:{module:ts.ModuleKind.CommonJS,jsx:ts.JsxEmit.ReactJSX,target:ts.ScriptTarget.ES2022}});
   const module={exports:{}};
-  const localRequire=name=>name==='./panel-bulk'?load('app/components/panel-bulk.ts'):require(name);
+  const localRequire=name=>name==='./panel-bulk'?load('app/components/panel-bulk.ts'):name==='./panel-api'?load('app/components/panel-api.ts'):require(name);
   new Function('require','module','exports',outputText)(localRequire,module,module.exports);
   return module.exports;
 }

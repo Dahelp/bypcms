@@ -60,7 +60,7 @@ final class Auth
         $provided = (string)($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
         $stored = (string)($_SESSION['csrf'] ?? '');
         if ($stored === '' || !hash_equals($stored, $provided)) {
-            Response::error('Недействительный CSRF-токен', 419);
+            Response::error('Недействительный CSRF-токен', 403, ['code' => 'csrf_expired']);
         }
     }
 

@@ -20,6 +20,7 @@ const {id:clientId}=await call(platform,'owner.client.save',{name:'License QA '+
 const spec={client_id:clientId,edition:'Content',domain:fixture.domain,license_term:'annual',status:'active',valid_until:'2026-01-01',entitlements:fixture.modules,operation_id:operation()};
 await call(platform,'owner.license.save',{...spec,status:'invented'},422);
 const {id}=await call(platform,'owner.license.save',spec);
+check((await call(platform,'owner.bootstrap')).licenses.find(row=>row.id===id).effective_status==='expired','owner list reflects actual expired term');
 check((await call(platform,'owner.license.save',spec)).id===id,'issuance retry returns same license');
 await call(platform,'owner.license.key',{id},403,false);
 const {key}=await call(platform,'owner.license.key',{id});

@@ -268,7 +268,8 @@ try {
                 'SELECT l.id,l.client_id,l.license_hint,l.domain,l.edition,l.license_term,l.purchase_price,l.core_version,l.installed_version,
                         l.entitlements,l.status,l.activated_at,l.valid_until,l.last_seen_at,l.created_at,l.updated_at,
                         COALESCE(c.company,c.name,"Без клиента") AS client_name,
-                        a.installation_id,a.active AS activation_active, (s.license_id IS NOT NULL) AS key_available
+                        a.installation_id,a.active AS activation_active, (s.license_id IS NOT NULL) AS key_available,
+                        CASE WHEN l.status IN ("active","renewal","trial") AND l.license_term<>"lifetime" AND l.valid_until<UTC_DATE() THEN "expired" ELSE l.status END AS effective_status
                  FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id
                  LEFT JOIN byp_license_activations a ON a.license_id=l.id
                  LEFT JOIN byp_license_secrets s ON s.license_id=l.id ORDER BY l.updated_at DESC'

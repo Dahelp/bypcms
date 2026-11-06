@@ -22,7 +22,7 @@ type Task={id:number;client_id:number;client_name:string;service_id:number|null;
 type Service={id:number;service_key:string;name:string;description:string;price_from:number;billing_unit:string;status:string};
 type Module={id:number;module_key:string;name:string;category:string;description:string;current_version:string;price:number;compatibility:string;status:string};
 type EditionModule={edition:string;module_key:string;availability:"included"|"optional"|"hidden"};
-type License={id:number;client_id:number;client_name:string;license_hint:string;domain:string;edition:string;license_term:"annual"|"lifetime";purchase_price:number;core_version:string;installed_version:string;entitlements:string;status:string;valid_until:string|null;last_seen_at:string|null;key_available?:number;activation_active?:number;installation_id?:string};
+type License={id:number;client_id:number;client_name:string;license_hint:string;domain:string;edition:string;license_term:"annual"|"lifetime";purchase_price:number;core_version:string;installed_version:string;entitlements:string;status:string;effective_status?:string;valid_until:string|null;last_seen_at:string|null;key_available?:number;activation_active?:number;installation_id?:string};
 type Notice={id:number;title:string;message:string;severity:string;is_read:number;created_at:string};
 type Portfolio={id:number;slug:string;title:string;category:string;edition:string;project_year:string;lead:string;description:string;result_text:string;cover_image:string;gallery:string;features:string;modules:string;services:string;project_url:string;status:string;sort_order:number};
 type OwnerData={user:User;clients:Client[];tasks:Task[];services:Service[];modules:Module[];edition_modules:EditionModule[];licenses:License[];portfolio:Portfolio[];orders:unknown[];builds:unknown[];notifications:Notice[];settings:Record<string,string>;csrf:string};
@@ -111,7 +111,7 @@ export default function Owner(){
   const editionPrice=editions[edition][licenseTerm];
   const filteredClients=(data?.clients||[]).filter(c=>`${c.name} ${c.company} ${c.email}`.toLowerCase().includes(search.toLowerCase()));
   const revenue=(data?.tasks||[]).reduce((sum,t)=>sum+Number(t.price||0),0);
-  const activeLicenses=(data?.licenses||[]).filter(l=>l.status==="active").length;
+  const activeLicenses=(data?.licenses||[]).filter(l=>(l.effective_status||l.status)==="active").length;
   const openTasks=(data?.tasks||[]).filter(t=>t.status!=="done").length;
 
   return <PanelSessionGate session={session} owner>{!data ? session.user?.role==="owner" && <main className="ownerGate loading">{loadError ? <div role="alert"><p>{loadError}</p><button onClick={()=>void load()}>Повторить загрузку</button></div> : <p role="status">Загрузка центра управления…</p>}</main> : <main className="ownerApp">
@@ -155,11 +155,11 @@ export default function Owner(){
       {section==="licenses"&&licenseId!==null&&(data.licenses.find(l=>l.id===licenseId)?<OwnerLicense key={licenseId} license={data.licenses.find(l=>l.id===licenseId)!} csrf={session.csrf} refresh={async()=>setData(await request("owner.bootstrap"))}/>:<p role="alert">Лицензия не найдена. <a href={sectionHref("licenses")}>Вернуться к списку</a></p>)}
       {section==="licenses"&&<PanelTable bulkActions={licenseBulk} label="Лицензии" rows={data?.licenses||[]} rowId={l=>l.id} rowLabel={l=>l.client_name} columns={[
         {key:"client",label:"Клиент / домен",render:l=><span className="panelCellText"><a href={editorHref("license",l.id)}>{l.client_name}</a><small>{l.domain||"домен не привязан"}</small></span>},
-        {key:"key",label:"Лицензия",render:l=><code>{l.license_hint}</code>},
+        {key:"key",label:"Лицензия",render:l=><span className="panelCellText"><code>{l.license_hint}</code><small>{Number(l.activation_active)?"Установка подтверждена":"Не активирована"}</small></span>},
         {key:"edition",label:"Редакция и модули",render:l=><span className="panelCellText"><b>BYPCMS {l.edition}</b><small>{safeJson(l.entitlements).join(" · ")||"базовая комплектация"}</small></span>},
         {key:"version",label:"Версия",render:l=><span className="panelCellText">{l.installed_version||"не сообщалась"}<small>последняя {l.core_version}</small></span>},
         {key:"term",label:"Срок и цена",render:l=><span className="panelCellText">{l.license_term==="lifetime"?"Пожизненно":l.valid_until?new Date(l.valid_until).toLocaleDateString("ru-RU"):"1 год"}<small>{Number(l.purchase_price).toLocaleString("ru-RU")} ₽</small></span>},
-        {key:"status",label:"Статус",render:l=><em>{licenseStatuses[l.status]||l.status}</em>},
+        {key:"status",label:"Статус",render:l=><em>{licenseStatuses[l.effective_status||l.status]||l.status}</em>},
       ]} actions={l=>[{label:"Ключ и активация",href:panelHref({section:"licenses",license:l.id})},{label:"Редактировать",href:editorHref("license",l.id)}]}/>}
 
       {section==="builder"&&<div className="buildLayout"><section className="buildSteps"><div className="buildBlock"><span>01</span><div><small>ПРОЕКТ</small><h2>Редакция определяет базовую комплектацию</h2><label>Название сборки<input value={buildName} onChange={e=>setBuildName(e.target.value)}/></label><div className="editionSelect">{Object.entries(editions).map(([key,value])=><button className={edition===key?"active":""} onClick={()=>setEdition(key)} key={key}><b>{key}</b><small>{value.description}</small><strong>{value[licenseTerm].toLocaleString("ru-RU")} ₽</strong></button>)}</div></div></div>

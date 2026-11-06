@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify licensing and bulk policies
+        run: php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php
+
       - name: Build static website
         run: pnpm build:ftp
 
@@ -69,3 +72,6 @@ jobs:
 
       - name: Verify deployed application assets
         run: node scripts/verify-deployment.mjs
+
+      - name: Verify deployed licensing API
+        run: node scripts/verify-licensing-deployment.mjs

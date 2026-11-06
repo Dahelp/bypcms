@@ -18,7 +18,7 @@ final class PanelBulk
         'modules' => ['table'=>'byp_modules', 'key'=>'module_key', 'statuses'=>['active','inactive']],
         'owner.clients' => ['table'=>'byp_clients', 'key'=>'id', 'statuses'=>['lead','active','paused','closed']],
         'owner.tasks' => ['table'=>'byp_client_tasks', 'key'=>'id', 'statuses'=>['planned','in_progress','review','done','blocked']],
-        'owner.licenses' => ['table'=>'byp_license_registry', 'key'=>'id', 'statuses'=>['active','renewal','expired','trial']],
+        'owner.licenses' => ['table'=>'byp_license_registry', 'key'=>'id', 'statuses'=>['active','renewal','expired','trial','suspended']],
         'owner.modules' => ['table'=>'byp_module_catalog', 'key'=>'id', 'statuses'=>['published','draft','archived']],
         'owner.services' => ['table'=>'byp_services', 'key'=>'id', 'statuses'=>['active','inactive']],
         'owner.portfolio' => ['table'=>'byp_portfolio_projects', 'key'=>'id', 'statuses'=>['published','draft','archived'], 'delete'=>true],

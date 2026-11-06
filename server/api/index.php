@@ -4,6 +4,7 @@ declare(strict_types=1);
 use BYPCMS\Core\Response;
 
 require_once __DIR__ . '/../_core/bootstrap.php';
+require_once __DIR__ . '/../_core/licensing-api.php';
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = (string)($_GET['action'] ?? 'status');
@@ -15,6 +16,7 @@ if ($method === 'OPTIONS') {
 }
 
 try {
+    byp_license_route($action,$method,$input,$db,$config,null);
     if ($action === 'status' && $method === 'GET') {
         $db->one('SELECT 1 AS healthy');
         Response::ok([
@@ -88,6 +90,9 @@ try {
     if ($method !== 'GET') {
         $auth->verifyCsrf();
     }
+    if (($config['app']['installation_type']??'platform')==='client' &&
+        (str_starts_with($action,'owner.') || $action==='build.download' || ($action==='panel.bulk' && str_starts_with((string)($input['collection']??''),'owner.')))) Response::error('Раздел доступен на платформе BYPCMS',403);
+    byp_license_route($action,$method,$input,$db,$config,$user);
 
     if ($action === 'panel.bulk' && $method === 'POST') {
         require_once __DIR__ . '/../_core/PanelBulk.php';
@@ -262,8 +267,11 @@ try {
             $licenses = $db->all(
                 'SELECT l.id,l.client_id,l.license_hint,l.domain,l.edition,l.license_term,l.purchase_price,l.core_version,l.installed_version,
                         l.entitlements,l.status,l.activated_at,l.valid_until,l.last_seen_at,l.created_at,l.updated_at,
-                        COALESCE(c.company,c.name,"Без клиента") AS client_name
-                 FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id ORDER BY l.updated_at DESC'
+                        COALESCE(c.company,c.name,"Без клиента") AS client_name,
+                        a.installation_id,a.active AS activation_active, (s.license_id IS NOT NULL) AS key_available
+                 FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id
+                 LEFT JOIN byp_license_activations a ON a.license_id=l.id
+                 LEFT JOIN byp_license_secrets s ON s.license_id=l.id ORDER BY l.updated_at DESC'
             );
             $tasks = $db->all(
                 'SELECT t.*, COALESCE(c.company,c.name) AS client_name, s.name AS service_name
@@ -355,11 +363,9 @@ try {
             $id=(int)($input['id'] ?? 0);
             $client=(int)($input['client_id'] ?? 0);
             $edition=(string)($input['edition'] ?? 'Business');
-            if($client<1 || !in_array($edition,['Business','Commerce','Content'],true)) Response::error('Выберите клиента и редакцию',422);
-            $domain=mb_strtolower(trim((string)($input['domain'] ?? '')));
-            if($domain!=='' && !preg_match('/^(?=.{4,190}$)(?!https?:\\/\\/)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$/i',$domain)){
-                Response::error('Укажите домен без протокола и пути, например example.ru',422);
-            }
+            if($client<1 || !in_array($edition,['Business','Commerce','Content'],true) || !$db->one('SELECT id FROM byp_clients WHERE id=?',[$client])) Response::error('Выберите клиента и редакцию',422);
+            $domain=\BYPCMS\Core\LicensePolicy::domain((string)($input['domain']??''));
+            if (!in_array($input['status']??'active',['active','renewal','expired','trial','suspended'],true)) Response::error('Некорректный статус лицензии',422);
             $term=($input['license_term'] ?? '')==='lifetime'?'lifetime':'annual';
             $annualPrices=['Business'=>9900,'Commerce'=>19900,'Content'=>7900];
             $lifetimePrices=['Business'=>24900,'Commerce'=>49900,'Content'=>19900];
@@ -372,16 +378,42 @@ try {
             $params=['client'=>$client,'domain'=>$domain,'edition'=>$edition,'term'=>$term,'price'=>$price,
                 'core'=>(string)($input['core_version'] ?? '2.1.0'),'installed'=>(string)($input['installed_version'] ?? ''),
                 'entitlements'=>json_encode($entitlements,JSON_UNESCAPED_UNICODE),'status'=>(string)($input['status'] ?? 'active'),
-                'until'=>$term==='lifetime'?null:(!empty($input['valid_until'])?(string)$input['valid_until']:date('Y-m-d',strtotime('+1 year')))];
-            if($id>0){$params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,license_term=:term,purchase_price=:price,core_version=:core,
+                'until'=>$term==='lifetime'?null:(!empty($input['valid_until'])?(string)$input['valid_until']:\BYPCMS\Core\LicensePolicy::renew(null,time()))];
+            if ($params['until']!==null && !preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D',$params['until'])) Response::error('Некорректная дата лицензии',422);
+            if (strlen($params['core'])>40 || strlen($params['installed'])>40) Response::error('Версия должна содержать не более 40 символов',422);
+            \BYPCMS\Core\LicensePolicy::expiry($params['until']);
+            $operation=(string)($input['operation_id']??'');
+            if ($id<1 && !preg_match('/^[a-f0-9]{32}$/D',$operation)) Response::error('Требуется идентификатор выдачи лицензии',422);
+            $pdo=$db->pdo();$pdo->beginTransaction();
+            try {
+            if($id>0){
+                if (!$db->one('SELECT id FROM byp_license_registry WHERE id=? FOR UPDATE',[$id])) throw new \BYPCMS\Core\LicenseException('Лицензия не найдена',404);
+                $params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,license_term=:term,purchase_price=:price,core_version=:core,
                 installed_version=:installed,entitlements=:entitlements,status=:status,valid_until=:until,updated_at=NOW() WHERE id=:id',$params);}
             else{
-                $plain='BYP-'.strtoupper(substr($edition,0,3)).'-'.strtoupper(bin2hex(random_bytes(6)));
+                $previous=$db->one('SELECT * FROM byp_license_operations WHERE operation_id=?',[$operation]);
+                if ($previous) {
+                    if ($previous['action']!=='create' || (int)$previous['user_id']!==(int)$user['id']) throw new \BYPCMS\Core\LicenseException('Идентификатор действия уже использован',409);
+                    $pdo->commit();Response::ok(['id'=>(int)$previous['license_id']]);
+                }
+                $plain=\BYPCMS\Core\LicenseAuthority::key();
                 $params['hash']=hash('sha256',$plain);$params['hint']=substr($plain,0,11).'••••';
                 $id=$db->insert('INSERT INTO byp_license_registry (client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at)
-                    VALUES (:client,:hash,:hint,:domain,:edition,:term,:price,:core,:installed,:entitlements,:status,NOW(),:until,NOW(),NOW())',$params);
+                    VALUES (:client,:hash,:hint,:domain,:edition,:term,:price,:core,:installed,:entitlements,:status,NULL,:until,NOW(),NOW())',$params);
+                byp_license_authority($db,$config,$user)->storeKey($id,$plain);
+                $db->execute('INSERT INTO byp_license_operations(operation_id,license_id,action,user_id,result_json) VALUES(?,?,"create",?,?)',[$operation,$id,$user['id'],json_encode(['id'=>$id])]);
             }
             byp_audit($db,$user,'owner.license.save','license',$id);
+            $pdo->commit();
+            } catch (Throwable $error) {
+                if($pdo->inTransaction())$pdo->rollBack();
+                // A parallel retry may have committed the same issuance first.
+                if($error instanceof PDOException && $error->getCode()==='23000' && $operation!=='') {
+                    $previous=$db->one('SELECT * FROM byp_license_operations WHERE operation_id=?',[$operation]);
+                    if($previous && $previous['action']==='create' && (int)$previous['user_id']===(int)$user['id']) Response::ok(['id'=>(int)$previous['license_id']]);
+                }
+                throw $error;
+            }
             Response::ok(['id'=>$id]);
         }
 
@@ -507,6 +539,7 @@ try {
             if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
             $zip->addFile($full, 'site/' . $relative);
         }
+        $zip->addFromString('site/_core/license-trust.json',json_encode(byp_license_authority($db,$config,$user)->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
         $zip->addFromString('site/index.php', "<?php\nrequire __DIR__ . '/_core/client-front.php';\n");
         $zip->addFromString('site/.htaccess', "DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
@@ -561,7 +594,8 @@ try {
             'submissions' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_form_submissions WHERE status = "new"')['total'] ?? 0),
         ];
         $recentPages = $db->all('SELECT id, title, slug, status, updated_at FROM byp_pages ORDER BY updated_at DESC LIMIT 5');
-        $license = $db->one('SELECT edition, domain, status, valid_until, updated_at FROM byp_licenses ORDER BY id DESC LIMIT 1');
+        $license = byp_license_status($config);
+        $license['status']=$license['state'];
         $modules = $db->all('SELECT module_key, name, version, status, updated_at FROM byp_modules ORDER BY name');
         Response::ok([
             'counts' => $counts,
@@ -711,6 +745,10 @@ try {
     }
 
     Response::error('Маршрут API не найден', 404);
+} catch (\BYPCMS\Core\LicenseException $error) {
+    Response::error($error->getMessage(),$error->httpStatus,['code'=>$error->reason]);
+} catch (InvalidArgumentException $error) {
+    Response::error($error->getMessage(),422);
 } catch (Throwable $error) {
     error_log('[BYPCMS] ' . $error->getMessage());
     Response::error('Внутренняя ошибка BYPCMS', 500, !empty($config['app']['debug']) ? ['message' => $error->getMessage()] : []);

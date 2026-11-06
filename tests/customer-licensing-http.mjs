@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+const fixture=JSON.parse(await readFile(process.argv[2],'utf8'));
+const origin=process.argv[3];assert.ok(/^http:\/\/127\.0\.0\.1:\d+$/.test(origin),'disposable loopback origin required');
+let checks=0;const check=(ok,message)=>{assert.ok(ok,message);checks++;};
+const page=await fetch(origin+'/account/');let cookie=page.headers.getSetCookie().at(-1).split(';')[0];const html=await page.text();const csrf=html.match(/name="csrf" value="([a-f0-9]+)"/)[1];
+const login=await fetch(origin+'/account/',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf,action:'login',email:fixture.email,password:'disposable-qa-only'})});check(login.status===302,'customer login succeeds');cookie=login.headers.getSetCookie().at(-1).split(';')[0];
+const purchase=await fetch(origin+'/account/purchase.php?id='+fixture.order_id,{headers:{Cookie:cookie}});check(purchase.status===200,'authorized purchase opens');const content=await purchase.text();check(content.includes(fixture.key),'purchase shows same issued key');check(content.includes('/admin/?section=license'),'purchase explains real activation route');check(!content.includes('ещё не реализована'),'obsolete activation message removed');
+const download=await fetch(origin+'/account/purchase.php?id='+fixture.order_id+'&download=1',{headers:{Cookie:cookie}});check(download.status===200&&download.headers.get('content-type')==='application/zip','authorized download succeeds');check((await download.arrayBuffer()).byteLength>10000,'download contains actual package');
+check((await fetch(origin+'/account/purchase.php?id='+fixture.order_id)).status===401,'anonymous purchase denied');
+check((await fetch(origin+'/account/purchase.php?id=2147483647',{headers:{Cookie:cookie}})).status===404,'unrelated purchase denied');
+console.log(`${checks} customer purchase/download HTTP checks passed`);

@@ -142,6 +142,12 @@ if (!is_file($conceptSeedMarker)) {
     }
 }
 
+$licenseMarker = BYPCMS_STORAGE . '/license-schema-v1.lock';
+if (($config['app']['installation_type'] ?? 'platform') !== 'client' && !is_file($licenseMarker)) {
+    foreach (require __DIR__ . '/license_schema.php' as $sql) $db->execute($sql);
+    file_put_contents($licenseMarker, date(DATE_ATOM), LOCK_EX);
+}
+
 if (random_int(1, 100) === 1) {
     $db->execute('DELETE FROM byp_demo_sessions WHERE expires_at < NOW()');
 }

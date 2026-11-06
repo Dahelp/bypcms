@@ -11,6 +11,7 @@ import { panelHref } from "../components/panel-route";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
+import LicenseSettings, {licenseStateLabels} from "../components/LicenseSettings";
 import "./admin.css";
 import "./readable.css";
 
@@ -31,6 +32,7 @@ const navigation = [
   ["content", "Контент"],
   ["concepts", "Концепции"],
   ["modules", "Модули"],
+  ["license", "Лицензия"],
   ["settings", "Настройки"],
 ];
 
@@ -294,7 +296,7 @@ export default function AdminPage() {
                 <div className="healthRing"><span>{dashboard?.health.score ?? 0}</span></div>
                 <div><small>Здоровье системы</small><strong>Отличное состояние</strong><span>API и база доступны</span></div>
                 <div><small>Версия ядра</small><strong>{dashboard?.health.core ?? "—"}</strong><span>актуальна</span></div>
-                <div><small>Лицензия</small><strong>{dashboard?.license?.edition ?? "—"}</strong><span>{dashboard?.license?.status ?? "не настроена"}</span></div>
+                <div><small>Лицензия</small><strong>{dashboard?.license?.edition ?? "—"}</strong><a href={sectionHref("license")}>{licenseStateLabels[dashboard?.license?.status||""] ?? "Не настроена"}</a></div>
                 <div><small>Окружение</small><strong>{dashboard?.health.environment ?? "—"}</strong><span>PHP backend</span></div>
               </div>
 
@@ -315,7 +317,7 @@ export default function AdminPage() {
                   ]} actions={page => [{ label: "Редактировать", href: pageHref(page) }]} />
                 </article>
                 <article className="licenseCard">
-                  <header><p>ЛИЦЕНЗИЯ</p><span className={dashboard?.license?.status ?? "trial"}>{dashboard?.license?.status ?? "trial"}</span></header>
+                  <header><p>ЛИЦЕНЗИЯ</p><a href={sectionHref("license")}>{licenseStateLabels[dashboard?.license?.status||""] ?? "Не настроена"}</a></header>
                   <div className="licenseSymbol"><i>B</i></div>
                   <h2>BYPCMS {dashboard?.license?.edition ?? "Business"}</h2>
                   <p>{dashboard?.license?.domain || "Домен определяется при установке"}</p>
@@ -349,6 +351,7 @@ export default function AdminPage() {
             </section>
           )}
 
+          {active === "license" && <LicenseSettings csrf={csrf} owner={user.role==="owner"}/>}
           {active === "settings" && configurationReady && (
             <section className="dataPanel settingsIntro">
               <p>СИСТЕМА</p><h2>Настройки BYPCMS</h2><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button>

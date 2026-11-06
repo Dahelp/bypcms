@@ -211,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                     'edition' => $edition,
                     'modules' => $packageModules,
                     'installation_type' => is_array($manifest) ? 'client' : 'platform',
+                    'installation_id' => bin2hex(random_bytes(16)),
                 ],
                 'database' => [
                     'host' => $dbHost,

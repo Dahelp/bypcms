@@ -54,7 +54,7 @@ jobs:
       - name: Prepare standalone demo package
         run: pnpm prepare:demo
 
-      - name: Deploy standalone demo cleanly
+      - name: Deploy standalone demo
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: grass.gohost.ru
@@ -64,6 +64,8 @@ jobs:
           local-dir: ./demo-dist/
           server-dir: ../demo.bypcms.ru/
           state-name: .ftp-deploy-sync-state-demo.json
-          dangerous-clean-slate: true
           log-level: standard
           timeout: 120000
+
+      - name: Verify deployed application assets
+        run: node scripts/verify-deployment.mjs

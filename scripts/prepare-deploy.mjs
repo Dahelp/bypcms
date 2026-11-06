@@ -7,6 +7,10 @@ const target = resolve(root, "out");
 
 await mkdir(target, { recursive: true });
 await cp(source, target, { recursive: true, force: true });
+// Some hosting panels point the demo vhost directly at the primary site's
+// /demo directory. Keep that document root self-contained as well.
+await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });
+await cp(resolve(target, "favicon.svg"), resolve(target, "demo", "favicon.svg"));
 await writeFile(
   resolve(target, "_storage", "DEPLOYMENT.md"),
   [

@@ -12,7 +12,7 @@ check((await call('owner.settings',{})).r.status===401,'anonymous cannot change 
 let page=await fetch(origin+'/account/?next='+encodeURIComponent('/order/?edition=content'),{headers:{Cookie:cookie}});let html=await page.text();check(!html.includes('Warning'),'no PHP warnings');let csrf=html.match(/name="csrf" value="([a-f0-9]+)"/)[1];
 const login=await fetch(origin+'/account/',{method:'POST',redirect:'manual',headers:{Cookie:cookie,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({csrf,action:'login',email:fixture.email,password:'BYPCMS-QA-Buyer-2026',next:'/order/?edition=content'})});check(login.status===302&&login.headers.get('location')==='/order/?edition=content','exact checkout return after login');cookie=login.headers.getSetCookie().at(-1).split(';')[0];
 ({json}=await call('bootstrap',undefined,cookie));csrf=json.csrf;
-const body={edition:'content',term:'annual',domain:'qa.example.test',operation_id:randomBytes(16).toString('hex')};
+const body={accept_terms:true,accept_privacy:true,legal_version:'2026-11-07.1',edition:'content',term:'annual',domain:'qa.example.test',operation_id:randomBytes(16).toString('hex')};
 check((await call('create',body,cookie,'invalid')).r.status===403,'customer CSRF enforced');
 const first=await call('create',body,cookie,csrf),second=await call('create',body,cookie,csrf);check(first.r.status===200&&first.json.order.id===second.json.order.id,'HTTP repeat creates one order');
 check((await call('order&id=1',undefined,cookie)).r.status===404,'buyer cannot read another order');

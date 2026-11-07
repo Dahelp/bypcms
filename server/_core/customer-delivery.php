@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/LicenseAuthority.php';
 require_once __DIR__.'/UpdateRuntime.php';
 require_once __DIR__.'/PaymentGateway.php';
+require_once __DIR__.'/CommerceAccess.php';
 $db->execute('CREATE TABLE IF NOT EXISTS byp_customer_deliveries (order_id INT UNSIGNED PRIMARY KEY,key_hash CHAR(64) NOT NULL UNIQUE,key_cipher TEXT NOT NULL,archive_path TEXT NOT NULL,confirmed_by INT UNSIGNED NOT NULL,confirmed_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 function customer_key_crypt(string $value, string $secret, bool $decrypt=false): string {
     $key=hash('sha256',$secret,true);
@@ -60,6 +61,7 @@ function customer_fulfill($db,array $config,int $id,int $owner,bool $paid=false)
         $order=$db->one('SELECT * FROM byp_customer_orders WHERE id=:id FOR UPDATE',['id'=>$id]);
         if(!$order)throw new RuntimeException('Заказ не найден');
         if(!$paid&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'")&&$db->one('SELECT order_id FROM byp_commerce_orders WHERE order_id=?',[$id]))throw new RuntimeException('Для этого заказа требуется подтверждённая оплата.');
+        if($paid&&\BYPCMS\Core\CommerceAccess::orderDenied($pdo,$id))throw new RuntimeException('Выдача недоступна в связи с возвратом.');
         if($paid){$proof=$db->one('SELECT d.mode,a.state,a.provider_id FROM byp_commerce_orders d JOIN byp_payment_attempts a ON a.id=d.active_attempt_id WHERE d.order_id=? AND d.payment_state="paid"',[$id]);if(!$proof||$proof['state']!=='succeeded'||!$proof['provider_id']||$order['status']!=='paid')throw new RuntimeException('Оплата не подтверждена.');}
         if($delivery=$db->one('SELECT * FROM byp_customer_deliveries WHERE order_id=:id',['id'=>$id])){customer_license_register($db,$config,$order,$delivery);$pdo->commit();return;}
         if($order['status']!==($paid?'paid':'pending'))throw new RuntimeException('Статус не позволяет подтверждение');

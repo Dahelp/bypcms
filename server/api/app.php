@@ -390,6 +390,7 @@ try {
             try {
             if($id>0){
                 if (!$db->one('SELECT id FROM byp_license_registry WHERE id=? FOR UPDATE',[$id])) throw new \BYPCMS\Core\LicenseException('Лицензия не найдена',404);
+                if(\BYPCMS\Core\CommerceAccess::blocked($pdo,$id))throw new \BYPCMS\Core\LicenseException('Сначала завершите возврат и сверку прав в разделе оплаты.',409);
                 $params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,license_term=:term,purchase_price=:price,core_version=:core,
                 installed_version=:installed,entitlements=:entitlements,status=:status,valid_until=:until,updated_at=NOW() WHERE id=:id',$params);}
             else{

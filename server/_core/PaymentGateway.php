@@ -11,7 +11,7 @@ final class PaymentGateway {
     public static function minor(string $value):int{if(!preg_match('/^(0|[1-9][0-9]{0,8})\.([0-9]{2})$/D',$value,$m))throw new InvalidArgumentException('Некорректная сумма платежа.');return (int)$m[1]*100+(int)$m[2];}
     public static function amount(int $value):string{if($value<1||$value>9999999999)throw new InvalidArgumentException('Некорректная стоимость заказа.');return intdiv($value,100).'.'.str_pad((string)($value%100),2,'0',STR_PAD_LEFT);}
     public function request(string $method,string $path,?array $body=null,?string $operation=null):array {
-        if(!preg_match('#^payments(?:/[a-f0-9-]{36})?$#D',$path))throw new RuntimeException('Недопустимый запрос оплаты.');
+        if(!preg_match('#^(?:payments(?:/[a-f0-9-]{36})?|refunds(?:/[a-f0-9-]{36}|\?payment_id=[a-f0-9-]{36}&limit=100(?:&cursor=[a-zA-Z0-9_.%-]{1,300})?)?)$#D',$path))throw new RuntimeException('Недопустимый запрос оплаты.');
         $base='https://api.yookassa.ru/v3';
         if(!empty($this->config['app']['debug'])&&!empty($this->config['commerce']['test_api_base'])){
             $test=$this->config['commerce']['test_api_base'];if(!preg_match('#^http://127\.0\.0\.1:[0-9]{2,5}/v3$#D',$test))throw new RuntimeException('Тестовый эквайринг допускается только на loopback.');$base=$test;

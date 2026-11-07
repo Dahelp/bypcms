@@ -8,6 +8,7 @@ use Throwable;
 require_once __DIR__ . '/LicenseCrypto.php';
 require_once __DIR__ . '/LicensePolicy.php';
 require_once __DIR__ . '/LicenseHttp.php';
+require_once __DIR__.'/CommerceAccess.php';
 
 final class LicenseAuthority
 {
@@ -56,6 +57,7 @@ final class LicenseAuthority
         $this->pdo->beginTransaction();
         try {
             $row = $this->one('SELECT * FROM byp_license_registry WHERE id=? FOR UPDATE', [$id]); if (!$row) throw new LicenseException('Лицензия не найдена.', 404);
+            if(CommerceAccess::blocked($this->pdo,$id)&&$action!=='release')throw new LicenseException('Лицензия связана с возвратом. Сначала завершите сверку прав в оплатах.',409,'license_suspended');
             $previous = $this->one('SELECT * FROM byp_license_operations WHERE operation_id=?', [$operation]);
             if ($previous) { if ((int)$previous['license_id'] !== $id || $previous['action'] !== $action || (int)$previous['user_id'] !== $user) throw new LicenseException('Идентификатор действия уже использован.', 409); $this->pdo->commit(); return json_decode($previous['result_json'], true, 16, JSON_THROW_ON_ERROR); }
             if ($action === 'renew') {
@@ -89,7 +91,7 @@ final class LicenseAuthority
         if (!preg_match('/^BYP-[A-Z0-9-]{10,100}$/D', $key)) throw new LicenseException('Лицензия не найдена.',403,'license_invalid');
         $license = $this->one('SELECT * FROM byp_license_registry WHERE license_key_hash=?', [hash('sha256', $key)]);
         if (!$license) throw new LicenseException('Лицензия не найдена.',403,'license_invalid');
-        if (!in_array($license['status'], ['active','renewal','trial','expired'], true)) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
+        if (CommerceAccess::blocked($this->pdo,(int)$license['id']) || !in_array($license['status'], ['active','renewal','trial','expired'], true)) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
         return $license;
     }
     public function challenge(array $input, int $now): array
@@ -117,7 +119,7 @@ final class LicenseAuthority
         try {
             $license = $this->one('SELECT * FROM byp_license_registry WHERE id=? FOR UPDATE',[$license['id']]);
             if (!hash_equals($license['license_key_hash'],hash('sha256',strtoupper(trim((string)($input['key']??'')))))) throw new LicenseException('Ключ был перевыпущен. Используйте актуальный ключ.',403,'license_invalid');
-            if (!in_array($license['status'],['active','renewal','trial','expired'],true)) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
+            if (CommerceAccess::blocked($this->pdo,(int)$license['id']) || !in_array($license['status'],['active','renewal','trial','expired'],true)) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
             if (LicensePolicy::domain($license['domain'], (bool)($this->config['app']['debug'] ?? false)) !== LicensePolicy::site($challenge['site_url'], (bool)($this->config['app']['debug'] ?? false))['domain']) throw new LicenseException('Домен лицензии изменён. Повторите проверку.',409,'domain_mismatch');
             $locked = $this->one('SELECT consumed,expires_at FROM byp_license_challenges WHERE id=? FOR UPDATE',[$id]); if ((int)$locked['consumed']) throw new LicenseException('Проверка уже использована.',409,'challenge_consumed');
             if (strtotime($locked['expires_at'].' UTC') < max($now,time())) throw new LicenseException('Проверка домена истекла. Повторите активацию.',409,'challenge_expired');
@@ -146,7 +148,7 @@ final class LicenseAuthority
             $activation = $this->one('SELECT * FROM byp_license_activations WHERE installation_id=? AND active=1 FOR UPDATE',[$installation]);
             if (!$activation || !hash_equals($activation['credential_hash'],hash('sha256',$token))) throw new LicenseException('Привязка установки отозвана. Повторите активацию.',403,'activation_revoked');
             $license = $this->one('SELECT * FROM byp_license_registry WHERE id=?',[$activation['license_id']]);
-            if (!$license || (!$release && !in_array($license['status'],['active','renewal','trial','expired'],true))) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
+            if (!$license || (!$release && (CommerceAccess::blocked($this->pdo,(int)$license['id']) || !in_array($license['status'],['active','renewal','trial','expired'],true)))) throw new LicenseException('Лицензия приостановлена.',403,'license_suspended');
             if (!$release && LicensePolicy::domain($license['domain'], (bool)($this->config['app']['debug'] ?? false)) !== LicensePolicy::site($activation['site_url'], (bool)($this->config['app']['debug'] ?? false))['domain']) throw new LicenseException('Домен лицензии изменён.',403,'domain_mismatch');
             $this->execute('UPDATE byp_license_activations SET active=?,last_seen_at=UTC_TIMESTAMP() WHERE id=?',[$release?0:1,$activation['id']]);
             $this->execute('UPDATE byp_license_registry SET last_seen_at=UTC_TIMESTAMP(),activated_at=IF(?=1,NULL,activated_at) WHERE id=?',[$release?1:0,$license['id']]);

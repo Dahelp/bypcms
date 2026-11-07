@@ -5,6 +5,7 @@ header('Cache-Control: no-store');header('X-Robots-Tag: noindex, nofollow');
 if(empty($_SESSION['customer_id'])){http_response_code(401);exit('Войдите в личный кабинет');}
 require __DIR__.'/../_core/customer-delivery.php';
 $purchase=$db->one('SELECT o.*,d.key_cipher,d.archive_path,d.confirmed_at FROM byp_customer_orders o JOIN byp_customer_deliveries d ON d.order_id=o.id WHERE o.id=:id AND o.customer_id=:customer AND o.status IN ("test_confirmed","paid")',['id'=>(int)($_GET['id']??0),'customer'=>(int)$_SESSION['customer_id']]);
+if($purchase&&\BYPCMS\Core\CommerceAccess::orderDenied($db->pdo(),(int)$purchase['id'])){http_response_code(403);exit('Доступ к покупке закрыт в связи с возвратом. Откройте заказ в личном кабинете.');}
 if(!$purchase){http_response_code(404);exit('Покупка недоступна');}
 $details=$db->one("SHOW TABLES LIKE 'byp_commerce_orders'")?$db->one('SELECT mode FROM byp_commerce_orders WHERE order_id=?',[$purchase['id']]):null;
 $isTest=$purchase['status']==='test_confirmed'||($details['mode']??'')==='test';

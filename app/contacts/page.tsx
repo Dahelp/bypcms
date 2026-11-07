@@ -23,7 +23,7 @@ export default function ContactsPage() {
           <h2 id="seller-title">Сведения об исполнителе</h2>
           <dl>
             <div><dt>ФИО</dt><dd>Бабачков Юрий Петрович</dd></div>
-            <div><dt>ИНН</dt><dd className="contactsInn">550519989590</dd></div>
+            <div><dt>Статус</dt><dd>Самозанятый, плательщик НПД, без статуса ИП</dd></div><div><dt>Телефон</dt><dd><a href="tel:+79296252500">+7 929 625-25-00</a></dd></div><div><dt>ИНН</dt><dd className="contactsInn">550519989590</dd></div>
             <div><dt>Электронная почта</dt><dd><a href="mailto:hello@bypcms.ru">hello@bypcms.ru</a></dd></div>
             <div><dt>Сайт</dt><dd><a href="https://bypcms.ru/">bypcms.ru</a></dd></div>
           </dl>
@@ -48,7 +48,7 @@ export default function ContactsPage() {
           <h2 id="support-title">Вопросы по оплате и возвратам</h2>
           <p>Для обращения по заказу или запроса возврата напишите на <a href="mailto:hello@bypcms.ru">hello@bypcms.ru</a>. Укажите номер заказа и опишите вопрос.</p>
           <p>Если оплата прошла, а покупка ещё не выдана, откройте заказ в <a href="/account/">кабинете</a> и нажмите «Проверить статус». Ошибка уведомления по почте не отменяет оплаченную покупку.</p>
-          <p>Сохраните номер заказа и документы, подтверждающие оплату: они помогут при обращении.</p>
+          <p><Link href="/legal/offer/">Условия покупки</Link> · <Link href="/legal/refunds/">Порядок возврата</Link> · <Link href="/legal/privacy/">Политика обработки данных</Link></p><p>Сохраните номер заказа и документы, подтверждающие оплату: они помогут при обращении.</p>
         </section>
       </div>
     </div>

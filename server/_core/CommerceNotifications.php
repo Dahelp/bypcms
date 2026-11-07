@@ -14,12 +14,12 @@ final class CommerceNotifications {
     /** Call inside the same transaction as the order transition. */
     public function event(array $order,string $type):void {
         $key='order:'.$order['id'].':'.$type;
-        if(!$this->db->execute('INSERT IGNORE INTO byp_commerce_events(event_key,order_id,event_type,created_at) VALUES(?,?,?,NOW())',[$key,$order['id'],$type]))return;
-        $titles=['created'=>'Заказ BYPCMS создан','paid'=>'Оплата BYPCMS подтверждена','ready'=>'Покупка BYPCMS готова','fulfillment_error'=>'Нужна повторная выдача покупки','canceled'=>'Платёж BYPCMS отменён'];$title=$titles[$type]??'Событие заказа BYPCMS';
+        if(!$this->db->execute('INSERT IGNORE INTO byp_commerce_events(event_key,order_id,event_type,created_at) VALUES(?,?,?,NOW())',[$key,$order['id'],explode(':',$type)[0]]))return;
+        $titles=['created'=>'Заказ BYPCMS создан','paid'=>'Оплата BYPCMS подтверждена','ready'=>'Покупка BYPCMS готова','fulfillment_error'=>'Нужна повторная выдача покупки','canceled'=>'Платёж BYPCMS отменён'];$base=explode(':',$type)[0];$titles+=['refund_request'=>'Запрос возврата получен','refund_approved'=>'Владелец подтвердил возврат','refund_succeeded'=>'Возврат подтверждён ЮKassa','refund_declined'=>'Ответ на запрос возврата','refund_failed'=>'Возврат не выполнен','receipt'=>'Чек покупки BYPCMS доступен'];$title=$titles[$base]??$titles[$type]??'Событие заказа BYPCMS';
         $link=rtrim($this->config['app']['url'],'/').'/account/order.php?id='.$order['id'];
         $amount=isset($order['amount_minor'])?number_format($order['amount_minor']/100,2,',',' ').' RUB':'';
-        $message=$title.'. Заказ №'.$order['id'].'. '.$order['edition'].' · '.$order['domain'].($amount?' · '.$amount:'').'.';
-        $this->db->execute('INSERT INTO byp_owner_notifications(notification_type,title,message,entity_type,entity_id,severity,is_read,created_at) VALUES(?,?,?,"purchase",?,?,0,NOW())',['purchase_'.$type,$title,$message,$order['id'],$type==='fulfillment_error'?'warning':'info']);
+        $message=$title.'. Заказ №'.$order['id'].'. '.$order['edition'].' · '.$order['domain'].($amount?' · сумма заказа '.$amount:'').'.';
+        $this->db->execute('INSERT INTO byp_owner_notifications(notification_type,title,message,entity_type,entity_id,severity,is_read,created_at) VALUES(?,?,?,"purchase",?,?,0,NOW())',['purchase_'.explode(':',$type)[0],$title,$message,$order['id'],$type==='fulfillment_error'?'warning':'info']);
         $owner=$this->settings->get()['owner_email'];
         if($owner==='')$owner=(string)($this->db->one('SELECT u.email FROM byp_users u JOIN byp_roles r ON r.id=u.role_id WHERE r.slug="owner" AND u.status="active" ORDER BY u.id LIMIT 1')['email']??'');
         if($owner!=='')$this->enqueue($key.':owner',(int)$order['id'],$owner,$title,$message."\n".rtrim($this->config['app']['url'],'/').'/owner/?section=payments&order='.$order['id']);

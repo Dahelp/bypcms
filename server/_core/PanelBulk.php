@@ -63,6 +63,10 @@ final class PanelBulk
                 $select->execute(['id'=>$id]);
                 $record = $select->fetch(PDO::FETCH_ASSOC);
                 if (!$record) throw new DomainException('Запись не найдена или уже удалена');
+                if ($spec['collection']==='owner.licenses' && $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql') {
+                    require_once __DIR__.'/CommerceAccess.php';
+                    if (CommerceAccess::blocked($this->pdo,(int)$id)) throw new DomainException('Сначала завершите возврат и сверку прав в разделе оплаты.');
+                }
                 if ($spec['operation'] === 'delete') {
                     if ($spec['collection'] === 'pages') {
                         if (in_array($record['slug'], ['modules','services','order','demo'], true)) throw new DomainException('Системную страницу удалить нельзя. Можно изменить её статус.');

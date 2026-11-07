@@ -3,6 +3,7 @@ DirectoryIndex index.html index.php
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
+  RewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]
   RewriteRule ^concepts/([a-z0-9-]+)/?$ concepts/index.html?slug=$1 [L,QSA]
   RewriteRule ^(nuovi-spazi-proposal|ballettschule-salzburg-konzept|ballet-salzburg-proposal)/?$ concepts/index.html?slug=$1 [L,QSA]
   RewriteRule ^(nuovi-spazi-proposal|ballettschule-salzburg-konzept|ballet-salzburg-proposal)/index\.html$ concepts/index.html?slug=$1 [L,QSA]

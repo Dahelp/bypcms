@@ -8,7 +8,7 @@ function cli(mode,crash=false){try{execFileSync('php',['tests/update-faults.inte
 async function request(action,body){const r=await fetch(target.origin+'/updates/index.php?action='+action,{method:body===undefined?'GET':'POST',headers:{Cookie:target.cookie||'','Content-Type':'application/json','X-CSRF-Token':target.csrf||''},body:body===undefined?undefined:JSON.stringify(body)});const cookies=r.headers.getSetCookie();if(cookies.length)target.cookie=cookies.at(-1).split(';')[0];const j=await r.json();assert.equal(r.status,200,action+': '+j.error);checks++;return j;}
 async function recoverLogin(){const r=await fetch(target.origin+'/updates/index.php?action=csrf');const j=await r.json();target.cookie=r.headers.getSetCookie().at(-1).split(';')[0];target.csrf=j.csrf;const logged=await request('recover.login',{email:target.email,password:target.password});target.csrf=logged.csrf;const me=await fetch(target.origin+'/updates/index.php?action=status',{headers:{Cookie:target.cookie}});assert.equal(me.status,200);checks++;}
 cli('seed');
-for(const mode of (process.argv[3]?[process.argv[3]]:['migration-ok','migration-fail','health-fail','crash-users','role-fail'])){
+for(const mode of (process.argv[3]?[process.argv[3]]:['migration-ok','migration-fail','health-fail','crash-users','role-fail','asset-fail'])){
  cli(mode,mode==='crash-users');const {id}=JSON.parse(await readFile(qa+'/update-fault-case.json','utf8'));
  check((await fetch(target.origin+'/')).status===(mode==='migration-ok'?200:503),'correct public availability during update outcome');
  check((await fetch(target.origin+'/updates/recovery.php')).status===200,'independent recovery page survives failed code and auth schema');

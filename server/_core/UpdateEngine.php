@@ -73,7 +73,9 @@ final class UpdateEngine {
     private function checkpoint(string $phase):void {if($this->fault)($this->fault)($phase);}
     private function rewriteAssets(string $directory,string $id,?string $previous=null):void {
         if(!is_dir($directory))return;
-        foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory,\FilesystemIterator::SKIP_DOTS))as $file){
+        if(!chmod($directory,0755))throw new RuntimeException('Не удалось открыть чтение публичных ресурсов.');
+        foreach(new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory,\FilesystemIterator::SKIP_DOTS),\RecursiveIteratorIterator::SELF_FIRST)as $file){
+            if(!chmod($file->getPathname(),$file->isDir()?0755:0644))throw new RuntimeException('Не удалось задать права публичного ресурса.');
             if(!$file->isFile()||!in_array(strtolower($file->getExtension()),['js','css','json','html'],true))continue;
             $body=(string)file_get_contents($file->getPathname());$normalized=str_replace('/_update-assets/'.$id.'/_next/','/_next/',$body);if($previous)$normalized=str_replace('/_update-assets/'.$previous.'/_next/','/_next/',$normalized);
             $changed=str_replace('/_next/','/_update-assets/'.$id.'/_next/',$normalized);if($changed!==$body&&file_put_contents($file->getPathname(),$changed)===false)throw new RuntimeException('Не удалось подготовить адреса ресурсов версии.');
@@ -141,6 +143,9 @@ final class UpdateEngine {
                     $sample=$this->pdo->query('SELECT slug FROM byp_pages WHERE status="published" ORDER BY id LIMIT 1')->fetchColumn();
                     if($sample!==false){$url=$base.($sample==='home'?'/':'/'.implode('/',array_map('rawurlencode',explode('/',trim($sample,'/')))).'/');$this->http()->request($url,null,$work.'/health.html',2000000,$headers);}
                     $this->http()->request($base.'/admin/',null,$work.'/admin.html',2000000,$headers);
+                    preg_match_all('/(?:src|href)="([^"]+\.(js|css))"/',(string)file_get_contents($work.'/admin.html'),$resources,PREG_SET_ORDER);$checked=[];
+                    foreach($resources as $resource){$kind=$resource[2];if(isset($checked[$kind]))continue;if(!str_starts_with($resource[1],'/_update-assets/'.$id.'/_next/'))throw new RuntimeException('Панель ссылается на ресурсы другой версии.');$asset=$this->http()->request($base.$resource[1],null,$work.'/asset-'.$kind,20000000,$headers);if(!$asset['bytes']||!preg_match($kind==='css'?'#text/css#i':'#(?:javascript|ecmascript)#i',$asset['content_type']))throw new RuntimeException('Неверный тип ресурса панели.');$checked[$kind]=true;}
+                    if(!isset($checked['js'],$checked['css']))throw new RuntimeException('Панель не содержит обязательные JS/CSS.');
                     $s['phase']='done';$s['state']='completed';$this->save($s);$this->clearMaintenance();break;
                 case 'restore_prepare':
                     $this->maintenance($s);$meta=UpdateRuntime::json($backup.'/manifest.json');if(!$meta||empty($s['backup_ready']))throw new RuntimeException('Завершённая резервная копия отсутствует.');

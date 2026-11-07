@@ -41,10 +41,10 @@ final class LicenseHttp
             CURLOPT_HTTPHEADER => array_merge(['Accept: application/json', 'Content-Type: application/json'],$headers),
             CURLOPT_WRITEFUNCTION => static function ($handle, string $chunk) use (&$bytes,&$count,$limit,$output): int { if ($count + strlen($chunk) > $limit) return 0; $count+=strlen($chunk);if($output)return fwrite($output,$chunk);$bytes .= $chunk; return strlen($chunk); }]);
         if ($body !== null) curl_setopt_array($handle, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => json_encode($body, JSON_THROW_ON_ERROR)]);
-        $ok = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE); curl_close($handle);
+        $ok = curl_exec($handle); $status = (int)curl_getinfo($handle, CURLINFO_RESPONSE_CODE); $contentType=(string)curl_getinfo($handle,CURLINFO_CONTENT_TYPE); curl_close($handle);
         if($output)fclose($output);
         if ($ok === false) {if($destination!==null)@unlink($destination);throw new LicenseException('Сервер проверки временно недоступен. Повторите запрос позже.', 503, 'network_error');}
-        if($destination!==null&&$status>=200&&$status<300)return ['bytes'=>$count,'sha256'=>hash_file('sha256',$destination)];
+        if($destination!==null&&$status>=200&&$status<300)return ['bytes'=>$count,'sha256'=>hash_file('sha256',$destination),'content_type'=>$contentType];
         if($destination!==null){$bytes=(string)file_get_contents($destination,false,null,0,65536);unlink($destination);}
         $data = json_decode($bytes, true);
         if ($status < 200 || $status >= 300) throw new LicenseException(is_string($data['error'] ?? null) ? mb_substr($data['error'], 0, 300) : 'Сервер не подтвердил запрос.', $status ?: 503, $data['details']['code'] ?? 'remote_error');

@@ -22,8 +22,8 @@ if($mode==='preflight'){
 if($mode==='verify'){$state=UpdateRuntime::json($case);if(fingerprint($pdo)!==$state['before'])throw new RuntimeException('Database differs from pre-update snapshot');foreach($state['files']as $file=>$hash)if(hash_file('sha256',$client.'/'.$file)!==$hash)throw new RuntimeException('User file changed');echo "Database schema, all rows, binary data, generated columns and user files restored\n";exit;}
 if($mode==='corrupt'){$state=UpdateRuntime::json($case);$path=$client.'/_storage/updates/backups/'.$state['id'].'/db/0.json.gz';copy($path,$case.'.original');file_put_contents($path,'broken',FILE_APPEND);echo "Disposable backup deliberately corrupted\n";exit;}
 if($mode==='repair'){$state=UpdateRuntime::json($case);copy($case.'.original',$client.'/_storage/updates/backups/'.$state['id'].'/db/0.json.gz');echo "Disposable backup restored\n";exit;}
-if(!in_array($mode,['migration-fail','health-fail','crash-users','migration-ok','role-fail'],true))throw new RuntimeException('Unknown test mode');
-$number=['migration-fail'=>2,'health-fail'=>3,'crash-users'=>4,'migration-ok'=>5,'role-fail'=>6][$mode];$temp=$qa.'/fault-candidate.zip';copy($platform.'/_private/update-candidate.zip',$temp);$zip=new ZipArchive();$zip->open($temp);$manifest=json_decode($zip->getFromName('manifest.json'),true,64,JSON_THROW_ON_ERROR);$manifest['version']='2.'.$number.'.'.time();
+if(!in_array($mode,['migration-fail','health-fail','crash-users','migration-ok','role-fail','asset-fail'],true))throw new RuntimeException('Unknown test mode');
+$number=['migration-fail'=>2,'health-fail'=>3,'crash-users'=>4,'migration-ok'=>5,'role-fail'=>6,'asset-fail'=>7][$mode];$temp=$qa.'/fault-candidate.zip';copy($platform.'/_private/update-candidate.zip',$temp);$zip=new ZipArchive();$zip->open($temp);$manifest=json_decode($zip->getFromName('manifest.json'),true,64,JSON_THROW_ON_ERROR);$manifest['version']='2.'.$number.'.'.time();
 $sql=['ALTER TABLE byp_pages ADD COLUMN qa_update_added VARCHAR(40) NULL','UPDATE byp_pages SET title="Changed by update test" WHERE id=1','CREATE TABLE byp_update_created (id INT PRIMARY KEY) ENGINE=InnoDB'];
 if($mode==='migration-fail')$sql[]='ALTER TABLE byp_absent_update_table ADD COLUMN broken INT';
 if($mode==='role-fail')$sql[]='UPDATE byp_roles SET slug="qa_changed_role" WHERE slug="owner"';
@@ -34,6 +34,7 @@ if($mode==='crash-users'){
 }
 $manifest['migrations']=[['id'=>'qa_'.$mode,'sql'=>$sql]];
 if($mode==='health-fail'){$broken='<?php http_response_code(500); echo "QA runtime failure";';$zip->addFromString('files/api/app.php',$broken);$manifest['files']['api/app.php']=['size'=>strlen($broken),'sha256'=>hash('sha256',$broken)];}
+if($mode==='asset-fail'){$html=$zip->getFromName('files/admin/index.html');$broken=str_replace('.js"','-absent.js"',$html);if($html===$broken)throw new RuntimeException('No script to break');$zip->addFromString('files/admin/index.html',$broken);$manifest['files']['admin/index.html']=['size'=>strlen($broken),'sha256'=>hash('sha256',$broken)];}
 $zip->addFromString('manifest.json',json_encode($manifest,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));$zip->close();
 $pdb=new Database($pc);$publisher=new UpdatePublisher($platform,new LicenseAuthority($pdb->pdo(),$platform.'/_storage',$pc));$release=$publisher->publish($temp);
 $owner=$db->one('SELECT id,email,password_hash FROM byp_users WHERE email=?',['owner@content.example.test']);$owner['role']='owner';$operation=bin2hex(random_bytes(16));

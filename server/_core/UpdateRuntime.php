@@ -25,7 +25,9 @@ final class UpdateRuntime {
     }
     public static function atomic(string $file,array $data):void {
         $tmp=$file.'.'.bin2hex(random_bytes(5)).'.tmp';
-        if(file_put_contents($tmp,json_encode($data,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),LOCK_EX)===false||!rename($tmp,$file))throw new \RuntimeException('Не удалось сохранить состояние обновления.');
+        $json=json_encode($data,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$written=@file_put_contents($tmp,$json,LOCK_EX);
+        if($written!==strlen($json)){if(is_file($tmp))unlink($tmp);throw new \RuntimeException('Не удалось полностью записать состояние. Прежний журнал сохранён.');}
+        if(!@rename($tmp,$file)){if(is_file($tmp))unlink($tmp);throw new \RuntimeException('Не удалось сохранить состояние обновления.');}
         @chmod($file,0600);clearstatcache(true,$file);
     }
     public static function pointer(string $root):array {

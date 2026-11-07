@@ -5,6 +5,7 @@ import PanelIcon, { type PanelIconName } from "./PanelIcon";
 import { panelIconBySection } from "./panel-icons";
 
 export type NotificationItem = {
+  entity_id?: number;
   id: number;
   title: string;
   message: string;

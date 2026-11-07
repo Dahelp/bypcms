@@ -1,0 +1,25 @@
+<?php
+declare(strict_types=1);
+namespace BYPCMS\Core;
+use RuntimeException;
+
+final class CommerceSchema {
+    public static function ensure(Database $db, array $config, string $root): void {
+        if (($config['app']['installation_type'] ?? 'platform') === 'client') throw new RuntimeException('Продажа лицензий доступна на платформе BYPCMS.');
+        $marker=$root.'/_storage/commerce-schema-v1.lock';
+        if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'"))return;
+        $lock=fopen($marker.'.mutex','c');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('Не удалось подготовить заказы.');
+        try {
+            if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'"))return;
+            foreach([
+                'CREATE TABLE IF NOT EXISTS byp_customer_accounts (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,email VARCHAR(190) NOT NULL UNIQUE,name VARCHAR(190) NOT NULL,password_hash VARCHAR(255) NOT NULL,created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+                'CREATE TABLE IF NOT EXISTS byp_customer_orders (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,customer_id INT UNSIGNED NOT NULL,edition VARCHAR(30) NOT NULL,modules LONGTEXT NOT NULL,domain VARCHAR(190) NOT NULL,license_term VARCHAR(20) NOT NULL,status VARCHAR(30) NOT NULL DEFAULT "pending",created_at DATETIME NOT NULL,INDEX(customer_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+                'CREATE TABLE IF NOT EXISTS byp_commerce_orders (order_id INT UNSIGNED PRIMARY KEY,public_id CHAR(32) NOT NULL UNIQUE,customer_id INT UNSIGNED NOT NULL,operation_id CHAR(32) NOT NULL,request_hash CHAR(64) NOT NULL,kind VARCHAR(20) NOT NULL,amount_minor BIGINT UNSIGNED NOT NULL,currency CHAR(3) NOT NULL DEFAULT "RUB",items_json LONGTEXT NOT NULL,contact_json TEXT NOT NULL,renewal_license_id INT UNSIGNED NULL,mode VARCHAR(10) NULL,payment_state VARCHAR(24) NOT NULL DEFAULT "pending",active_attempt_id CHAR(32) NULL,fulfillment_state VARCHAR(24) NOT NULL DEFAULT "pending",fulfillment_error VARCHAR(255) NULL,renewed_until DATE NULL,paid_at DATETIME NULL,fulfilled_at DATETIME NULL,created_at DATETIME NOT NULL,updated_at DATETIME NOT NULL,UNIQUE(customer_id,operation_id),INDEX(payment_state,fulfillment_state)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+                'CREATE TABLE IF NOT EXISTS byp_payment_attempts (id CHAR(32) PRIMARY KEY,order_id INT UNSIGNED NOT NULL,provider_id VARCHAR(64) NULL UNIQUE,shop_id VARCHAR(40) NOT NULL,mode VARCHAR(10) NOT NULL,state VARCHAR(24) NOT NULL,payload LONGTEXT NOT NULL,confirmation_url TEXT NULL,last_error VARCHAR(255) NULL,created_at DATETIME NOT NULL,checked_at DATETIME NULL,INDEX(order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+                'CREATE TABLE IF NOT EXISTS byp_commerce_events (event_key VARCHAR(150) PRIMARY KEY,order_id INT UNSIGNED NOT NULL,event_type VARCHAR(40) NOT NULL,created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+                'CREATE TABLE IF NOT EXISTS byp_notification_outbox (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,event_key VARCHAR(180) NOT NULL UNIQUE,order_id INT UNSIGNED NULL,recipient VARCHAR(190) NOT NULL,subject VARCHAR(190) NOT NULL,message TEXT NOT NULL,state VARCHAR(24) NOT NULL DEFAULT "pending",attempts INT NOT NULL DEFAULT 0,next_attempt_at DATETIME NOT NULL,lease_until DATETIME NULL,last_error VARCHAR(255) NULL,created_at DATETIME NOT NULL,accepted_at DATETIME NULL,INDEX(state,next_attempt_at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
+            ] as $sql)$db->execute($sql);
+            if(file_put_contents($marker,date(DATE_ATOM),LOCK_EX)===false)throw new RuntimeException('Не удалось завершить подготовку заказов.');
+        } finally {flock($lock,LOCK_UN);fclose($lock);}
+    }
+}

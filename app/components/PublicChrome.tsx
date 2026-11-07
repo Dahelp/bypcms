@@ -16,7 +16,7 @@ export function PublicHeader({ active = "" }: { active?: "services" | "modules" 
         <Link className={active === "portfolio" ? "active" : ""} href="/portfolio">Портфолио</Link>
         <Link className={active === "modules" ? "active" : ""} href="/modules">Модули</Link>
       </nav>
-      <div><a href={DEMO_URL}>Демо <span>↗</span></a><Link className={active === "order" ? "active action" : "action"} href="/order">Оформить заказ</Link></div>
+      <div><a href="/account/">Кабинет</a><a className="publicDemoLink" href={DEMO_URL}>Демо <span>↗</span></a><Link className={active === "order" ? "active action" : "action"} href="/order">Оформить заказ</Link></div>
     </div>
   </header>;
 }

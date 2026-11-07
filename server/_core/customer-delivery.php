@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/LicenseAuthority.php';
+require_once __DIR__.'/UpdateRuntime.php';
+require_once __DIR__.'/PaymentGateway.php';
 $db->execute('CREATE TABLE IF NOT EXISTS byp_customer_deliveries (order_id INT UNSIGNED PRIMARY KEY,key_hash CHAR(64) NOT NULL UNIQUE,key_cipher TEXT NOT NULL,archive_path TEXT NOT NULL,confirmed_by INT UNSIGNED NOT NULL,confirmed_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 function customer_key_crypt(string $value, string $secret, bool $decrypt=false): string {
     $key=hash('sha256',$secret,true);
@@ -17,7 +19,10 @@ function customer_license_register($db,array $config,array $order,array $deliver
     $clientId=$client?(int)$client['id']:$db->insert('INSERT INTO byp_clients(name,email,status,created_at,updated_at) VALUES(?,?,"active",NOW(),NOW())',[$customer['name'],$customer['email']]);
     $term=$order['license_term']==='lifetime'?'lifetime':'annual';
     $until=$term==='lifetime'?null:\BYPCMS\Core\LicensePolicy::renew(null,strtotime($delivery['confirmed_at'].' UTC'));
-    $id=$db->insert('INSERT INTO byp_license_registry(client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,0,?,"",?,"active",NULL,?,NOW(),NOW())',[$clientId,hash('sha256',$plain),substr($plain,0,12).'••••',\BYPCMS\Core\LicensePolicy::domain($order['domain']),ucfirst($order['edition']),$term,$config['app']['version']??'2.1.0',$order['modules'],$until]);
+    $details=$db->one("SHOW TABLES LIKE 'byp_commerce_orders'")?$db->one('SELECT amount_minor,mode FROM byp_commerce_orders WHERE order_id=?',[$order['id']]):null;
+    $price=$details?\BYPCMS\Core\PaymentGateway::amount((int)$details['amount_minor']):'0.00';$status=($details['mode']??'')==='test'?'trial':'active';
+    if($status==='trial'){$term='annual';$until=gmdate('Y-m-d',time()+7*86400);}
+    $id=$db->insert('INSERT INTO byp_license_registry(client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,"",?,?,NULL,?,NOW(),NOW())',[$clientId,hash('sha256',$plain),substr($plain,0,12).'••••',\BYPCMS\Core\LicensePolicy::domain($order['domain']),ucfirst($order['edition']),$term,$price,$config['app']['version']??'2.1.0',$order['modules'],$status,$until]);
     (new \BYPCMS\Core\LicenseAuthority($db->pdo(),BYPCMS_STORAGE,$config))->storeKey($id,$plain);
     $db->execute('INSERT INTO byp_license_order_links(order_id,license_id) VALUES(?,?)',[$order['id'],$id]);
     return $id;
@@ -47,28 +52,31 @@ function customer_package_trust($db,array $config,string $path): void {
         if(!$zip->close()||!rename($temporary,$path))throw new RuntimeException('Не удалось обновить пакет');
     } finally {if(is_file($temporary))unlink($temporary);flock($lock,LOCK_UN);fclose($lock);}
 }
-function customer_fulfill($db,array $config,int $id,int $owner): void {
+function customer_fulfill($db,array $config,int $id,int $owner,bool $paid=false): void {
+    if(!$paid&&empty($config['app']['debug']))throw new RuntimeException('Тестовая выдача отключена на боевой платформе.');
     if(!class_exists('ZipArchive'))throw new RuntimeException('Требуется PHP zip');
     $pdo=$db->pdo();$pdo->beginTransaction();$archive=null;
     try{
         $order=$db->one('SELECT * FROM byp_customer_orders WHERE id=:id FOR UPDATE',['id'=>$id]);
         if(!$order)throw new RuntimeException('Заказ не найден');
+        if(!$paid&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'")&&$db->one('SELECT order_id FROM byp_commerce_orders WHERE order_id=?',[$id]))throw new RuntimeException('Для этого заказа требуется подтверждённая оплата.');
+        if($paid){$proof=$db->one('SELECT d.mode,a.state,a.provider_id FROM byp_commerce_orders d JOIN byp_payment_attempts a ON a.id=d.active_attempt_id WHERE d.order_id=? AND d.payment_state="paid"',[$id]);if(!$proof||$proof['state']!=='succeeded'||!$proof['provider_id']||$order['status']!=='paid')throw new RuntimeException('Оплата не подтверждена.');}
         if($delivery=$db->one('SELECT * FROM byp_customer_deliveries WHERE order_id=:id',['id'=>$id])){customer_license_register($db,$config,$order,$delivery);$pdo->commit();return;}
-        if($order['status']!=='pending')throw new RuntimeException('Статус не позволяет подтверждение');
-        $directory=BYPCMS_STORAGE.'/customer-packages';if(!is_dir($directory)&&!mkdir($directory,0750,true))throw new RuntimeException('Нет каталога пакетов');
+        if($order['status']!==($paid?'paid':'pending'))throw new RuntimeException('Статус не позволяет подтверждение');
+        $directory=\BYPCMS\Core\UpdateRuntime::storage(BYPCMS_ROOT,true).'/customer-packages';if(!is_dir($directory)&&!@mkdir($directory,0750,true))throw new RuntimeException('Нет каталога пакетов');
         $archive=$directory.'/'.bin2hex(random_bytes(20)).'.zip';$zip=new ZipArchive();if($zip->open($archive,ZipArchive::CREATE)!==true)throw new RuntimeException('Архив не создан');
         $root=realpath(BYPCMS_ROOT);
         foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS)) as $file){if(!$file->isFile()||$file->isLink())continue;$relative=str_replace('\\','/',substr($file->getPathname(),strlen($root)+1));$first=explode('/',$relative)[0];if(!in_array($first,['_core','api','install','admin','_next','themes','updates','_releases'],true))continue;if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;$zip->addFile($file->getPathname(),'site/'.$relative);}
         $zip->addFromString('site/index.php',"<?php require_once __DIR__.'/_core/UpdateRuntime.php'; \\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__,'_core/client-front.php');");
         $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
-        $manifest=['product'=>'BYPCMS','edition'=>$order['edition'],'modules'=>json_decode($order['modules'],true),'license_term'=>$order['license_term'],'domain'=>$order['domain'],'order_id'=>$id,'core_version'=>$config['app']['version']??'2.1.0'];
+        $manifest=['test_purchase'=>!$paid||($proof['mode']??'')==='test','product'=>'BYPCMS','edition'=>$order['edition'],'modules'=>json_decode($order['modules'],true),'license_term'=>(!$paid||($proof['mode']??'')==='test')?'annual':$order['license_term'],'domain'=>$order['domain'],'order_id'=>$id,'core_version'=>$config['app']['version']??'2.1.0'];
         $zip->addFromString('site/build-manifest.json',json_encode($manifest,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));
         $zip->addFromString('site/_core/license-trust.json',json_encode((new \BYPCMS\Core\LicenseAuthority($pdo,BYPCMS_STORAGE,$config))->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
-        $zip->addFromString('README.txt',"TEST PURCHASE — not production-certified. Upload site/ contents; open /install/. Use a new empty database. Create the admin password in installer. Then open /admin/?section=license and activate the purchase key on the licensed HTTPS domain.\n");
+        $zip->addFromString('README.txt',($paid&&($proof['mode']??'')!=='test'?"BYPCMS PURCHASE. ":"TEST PURCHASE — not production-certified. ")." Upload site/ contents; open /install/. Use a new empty database. Create the admin password in installer. Then open /admin/?section=license and activate the purchase key on the licensed HTTPS domain.\n");
         if(!$zip->close())throw new RuntimeException('Ошибка записи ZIP');
         $plain='BYP-'.strtoupper(bin2hex(random_bytes(24)));
         $db->execute('INSERT INTO byp_customer_deliveries (order_id,key_hash,key_cipher,archive_path,confirmed_by,confirmed_at) VALUES (:id,:hash,:cipher,:path,:owner,NOW())',['id'=>$id,'hash'=>hash('sha256',$plain),'cipher'=>customer_key_crypt($plain,$config['app']['key']),'path'=>$archive,'owner'=>$owner]);
         customer_license_register($db,$config,$order,$db->one('SELECT * FROM byp_customer_deliveries WHERE order_id=?',[$id]));
-        $db->execute('UPDATE byp_customer_orders SET status="test_confirmed" WHERE id=:id',['id'=>$id]);$pdo->commit();
+        $db->execute('UPDATE byp_customer_orders SET status=? WHERE id=?',[$paid?'paid':'test_confirmed',$id]);$pdo->commit();
     }catch(Throwable $error){if($pdo->inTransaction())$pdo->rollBack();if($archive&&is_file($archive))unlink($archive);throw $error;}
 }

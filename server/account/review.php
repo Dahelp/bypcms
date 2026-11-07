@@ -21,6 +21,7 @@ if (!$user) {
     exit;
 }
 if($user['role']!=='owner'){http_response_code(403);exit('Доступ только владельцу. Выйдите из текущей учётной записи через админку и войдите как владелец.');}
+if(empty($config['app']['debug'])){header('Location: /owner/?section=payments');exit;}
 require __DIR__.'/../_core/customer-delivery.php';
 header('Cache-Control: no-store');$_SESSION['review_csrf']??=bin2hex(random_bytes(32));$error='';
 if($_SERVER['REQUEST_METHOD']==='POST'){try{if(!hash_equals($_SESSION['review_csrf'],(string)($_POST['csrf']??'')))throw new RuntimeException('Недействительная сессия');customer_fulfill($db,$config,(int)($_POST['order']??0),(int)$user['id']);header('Location: /account/review.php');exit;}catch(Throwable $e){$error='Подтверждение не выполнено. Проверьте заказ и доступность ZIP.';}}

@@ -40,6 +40,8 @@ final class CommerceRefunds {
             $order=$this->orders->row($id,null,true);$old=$this->db->one('SELECT * FROM byp_commerce_refunds WHERE id=?',[$op]);
             if($old){if((int)$old['order_id']!==$id||(int)$old['amount_minor']!==$minor||$old['license_action']!==$action||(int)$old['approved_by']!==$owner||$old['reason']!==$reason)throw new RuntimeException('Идентификатор уже использован для другого возврата.');$pdo->commit();return $this->send($op);}
             $summary=$this->summary($id);if($order['payment_state']!=='paid'||$summary['pending']||$minor>(int)$order['amount_minor']-$summary['amount_minor'])throw new RuntimeException('Сумма превышает остаток либо прежний возврат ещё не завершён.');
+            $remaining=(int)$order['amount_minor']-$summary['amount_minor']-$minor;
+            if($minor<100||($remaining>0&&$remaining<100))throw new InvalidArgumentException('Возврат — от 1 рубля; после возврата должно остаться 0 рублей или не менее 1 рубля.');
             if($minor+$summary['amount_minor']===(int)$order['amount_minor']&&$action!=='revoke')throw new RuntimeException('Полный возврат обязательно прекращает оплаченные этим заказом права.');
             $a=$this->db->one('SELECT * FROM byp_payment_attempts WHERE id=?',[$order['active_attempt_id']]);if(!$a||$a['state']!=='succeeded'||!$a['provider_id'])throw new RuntimeException('Исходная оплата не подтверждена.');
             $request=(int)($input['request_id']??0);if($request&&!$this->db->one('SELECT id FROM byp_refund_requests WHERE id=? AND order_id=? AND state="requested"',[$request,$id]))throw new RuntimeException('Заявка уже обработана или относится к другому заказу.');
@@ -79,7 +81,8 @@ final class CommerceRefunds {
             $order=$this->orders->row((int)$r['order_id'],null,true);$current=$this->db->one('SELECT * FROM byp_commerce_refunds WHERE id=? FOR UPDATE',[$r['id']]);
             if($current['provider_id']&&$current['provider_id']!==$provider)throw new RuntimeException('Возврат связан с другим ID ЮKassa.');
             if(in_array($current['state'],['succeeded','canceled'],true)&&$value['status']!==$current['state'])throw new RuntimeException('Противоречивое состояние завершённого возврата.');
-            $this->db->execute('UPDATE byp_commerce_refunds SET provider_id=?,state=?,last_error=NULL,checked_at=NOW() WHERE id=?',[$provider,$value['status'],$r['id']]);
+            $error=null;if($value['status']==='canceled'){$reason=(string)($value['cancellation_details']['reason']??'general_decline');$error=['insufficient_funds'=>'Недостаточно средств для возврата в ЮKassa.','payment_expired'=>'Истёк допустимый срок возврата у платёжной системы.','rejected_by_timeout'=>'Платёжная система отменила возврат из-за таймаута.'][$reason]??'ЮKassa отменила возврат. Уточните причину в кабинете платёжной системы.';}
+            $this->db->execute('UPDATE byp_commerce_refunds SET provider_id=?,state=?,last_error=?,checked_at=NOW() WHERE id=?',[$provider,$value['status'],$error,$r['id']]);
             $this->rights($order);
             if($value['status']==='succeeded'&&!$current['finalized_at']){
                 $this->db->execute('UPDATE byp_commerce_refunds SET finalized_at=NOW() WHERE id=?',[$r['id']]);

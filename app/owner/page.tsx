@@ -1,4 +1,5 @@
 "use client";
+import PanelRouteLoading from "../components/PanelRouteLoading";
 
 import Link from "next/link";
 import { panelRequest } from "../components/panel-api";
@@ -6,7 +7,7 @@ import { PanelSessionGate, usePanelSession } from "../components/PanelSession";
 import PanelDraftForm, {clearPanelDrafts} from "../components/PanelDraftForm";
 import PanelTable from "../components/PanelTable";
 import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
-import { panelHref } from "../components/panel-route";
+import { panelHref, ownerSectionRoute } from "../components/panel-route";
 import PanelSearch from "../components/PanelSearch";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
@@ -39,13 +40,14 @@ const taskStatuses:Record<string,string>={planned:"Запланировано",i
 const clientStatuses:Record<string,string>={lead:"Лид",active:"Активный",paused:"Приостановлен",closed:"Завершён"};
 const licenseStatuses:Record<string,string>={active:"Активна",renewal:"Продление",expired:"Истекла",trial:"Тестовая",suspended:"Приостановлена"};
 const editorSection:Record<string,string>={client:"clients",task:"clients",license:"licenses",module:"modules",service:"services",portfolio:"portfolio"};
-const nav=[["overview","Обзор"],["clients","Клиенты и работы"],["licenses","Лицензии"],["builder","Конструктор"],["updates","Выпуски CMS"],["payments","Оплата и письма"],["modules","Модули"],["services","Услуги"],["portfolio","Портфолио"],["notifications","Оповещения"],["settings","Настройки"]];
+const nav=[["overview","Обзор"],["clients","Клиенты и работы"],["licenses","Лицензии"],["builder","Конструктор"],["updates","Выпуски CMS"],["payments","Заказы и оплаты"],["mail","Почтовые уведомления"],["modules","Модули"],["services","Услуги"],["portfolio","Портфолио"],["notifications","Оповещения"],["settings","Настройки"]];
 
 export default function Owner(){
   const session=usePanelSession();
   const[loadError,setLoadError]=useState("");
   const[data,setData]=useState<OwnerData|null>(null);
   const[section,setSection]=useState("overview");
+  const[settingsTab,setSettingsTab]=useState<"general"|"payments"|"mail">("general");
   const[editor,setEditor]=useState<EditorRoute>(null);
   const[routeError,setRouteError]=useState("");
   const[routeReady,setRouteReady]=useState(false);
@@ -54,7 +56,8 @@ export default function Owner(){
   useEffect(()=>{
     if(!data||routeReady)return;
     const query=new URLSearchParams(location.search);
-    const next=query.get("section")||"overview";
+    const route=ownerSectionRoute(query);
+    const next=route.section;setSettingsTab(route.settingsTab);
     const section=next;
     if(!nav.some(item=>item[0]===next))setRouteError("Раздел не найден. Выберите доступный раздел в меню.");
     setSection(section);
@@ -116,10 +119,10 @@ export default function Owner(){
   const activeLicenses=(data?.licenses||[]).filter(l=>(l.effective_status||l.status)==="active").length;
   const openTasks=(data?.tasks||[]).filter(t=>t.status!=="done").length;
 
-  return <PanelSessionGate session={session} owner>{!data ? session.user?.role==="owner" && <main className="ownerGate loading">{loadError ? <div role="alert"><p>{loadError}</p><button onClick={()=>void load()}>Повторить загрузку</button></div> : <p role="status">Загрузка центра управления…</p>}</main> : <main className="ownerApp">
+  return <PanelSessionGate session={session} owner>{!data||!routeReady ? <PanelRouteLoading error={loadError} onRetry={()=>void load()}/> : <main className="ownerApp">
     <aside className="ownerSidebar workspaceMenu"><Link href="/" className="ownerBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Owner</i></Link><p className="workspaceMenuGroup">УПРАВЛЕНИЕ</p><nav aria-label="Разделы владельца">{nav.map(([id,label])=><a key={id} href={sectionHref(id)} aria-label={label} title={label} aria-current={section===id?"page":undefined} className={section===id?"active":""}><i><WorkspaceIcon symbol={id}/></i><span>{label}</span>{id==="notifications"&&unread>0&&<em>{unread}</em>}</a>)}</nav><div className="ownerStatus workspaceMenuStatus"><i/><span><b>Production</b><small>Данные подключены к MySQL</small></span></div><a className="ownerExit workspaceMenuExit" href="/admin/">Панель сайта <WorkspaceIcon symbol="↗"/></a><button className="ownerExit workspaceMenuExit" onClick={()=>void session.logout()} disabled={session.busy}>Выйти</button></aside>
-    <section className="ownerMain"><header><PanelSearch value={search} onChange={setSearch} placeholder="Поиск клиента, лицензии, домена…" /><div><NotificationDropdown items={data?.notifications||[]} hrefForItem={n=>n.entity_type==="purchase"?`${sectionHref("payments")}&order=${n.entity_id}`:n.entity_type==="mail"?`${sectionHref("payments")}&panel=mail`:sectionHref("notifications")} onRead={async(id)=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id}),keepalive:true});}} /><a className="ownerProfileButton" href={sectionHref("settings")}><span className="ownerAvatar">{initials}</span><p><b>{data?.user.name}</b><small>{data?.user.role_name}</small></p></a></div></header>
-      <div className={`ownerContent ${editor ? "editorRouteOpen" : ""}`}><div className="ownerHeading"><div><small>BYPCMS CONTROL CENTER</small><h1>{nav.find(x=>x[0]===section)?.[1]||"Раздел не найден"}</h1><p>{section==="overview"?"Реальные данные платформы, клиентов и договорных обязательств.":"Создание, редактирование и контроль без перехода в демонстрационные экраны."}</p></div>
+    <section className="ownerMain"><header><PanelSearch value={search} onChange={setSearch} placeholder="Поиск клиента, лицензии, домена…" /><div><NotificationDropdown items={data?.notifications||[]} hrefForItem={n=>n.entity_type==="purchase"?`${sectionHref("payments")}&order=${n.entity_id}`:n.entity_type==="mail"?sectionHref("mail"):sectionHref("notifications")} onRead={async(id)=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id}),keepalive:true});}} /><a className="ownerProfileButton" href={sectionHref("settings")}><span className="ownerAvatar">{initials}</span><p><b>{data?.user.name}</b><small>{data?.user.role_name}</small></p></a></div></header>
+      <div className={`ownerContent ${editor ? "editorRouteOpen" : ""}`}><div className="ownerHeading"><div><small>BYPCMS CONTROL CENTER</small><h1>{nav.find(x=>x[0]===section)?.[1]||"Раздел не найден"}</h1><p>{section==="payments"?"Заказы покупателей, подтверждённые оплаты, выдача лицензий и возвраты.":section==="mail"?"Состояние отправки писем и повтор после ошибки. Настройки SMTP находятся в разделе «Настройки → Почта».":section==="settings"?"Параметры платформы и подключения внешних сервисов.":section==="overview"?"Реальные данные платформы, клиентов и договорных обязательств.":"Создание, редактирование и контроль без перехода в демонстрационные экраны."}</p></div>
         {section==="clients"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("client")}><WorkspaceIcon symbol="＋"/> Клиент</a>}
         {section==="licenses"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("license")}><WorkspaceIcon symbol="＋"/> Лицензия</a>}
         {section==="modules"&&<a className="panelLinkButton panelPrimaryLink" href={editorHref("module")}><WorkspaceIcon symbol="＋"/> Модуль</a>}
@@ -189,11 +192,12 @@ export default function Owner(){
         {key:"status",label:"Статус",render:p=><em>{p.status==="published"?"Опубликован":p.status==="archived"?"В архиве":"Черновик"}</em>},
       ]} actions={p=>[{label:"Редактировать",href:editorHref("portfolio",p.id)},...(p.status==="published"?[{label:"Просмотр",href:`/portfolio/${encodeURIComponent(p.slug)}/`,newTab:true}]:[])]} empty="Добавьте первый проект. Он появится в публичном портфолио после публикации."/>}
 
-      {section==="notifications"&&<article className="notificationCenter"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h2>Оповещения</h2></div><button onClick={async()=>{await save("owner.notification.read",{id:0})}}>Отметить все прочитанными</button></header>{(data?.notifications||[]).map(n=><article className={`notificationEvent ${Number(n.is_read)?"read":""}`} key={n.id}><a href={n.entity_type==="purchase"?`${sectionHref("payments")}&order=${n.entity_id}`:n.entity_type==="mail"?`${sectionHref("payments")}&panel=mail`:sectionHref("notifications")}><span><b>{n.title}</b><small>{n.message}</small></span></a><button onClick={async()=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id:n.id})});await load()}}>Прочитано · <time>{new Date(n.created_at).toLocaleString("ru-RU")}</time></button></article>)}{!data?.notifications.length&&<div className="emptyState">Новых событий нет. Они создаются сервером из сроков лицензий, задач и системных операций.</div>}</article>}
+      {section==="notifications"&&<article className="notificationCenter"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h2>Оповещения</h2></div><button onClick={async()=>{await save("owner.notification.read",{id:0})}}>Отметить все прочитанными</button></header>{(data?.notifications||[]).map(n=><article className={`notificationEvent ${Number(n.is_read)?"read":""}`} key={n.id}><a href={n.entity_type==="purchase"?`${sectionHref("payments")}&order=${n.entity_id}`:n.entity_type==="mail"?sectionHref("mail"):sectionHref("notifications")}><span><b>{n.title}</b><small>{n.message}</small></span></a><button onClick={async()=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id:n.id})});await load()}}>Прочитано · <time>{new Date(n.created_at).toLocaleString("ru-RU")}</time></button></article>)}{!data?.notifications.length&&<div className="emptyState">Новых событий нет. Они создаются сервером из сроков лицензий, задач и системных операций.</div>}</article>}
 
       {section==="updates"&&<UpdateSettings csrf={session.csrf} owner publisher/>}
-      {section==="payments"&&<CommerceCenter csrf={session.csrf}/>}
-      {section==="settings"&&<><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button><Settings data={data!} onSave={payload=>save("owner.settings.save",{settings:payload})} onPassword={payload=>save("auth.password",payload)}/></>}
+      {section==="payments"&&<CommerceCenter csrf={session.csrf} view="orders"/>}
+      {section==="mail"&&<CommerceCenter csrf={session.csrf} view="mail"/>}
+      {section==="settings"&&<><nav className="commerceTabs" aria-label="Настройки платформы">{[["general","Основные"],["payments","Оплата"],["mail","Почта"]].map(([tab,label])=><a key={tab} href={panelHref({section:"settings",tab})} aria-current={settingsTab===tab?"page":undefined}>{label}</a>)}</nav>{settingsTab!=="general"?<CommerceCenter csrf={session.csrf} view={settingsTab==="payments"?"payment-settings":"mail-settings"}/>:<><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button><Settings data={data!} onSave={payload=>save("owner.settings.save",{settings:payload})} onPassword={payload=>save("auth.password",payload)}/></>}</>}
     </div>
     {editor&&<Editor key={`${editor.type}-${editor.record?.id||"new"}`} editor={editor} data={{...data!,csrf:session.csrf}} closeHref={sectionHref(editorSection[editor.type])} save={save} error={error}/>}
     </section>

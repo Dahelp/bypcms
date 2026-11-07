@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 
-export type PanelIconName = "home" | "file" | "pages" | "grid" | "users" | "image" | "seo" | "chart" | "design" | "modules" | "settings" | "orders" | "products" | "briefcase" | "forms" | "leads" | "payments" | "promo" | "search" | "bell" | "external" | "chevron" | "close" | "check" | "plus" | "arrow" | "trash" | "desktop" | "mobile";
+export type PanelIconName = "mail" | "home" | "file" | "pages" | "grid" | "users" | "image" | "seo" | "chart" | "design" | "modules" | "settings" | "orders" | "products" | "briefcase" | "forms" | "leads" | "payments" | "promo" | "search" | "bell" | "external" | "chevron" | "close" | "check" | "plus" | "arrow" | "trash" | "desktop" | "mobile";
 
 export default function PanelIcon({ name, className }: { name: PanelIconName; className?: string }) {
   const common = { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
   const paths: Record<PanelIconName, ReactNode> = {
+    mail: <><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/></>,
     trash: <><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></>,
     desktop: <><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M12 16v5M7 21h10"/></>,
     mobile: <><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 5h4M11 19h2"/></>,

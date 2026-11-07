@@ -1,4 +1,5 @@
 "use client";
+import PanelRouteLoading from "../components/PanelRouteLoading";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -7,7 +8,7 @@ import { PanelSessionGate, usePanelSession } from "../components/PanelSession";
 import PanelDraftForm, {clearPanelDrafts} from "../components/PanelDraftForm";
 import PanelTable from "../components/PanelTable";
 import { deleteBulkAction, refreshAfterBulk, requestPanelBulk, statusBulkActions } from "../components/panel-bulk";
-import { panelHref } from "../components/panel-route";
+import { panelHref, panelSection } from "../components/panel-route";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
@@ -46,23 +47,23 @@ export default function AdminPage() {
   const [pagesReady, setPagesReady] = useState(false);
   const [configurationReady, setConfigurationReady] = useState(false);
   const [routeError, setRouteError] = useState("");
-  const [active, setActive] = useState("overview");
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [pages, setPages] = useState<PageItem[]>([]);
   const [modules, setModules] = useState<ModuleItem[]>([]);
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [editingPage, setEditingPage] = useState<PageItem | null>(null);
-  const [editingModule, setEditingModule] = useState<ModuleItem | null>(null);
   const [route, setRoute] = useState<URLSearchParams | null>(null);
+  const active=panelSection(route);
+  const createOpen=active==="content"&&route?.get("editor")==="new-page";
+  const editingPage=active==="content"?pages.find(item=>String(item.id)===route?.get("page"))||null:null;
+  const editingModule=active==="modules"?modules.find(item=>item.module_key===route?.get("module"))||null:null;
+  const waitingForRoute=!route||(route.has("page")&&!pagesReady)||(route.has("module")&&!configurationReady);
   useEffect(() => { if (session.phase === "active") setError(""); }, [session.phase]);
   useEffect(() => {
     const query = new URLSearchParams(location.search);
     setRoute(query);
     const section = query.get("section") || "overview";
-    setActive(section);
     if (!navigation.some(([key]) => key === section)) setRouteError("Раздел не найден. Выберите доступный раздел в меню.");
   }, []);
   const sectionHref = (section: string) => panelHref({ section });
@@ -70,9 +71,6 @@ export default function AdminPage() {
   const moduleHref = (module: ModuleItem) => panelHref({ section: "modules", module: module.module_key });
   useEffect(() => {
     if (!route) return;
-    setCreateOpen(route.get("section") === "content" && route.get("editor") === "new-page");
-    setEditingPage(route.get("section") === "content" ? pages.find(item => String(item.id) === route.get("page")) || null : null);
-    setEditingModule(route.get("section") === "modules" ? modules.find(item => item.module_key === route.get("module")) || null : null);
     if (route.get("page") && pagesReady && !pages.some(item => String(item.id) === route.get("page"))) setRouteError("Страница не найдена. Откройте список контента.");
     if (route.get("module") && configurationReady && !modules.some(item => item.module_key === route.get("module"))) setRouteError("Модуль не найден. Откройте список модулей.");
     if (route.has("editor") && !(route.get("section") === "content" && route.get("editor") === "new-page")) setRouteError("Некорректный адрес редактора.");
@@ -261,7 +259,7 @@ export default function AdminPage() {
 
 
   return (
-    <PanelSessionGate session={session}>{user && <main className="cms">
+    <PanelSessionGate session={session}>{user && (waitingForRoute?<PanelRouteLoading error={error} onRetry={()=>{if(route?.has("module"))void loadConfiguration();else void loadPages();}}/>:<main className="cms">
       <aside className="cmsSidebar workspaceMenu">
         <Link href="/" className="cmsBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>Admin</i></Link>
         <nav aria-label="Разделы CMS">
@@ -418,6 +416,6 @@ export default function AdminPage() {
         </div>
       )}
       </section>
-    </main>}</PanelSessionGate>
+    </main>)}</PanelSessionGate>
   );
 }

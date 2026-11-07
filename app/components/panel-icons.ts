@@ -10,5 +10,5 @@ export const panelIconBySection: Record<string, PanelIconName> = {
   builder: "products", brands: "briefcase", services: "briefcase", projects: "briefcase",
   portfolio: "briefcase", forms: "forms", tasks: "forms", leads: "leads",
   license: "orders", task: "forms", client: "users", module: "modules",
-  payments: "payments", promos: "promo", notifications: "bell",
+  payments: "payments", mail: "mail", promos: "promo", notifications: "bell",
 };

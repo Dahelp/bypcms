@@ -1,4 +1,5 @@
 "use client";
+import PanelRouteLoading from "../components/PanelRouteLoading";
 
 import PanelTable, { type PanelBulkAction } from "../components/PanelTable";
 import { deleteBulkAction, statusBulkActions } from "../components/panel-bulk";
@@ -193,7 +194,7 @@ function DemoWorkspace() {
     flash(`«${item.title || "Новая запись"}» ${masculine ? "удалён" : "удалена"}`);
   }
 
-  if (!ready || !auth.ready) return <main className="panelBoot" aria-label="Загрузка панели"><span>BYPCMS</span><p>Загрузка рабочего пространства…</p></main>;
+  if (!ready || !auth.ready) return <PanelRouteLoading/>;
   if (!auth.logged && !publicSnapshot) return <Login onLogin={() => { try{auth.login();}catch{flash("Не удалось сохранить демо-сессию. Проверьте доступ браузера к хранилищу сайта и повторите вход.");} }} notice={notice || auth.error} flash={flash} />;
   if (preview) return <main className="realDemo previewDocument"><PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} unsaved={Boolean(editing && !editingSaved)} closeHref={panelHref({ edition, section: view, record: editingSaved?editing?.id:undefined, editor:editing && !editingSaved?"new":undefined, draft:editing && !editingSaved?editing.id:undefined, tab: editing ? editorTab : undefined })} /></main>;
 

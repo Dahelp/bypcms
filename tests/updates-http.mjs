@@ -5,7 +5,7 @@ import {verifyUpdateAssets} from './update-assets.mjs';
 const f=JSON.parse(await readFile(process.argv[2],'utf8'));for(const t of [f.platform,f.client])assert.match(t.origin,/^http:\/\/127\.0\.0\.1:\d+$/);
 let checks=0;const check=(ok,message)=>{assert.ok(ok,message);checks++;};const op=()=>randomBytes(16).toString('hex');
 async function login(t){const r=await fetch(t.origin+'/api/index.php?action=auth.login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(t)});assert.equal(r.status,200);t.cookie=r.headers.getSetCookie().at(-1).split(';')[0];t.csrf=(await r.json()).csrf;}
-async function call(t,action,body,expected=200,csrf=true){const r=await fetch(t.origin+'/updates/index.php?action='+action,{method:body===undefined?'GET':'POST',headers:{Cookie:t.cookie||'','Content-Type':'application/json',...(csrf?{'X-CSRF-Token':t.csrf||''}:{})},body:body===undefined?undefined:JSON.stringify(body)});const j=await r.json();assert.equal(r.status,expected,action+': '+j.error);checks++;return j;}
+async function call(t,action,body,expected=200,csrf=true){const r=await fetch(t.origin+'/updates/index.php?action='+action,{method:body===undefined?'GET':'POST',headers:{Cookie:t.cookie||'','Content-Type':'application/json',...(csrf?{'X-CSRF-Token':t.csrf||''}:{})},body:body===undefined?undefined:JSON.stringify(body)});const raw=await r.text();let j;try{j=JSON.parse(raw);}catch{throw new Error(t.origin+' '+action+': '+raw.slice(0,1400));}assert.equal(r.status,expected,action+': '+j.error);checks++;return j;}
 await login(f.platform);await login(f.client);
 await call({origin:f.client.origin},'status',undefined,401);
 await call(f.platform,'publish',{},403,false);

@@ -1,4 +1,4 @@
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, writeFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -25,4 +25,5 @@ await writeFile(
 );
 
 console.log("BYPCMS PHP runtime copied to out/");
-execFileSync("php",["scripts/build-update.php","out","out/_private/update-candidate.zip"],{stdio:"inherit"});
+await rm(resolve(target,"_private","update-candidate.zip"),{force:true});
+execFileSync("php",["scripts/build-update.php","out","out/_private/update-candidate.php"],{stdio:"inherit"});

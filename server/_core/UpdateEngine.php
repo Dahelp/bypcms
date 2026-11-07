@@ -14,10 +14,10 @@ final class UpdateEngine {
     private string $base;
     private UpdateDatabase $database;
     public function __construct(private string $root,private PDO $pdo,private array $config,private $fault=null){
-        $this->root=realpath($root);$this->base=$this->root.'/_storage/updates';if(!is_dir($this->base))mkdir($this->base,0750,true);$this->database=new UpdateDatabase($pdo);
+        $this->root=realpath($root);$this->base=UpdateRuntime::storage($this->root,true).'/updates';if(!is_dir($this->base))mkdir($this->base,0750,true);$this->database=new UpdateDatabase($pdo);
     }
     private function lock(callable $callback):array {
-        $file=fopen($this->base.'/runtime.lock','c');if(!$file||!flock($file,LOCK_EX|LOCK_NB))throw new RuntimeException('Сайт ещё обрабатывает запрос или обновление уже выполняется. Повторите действие.');
+        $file=fopen($this->root.'/_storage/update-runtime.lock','c');if(!$file||!flock($file,LOCK_EX|LOCK_NB))throw new RuntimeException('Сайт ещё обрабатывает запрос или обновление уже выполняется. Повторите действие.');
         try{return $callback();}finally{flock($file,LOCK_UN);fclose($file);}
     }
     private function save(array $s):void{UpdateRuntime::atomic($this->base.'/jobs/'.$s['id'].'.json',$s);}
@@ -41,7 +41,7 @@ final class UpdateEngine {
         foreach(glob($this->base.'/jobs/*.json')?:[]as $file){$s=UpdateRuntime::json($file);$jobs[]=$this->publicJob($s);}
         usort($jobs,static fn($a,$b)=>$b['created_at']<=>$a['created_at']);
         $available=[];foreach($catalog['releases']??[]as $release){$compatible=in_array($current['version'],$release['from'],true)&&in_array($this->config['app']['edition'],$release['editions'],true)&&!array_diff($release['modules'],$this->config['app']['modules']??[])&&version_compare(PHP_VERSION,$release['php_min'],'>=');$release['compatible']=$compatible;$available[]=$release;}
-        return ['current'=>$current,'releases'=>$available,'jobs'=>$jobs,'maintenance'=>is_file($this->base.'/maintenance.json'),'client'=>($this->config['app']['installation_type']??'platform')==='client'];
+        return ['current'=>$current,'releases'=>$available,'jobs'=>$jobs,'maintenance'=>is_file($this->base.'/maintenance.json'),'backup_directory'=>$this->base.'/backups','client'=>($this->config['app']['installation_type']??'platform')==='client'];
     }
     public function publicJob(array $s):array {
         return array_intersect_key($s,array_flip(['id','package','version','phase','state','created_at','updated_at','error','backup_ready','files_done','files_total','tables_done','tables_total','previous_version','restore_done','restore_total']));
@@ -62,7 +62,7 @@ final class UpdateEngine {
     private function inventory():array {
         $result=[];$prefix=$this->root.DIRECTORY_SEPARATOR;$active=UpdateRuntime::pointer($this->root)['release']??null;
         $iterator=new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($this->root,\FilesystemIterator::SKIP_DOTS));
-        foreach($iterator as $file){$relative=str_replace('\\','/',substr($file->getPathname(),strlen($prefix)));if(str_starts_with($relative,'_storage/updates/'))continue;
+        foreach($iterator as $file){$relative=str_replace('\\','/',substr($file->getPathname(),strlen($prefix)));if(str_starts_with($relative,'_storage/updates/')||$relative==='_storage/update-runtime.lock')continue;
             if(preg_match('#^(_releases|_update-assets)/([^/]+)/#',$relative,$match)&&$match[2]!==$active)continue;
             if($file->isLink())throw new RuntimeException('В каталоге сайта обнаружена символическая ссылка. Требуется отдельная резервная копия.');
             if(!$file->isFile())continue;$real=$file->getRealPath();if(!$real||!str_starts_with($real,$prefix))throw new RuntimeException('Файл находится вне каталога установки.');$result[]=['path'=>$relative,'size'=>$file->getSize()];
@@ -97,6 +97,7 @@ final class UpdateEngine {
                     UpdatePackage::unpack($work.'/package.zip',$work.'/release',$m);$s['manifest']=$m;$s['phase']='preflight';break;
                 case 'preflight':
                     if($this->current()['version']!==$s['previous_version'])throw new RuntimeException('Версия сайта изменилась. Повторите проверку.');
+                    if(stat($this->root)['dev']!==stat($this->base)['dev'])throw new RuntimeException('Приватное хранилище и сайт должны быть на одном файловом разделе.');
                     foreach([$this->root,$this->root.'/_releases',$this->root.'/_update-assets']as $directory)if(is_dir($directory)&&!is_writable($directory))throw new RuntimeException('PHP не может записывать каталоги версий и ресурсов. Изменения БД не начаты.');
                     $this->maintenance($s);$s['inventory']=$this->inventory();
                     foreach($s['inventory']as $item)if(str_ends_with(strtolower($item['path']),'.php')&&!preg_match('#^(?:_core|_storage|_private|_releases)/#',$item['path'])&&!in_array($item['path'],['index.php','api/index.php','api/app.php','admin/index.php','install/index.php','updates/index.php','updates/recovery.php'],true))throw new RuntimeException('Публичный PHP-вход не подключён к режиму обслуживания: '.$item['path'].'. Нужна интеграция до обновления.');

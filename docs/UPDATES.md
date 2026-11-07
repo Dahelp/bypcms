@@ -28,7 +28,7 @@
 `themes/custom/` не являются изменяемыми файлами выпуска. Бэкап содержит
 конфигурацию, пользовательские файлы, текущий код и его ресурсы. Технические
 рабочие каталоги обновления, прежние бэкапы и неактивные версии повторно
-не копируются. Бэкапы остаются приватными в `_storage/updates/backups/<job>/`.
+не копируются. Бэкапы находятся вне DocumentRoot в `<private_dir>/updates/backups/<job>/`.
 Они не отправляются на сервер BYPCMS.
 
 ## При сбое и прерывании
@@ -75,14 +75,23 @@ PHP-запрос завершается с `ignore_user_abort`, а журнал 
 Ресурсы Admin хранятся по адресу `/_update-assets/<release>/_next/`; меняются и HTML,
 и public path Webpack, поэтому начальные и ленивые модули относятся к одной версии.
 
-`_storage/updates/active.json` выбирает код; `jobs/` хранит ход процесса, `work/` —
+`<private_dir>/updates/active.json` выбирает код; `jobs/` хранит ход процесса, `work/` —
 проверяемый пакет и staging, `backups/` — проверенные снимки. Не передавайте
 `_storage` в Git/ZIP клиента. Для внешней копии сохраняйте конфигурацию, БД,
-пользовательские файлы и каталог обновлений с журналами и снимками.
+пользовательские файлы и внешнее приватное хранилище с журналами и снимками.
+
+На Nginx/Apache-хостинге `.htaccess` может не применяться к ZIP/JSON и другим
+статическим файлам. Поэтому журналы, копии и подписанные пакеты обновлений
+физически размещаются вне DocumentRoot. По умолчанию создаётся отдельный
+`.bypcms-private-<id>` рядом с DocumentRoot; при необходимости задайте абсолютный
+`updates.private_dir` в config.php вне всех публичных каталогов. Путь копий виден
+владельцу в раскрываемом блоке Admin. Старые `updates`/`update-feed` переносятся
+без изменения содержимого; при невозможности переноса установка останавливается.
 
 Поддерживаются PHP 8.2+, Apache с `.htaccess`, PDO MySQL/MariaDB, OpenSSL, cURL,
 ZipArchive и zlib. Файловые операции должны выполняться на одном разделе.
-PHP нужны права записи в корень установки, `_storage`, `_releases` и `_update-assets`.
+PHP нужны права записи в корень установки, `_storage`, `_releases`, `_update-assets`
+и приватный каталог вне DocumentRoot; `open_basedir` должен разрешать этот путь.
 Права БД проверяются до миграций: SELECT, INSERT, UPDATE, DELETE, CREATE, DROP,
 ALTER, INDEX, REFERENCES либо ALL PRIVILEGES непосредственно на БД/сервере.
 Необычная схема прав через роли требует отдельной приёмки и останавливает preflight.
@@ -113,8 +122,10 @@ ALTER, INDEX, REFERENCES либо ALL PRIVILEGES непосредственно 
 
 ## Выпуск и проверка
 
-`pnpm build:ftp` также создаёт приватный `_private/update-candidate.zip`.
-Сборка: `php scripts/build-update.php out <candidate.zip> [version]`.
+`pnpm build:ftp` также создаёт `_private/update-candidate.php`: контейнер с явным
+HTTP 403 и `__halt_compiler`, за которым хранится ZIP. Публикатор читает ZIP
+как данные в приватный временный файл, не исполняет контейнер и подписывает выпуск.
+Сборка: `php scripts/build-update.php out <candidate.php> [version]`.
 Manifest перечисляет точные исходные версии, редакции, требуемые модули,
 минимальный PHP, файлы с размерами/SHA-256 и именованные SQL-миграции.
 Миграции допускают одиночные CREATE TABLE/ALTER TABLE/UPDATE/INSERT/DELETE

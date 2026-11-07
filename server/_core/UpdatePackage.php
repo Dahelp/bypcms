@@ -5,6 +5,11 @@ use RuntimeException;
 use ZipArchive;
 
 final class UpdatePackage {
+    public const GUARD="<?php http_response_code(403); exit; __halt_compiler();\n";
+    public static function payload(string $source,string $target):void {
+        $in=fopen($source,'rb');$out=fopen($target,'wb');if(!$in||!$out)throw new RuntimeException('Не удалось открыть подготовленный пакет.');
+        try{if(fread($in,strlen(self::GUARD))!==self::GUARD)rewind($in);if(stream_copy_to_stream($in,$out)===false)throw new RuntimeException('Не удалось прочитать пакет.');}finally{fclose($in);fclose($out);}
+    }
     public static function sign(array $data,string $private,string $public):array {
         $payload=base64_encode(json_encode($data,JSON_THROW_ON_ERROR|JSON_UNESCAPED_SLASHES));$kid=hash('sha256',$public);
         if(!openssl_sign("bypcms.updates/v1\n$kid\n$payload",$signature,$private,OPENSSL_ALGO_SHA256))throw new RuntimeException('Ошибка подписи обновления.');

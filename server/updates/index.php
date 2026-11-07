@@ -21,7 +21,7 @@ try{
         }
         Response::error('Требуется другой HTTP-метод',405);
     }
-    $maintenance=UpdateRuntime::json($root.'/_storage/updates/maintenance.json');$recovery=null;
+    $private=UpdateRuntime::storage($root,true);$maintenance=UpdateRuntime::json($private.'/updates/maintenance.json');$recovery=null;
     if($maintenance){$job=$engine->job($maintenance['job']);if(!empty($job['recovery_owner']))$recovery=json_decode(LicenseCrypto::decrypt($job['recovery_owner'],$config['app']['key']),true,32,JSON_THROW_ON_ERROR);}
     if($action==='csrf'&&$method==='GET')Response::ok(['csrf'=>$_SESSION['csrf']]);
     if($method!=='GET'){
@@ -29,7 +29,7 @@ try{
     }
     if($action==='recover.login'&&$method==='POST'){
         $email=strtolower(trim((string)($input['email']??'')));$password=(string)($input['password']??'');
-        $bucket=hash_hmac('sha256',(string)($_SERVER['REMOTE_ADDR']??''),$config['app']['key']);$ratePath=$root.'/_storage/updates/login-'.$bucket.'.json';$rateLock=fopen($ratePath.'.lock','c');flock($rateLock,LOCK_EX);
+        $bucket=hash_hmac('sha256',(string)($_SERVER['REMOTE_ADDR']??''),$config['app']['key']);$ratePath=$private.'/updates/login-'.$bucket.'.json';$rateLock=fopen($ratePath.'.lock','c');flock($rateLock,LOCK_EX);
         try{$rate=UpdateRuntime::json($ratePath,['start'=>time(),'count'=>0]);if($rate['start']<time()-900)$rate=['start'=>time(),'count'=>0];if($rate['count']>=10)Response::error('Повторите вход через 15 минут',429);$rate['count']++;UpdateRuntime::atomic($ratePath,$rate);}finally{flock($rateLock,LOCK_UN);fclose($rateLock);}
         $_SESSION['recovery_attempt_at']=time();$_SESSION['recovery_attempts']=($_SESSION['recovery_attempts']??0)+1;
         $user=null;try{$user=$auth->attempt($email,$password);}catch(Throwable $error){/* A failed migration may have removed the auth tables. */}
@@ -43,14 +43,14 @@ try{
     if($action==='status'&&$method==='GET')Response::ok($engine->status());
     if($action==='publisher'&&$method==='GET'){
         if(($config['app']['installation_type']??'platform')==='client')Response::error('Клиентская установка не публикует выпуски',403);
-        $publisher=new UpdatePublisher($root,new LicenseAuthority($pdo,$root.'/_storage',$config));$candidate=$root.'/_private/update-candidate.zip';
-        Response::ok(['releases'=>$publisher->catalog()['releases'],'candidate'=>is_file($candidate)?\BYPCMS\Core\UpdatePackage::inspect($candidate,null)['version']:null]);
+        $publisher=new UpdatePublisher($root,new LicenseAuthority($pdo,$root.'/_storage',$config));$candidate=$root.'/_private/update-candidate.php';
+        Response::ok(['releases'=>$publisher->catalog()['releases'],'candidate'=>is_file($candidate)?$publisher->candidate($candidate)['version']:null]);
     }
     if($method!=='POST')Response::error('Требуется POST',405);
     ignore_user_abort(true);@set_time_limit(60);session_write_close();
     if($action==='publish'){
         if(($config['app']['installation_type']??'platform')==='client')Response::error('Клиентская установка не публикует выпуски',403);
-        $publisher=new UpdatePublisher($root,new LicenseAuthority($pdo,$root.'/_storage',$config));Response::ok(['release'=>$publisher->publish($root.'/_private/update-candidate.zip')]);
+        $publisher=new UpdatePublisher($root,new LicenseAuthority($pdo,$root.'/_storage',$config));Response::ok(['release'=>$publisher->publish($root.'/_private/update-candidate.php')]);
     }
     if($action==='check')Response::ok($engine->check());
     if($action==='begin'){

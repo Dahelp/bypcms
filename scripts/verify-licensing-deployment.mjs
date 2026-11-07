@@ -10,12 +10,13 @@ const endpoints=[
  ['/updates/index.php?action=status',undefined,401],
  ['/updates/index.php?action=publish',{},403],
  ['/api/app.php',undefined,403],
- ['/_private/update-candidate.zip',undefined,403],
+ ['/_private/update-candidate.zip',undefined,[403,404]],
+ ['/_private/update-candidate.php',undefined,403],
  ['/_releases/.htaccess',undefined,403],
 ];
 for(const[path,body,expected,marker]of endpoints){
  const response=await fetch(origin+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),redirect:'manual',signal:AbortSignal.timeout(15000)});
- if(response.status!==expected)throw new Error(`${path}: expected ${expected}, received ${response.status}`);
+ if(Array.isArray(expected)?!expected.includes(response.status):response.status!==expected)throw new Error(`${path}: expected ${expected}, received ${response.status}`);
  if(marker){const json=await response.json();if(marker==='installed'?json.installed!==true||json.database!=='connected':json.details?.code!==marker)throw new Error(`${path}: deployed API marker missing`);}
  else await response.arrayBuffer();
  console.log(`PASS ${path} → ${expected}`);

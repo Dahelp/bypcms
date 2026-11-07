@@ -12,6 +12,7 @@ import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import OwnerLicense from "./OwnerLicense";
+import UpdateSettings from "../components/UpdateSettings";
 import {licenseOperationId} from "../components/LicenseSettings";
 import "./owner.css";
 import "./gate.css";
@@ -37,7 +38,7 @@ const taskStatuses:Record<string,string>={planned:"Запланировано",i
 const clientStatuses:Record<string,string>={lead:"Лид",active:"Активный",paused:"Приостановлен",closed:"Завершён"};
 const licenseStatuses:Record<string,string>={active:"Активна",renewal:"Продление",expired:"Истекла",trial:"Тестовая",suspended:"Приостановлена"};
 const editorSection:Record<string,string>={client:"clients",task:"clients",license:"licenses",module:"modules",service:"services",portfolio:"portfolio"};
-const nav=[["overview","Обзор"],["clients","Клиенты и работы"],["licenses","Лицензии"],["builder","Конструктор"],["modules","Модули"],["services","Услуги"],["portfolio","Портфолио"],["notifications","Оповещения"],["settings","Настройки"]];
+const nav=[["overview","Обзор"],["clients","Клиенты и работы"],["licenses","Лицензии"],["builder","Конструктор"],["updates","Выпуски CMS"],["modules","Модули"],["services","Услуги"],["portfolio","Портфолио"],["notifications","Оповещения"],["settings","Настройки"]];
 
 export default function Owner(){
   const session=usePanelSession();
@@ -189,6 +190,7 @@ export default function Owner(){
 
       {section==="notifications"&&<article className="notificationCenter"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h2>Оповещения</h2></div><button onClick={async()=>{await save("owner.notification.read",{id:0})}}>Отметить все прочитанными</button></header>{(data?.notifications||[]).map(n=><button className={Number(n.is_read)?"read":""} key={n.id} onClick={async()=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id:n.id})});await load()}}><i className={n.severity}/><span><b>{n.title}</b><small>{n.message}</small></span><time>{new Date(n.created_at).toLocaleString("ru-RU")}</time></button>)}{!data?.notifications.length&&<div className="emptyState">Новых событий нет. Они создаются сервером из сроков лицензий, задач и системных операций.</div>}</article>}
 
+      {section==="updates"&&<UpdateSettings csrf={session.csrf} owner publisher/>}
       {section==="settings"&&<><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button><Settings data={data!} onSave={payload=>save("owner.settings.save",{settings:payload})} onPassword={payload=>save("auth.password",payload)}/></>}
     </div>
     {editor&&<Editor key={`${editor.type}-${editor.record?.id||"new"}`} editor={editor} data={{...data!,csrf:session.csrf}} closeHref={sectionHref(editorSection[editor.type])} save={save} error={error}/>}

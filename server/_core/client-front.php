@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 // Installed customer frontend: direct HTTP routes, no dependency on the demo app.
-$root = dirname(__DIR__);
+$root = defined('BYPCMS_SITE_ROOT') ? BYPCMS_SITE_ROOT : dirname(__DIR__);
 if (!is_file($root . '/_storage/config.php')) {
     header('Location: /install/'); exit;
 }

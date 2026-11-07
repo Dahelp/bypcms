@@ -6,7 +6,7 @@ export const panelIconBySection: Record<string, PanelIconName> = {
   categories: "grid", authors: "users", team: "users", customers: "users",
   clients: "users", users: "users", media: "image", seo: "seo", analytics: "chart",
   design: "design", concepts: "design", extensions: "modules", modules: "modules",
-  settings: "settings", orders: "orders", licenses: "orders", products: "products",
+  settings: "settings", updates: "modules", orders: "orders", licenses: "orders", products: "products",
   builder: "products", brands: "briefcase", services: "briefcase", projects: "briefcase",
   portfolio: "briefcase", forms: "forms", tasks: "forms", leads: "leads",
   license: "orders", task: "forms", client: "users", module: "modules",

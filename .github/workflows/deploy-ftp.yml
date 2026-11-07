@@ -36,8 +36,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate PHP runtime
+        run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
       - name: Verify licensing and bulk policies
-        run: php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php
+        run: php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php
 
       - name: Build static website
         run: pnpm build:ftp

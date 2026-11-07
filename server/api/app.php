@@ -1,0 +1,757 @@
+<?php
+declare(strict_types=1);
+if(!defined('BYPCMS_SITE_ROOT')){http_response_code(403);exit;}
+
+use BYPCMS\Core\Response;
+
+require_once __DIR__ . '/../_core/bootstrap.php';
+require_once __DIR__ . '/../_core/licensing-api.php';
+
+$method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = (string)($_GET['action'] ?? 'status');
+$input = byp_input();
+
+if ($method === 'OPTIONS') {
+    http_response_code(204);
+    exit;
+}
+
+try {
+    byp_license_route($action,$method,$input,$db,$config,null);
+    if ($action === 'status' && $method === 'GET') {
+        $db->one('SELECT 1 AS healthy');
+        Response::ok([
+            'service' => 'BYPCMS API',
+            'version' => (string)($config['app']['version'] ?? '2.0.0'),
+            'php' => PHP_VERSION,
+            'database' => 'connected',
+            'installed' => true,
+        ]);
+    }
+
+    if ($action === 'auth.login' && $method === 'POST') {
+        $email = (string)($input['email'] ?? '');
+        $password = (string)($input['password'] ?? '');
+        if ($email === '' || $password === '') {
+            Response::error('Введите email и пароль', 422);
+        }
+        $user = $auth->attempt($email, $password);
+        if (!$user) {
+            Response::error('Неверный email или пароль', 401);
+        }
+        byp_audit($db, $user, 'auth.login', 'user', (int)$user['id']);
+        Response::ok(['user' => $user, 'csrf' => $_SESSION['csrf']]);
+    }
+
+    if ($action === 'auth.me' && $method === 'GET') {
+        $user = $auth->requireUser();
+        Response::ok(['user' => $user, 'csrf' => (string)($_SESSION['csrf'] ?? '')]);
+    }
+
+    if ($action === 'auth.logout' && $method === 'POST') {
+        $user = $auth->requireUser();
+        $auth->verifyCsrf();
+        byp_audit($db, $user, 'auth.logout', 'user', (int)$user['id']);
+        $auth->logout();
+        Response::ok();
+    }
+
+    if ($action === 'portfolio.public' && $method === 'GET') {
+        $rows = $db->all('SELECT slug,title,category,edition,project_year,lead,description,result_text,cover_image,gallery,features,modules,services,project_url FROM byp_portfolio_projects WHERE status="published" ORDER BY sort_order,title');
+        foreach ($rows as &$row) {
+            foreach (['gallery','features','modules','services'] as $field) {
+                $decoded = json_decode((string)($row[$field] ?? '[]'), true);
+                $row[$field] = is_array($decoded) ? $decoded : [];
+            }
+        }
+        Response::ok(['projects'=>$rows]);
+    }
+
+    if ($action === 'concepts.view' && $method === 'POST') {
+        header('X-Robots-Tag: noindex, nofollow, noarchive');
+        $slug = (string)($input['slug'] ?? '');
+        $token = (string)($input['token'] ?? '');
+        $locale = (string)($input['locale'] ?? '');
+        if (!preg_match('/^[a-z0-9-]{1,160}$/', $slug) || !preg_match('/^[a-f0-9]{64}$/', $token)) {
+            Response::error('Концепция недоступна', 404);
+        }
+        $concept = $db->one('SELECT title,status,share_token,asset_base,translations FROM byp_concepts WHERE slug=:slug', ['slug'=>$slug]);
+        if (!$concept || $concept['status'] !== 'shared' || !hash_equals((string)$concept['share_token'], $token)) {
+            Response::error('Концепция недоступна', 404);
+        }
+        $translations = json_decode((string)$concept['translations'], true);
+        if (!is_array($translations) || !$translations) Response::error('Содержимое отсутствует', 404);
+        $languages = array_keys($translations);
+        if (!isset($translations[$locale])) $locale = (string)$languages[0];
+        Response::ok(['title'=>$concept['title'],'html'=>$translations[$locale], 'locale'=>$locale,
+            'languages'=>$languages,'asset_base'=>$concept['asset_base']]);
+    }
+
+    $user = $auth->requireUser();
+    if ($method !== 'GET') {
+        $auth->verifyCsrf();
+    }
+    if (($config['app']['installation_type']??'platform')==='client' &&
+        (str_starts_with($action,'owner.') || $action==='build.download' || ($action==='panel.bulk' && str_starts_with((string)($input['collection']??''),'owner.')))) Response::error('Раздел доступен на платформе BYPCMS',403);
+    byp_license_route($action,$method,$input,$db,$config,$user);
+
+    if ($action === 'panel.bulk' && $method === 'POST') {
+        require_once __DIR__ . '/../_core/PanelBulk.php';
+        try {
+            $spec = \BYPCMS\Core\PanelBulk::validate($input, $user);
+        } catch (DomainException $error) {
+            Response::error($error->getMessage(), 403);
+        } catch (InvalidArgumentException $error) {
+            Response::error($error->getMessage(), 422);
+        }
+        $bulk = new \BYPCMS\Core\PanelBulk($db->pdo(), function (string $collection, int $id, array $meta) use ($db, $user): void {
+            byp_audit($db, $user, 'panel.bulk.' . $meta['operation'], $collection, $id, $meta);
+        });
+        Response::ok($bulk->run($spec));
+    }
+
+    if ($action === 'concepts.list' && $method === 'GET') {
+        Response::ok(['concepts'=>$db->all('SELECT id,slug,title,status,share_token,asset_base,translations,updated_at FROM byp_concepts ORDER BY updated_at DESC')]);
+    }
+
+    if ($action === 'concepts.upload' && $method === 'POST') {
+        $file = $_FILES['image'] ?? null;
+        if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) Response::error('Выберите изображение', 422);
+        if ((int)$file['size'] > 8 * 1024 * 1024) Response::error('Максимальный размер — 8 МБ', 422);
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+        $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
+        if (!isset($extensions[$mime])) Response::error('Разрешены JPG, PNG, WEBP и GIF', 422);
+        $directory = BYPCMS_ROOT . '/uploads/concepts';
+        if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) Response::error('Не удалось создать каталог', 500);
+        $name = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
+        if (!move_uploaded_file((string)$file['tmp_name'], $directory . '/' . $name)) Response::error('Не удалось сохранить изображение', 500);
+        Response::ok(['url'=>'/uploads/concepts/'.$name]);
+    }
+
+    if ($action === 'concepts.save' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $slug = trim((string)($input['slug'] ?? ''));
+        $title = trim((string)($input['title'] ?? ''));
+        $status = (string)($input['status'] ?? 'draft');
+        $base = (string)($input['asset_base'] ?? '/');
+        $translations = $input['translations'] ?? [];
+        if (!preg_match('/^[a-z0-9][a-z0-9-]{0,159}$/', $slug) || $title === '' ||
+            !in_array($status, ['draft','shared','archived'], true) ||
+            !preg_match('#^/[a-z0-9/_-]*/$#', $base) || !is_array($translations)) {
+            Response::error('Проверьте название, адрес и содержимое концепции', 422);
+        }
+        $clean = [];
+        foreach ($translations as $lang=>$html) {
+            if (!preg_match('/^[a-z]{2}$/', (string)$lang) || !is_string($html) || strlen($html) > 1024 * 1024) {
+                Response::error('Некорректный перевод или слишком большой HTML', 422);
+            }
+            if (trim($html) !== '') $clean[$lang] = $html;
+        }
+        if (!$clean) Response::error('Добавьте хотя бы один языковой вариант', 422);
+        $json = json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($id > 0) {
+            $existing = $db->one('SELECT id FROM byp_concepts WHERE id=:id', ['id'=>$id]);
+            if (!$existing) Response::error('Концепция не найдена', 404);
+            $db->execute('UPDATE byp_concepts SET slug=:slug,title=:title,status=:status,asset_base=:base,translations=:translations,updated_at=NOW() WHERE id=:id',
+                ['slug'=>$slug,'title'=>$title,'status'=>$status,'base'=>$base,'translations'=>$json,'id'=>$id]);
+        } else {
+            $id = $db->insert('INSERT INTO byp_concepts (slug,title,status,share_token,asset_base,translations,created_at,updated_at)
+                VALUES (:slug,:title,:status,:token,:base,:translations,NOW(),NOW())',
+                ['slug'=>$slug,'title'=>$title,'status'=>$status,'token'=>bin2hex(random_bytes(32)),'base'=>$base,'translations'=>$json]);
+        }
+        byp_audit($db,$user,'concept.save','concept',$id);
+        Response::ok(['id'=>$id]);
+    }
+
+    if ($action === 'concepts.rotate' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $token = bin2hex(random_bytes(32));
+        $count = $db->execute('UPDATE byp_concepts SET share_token=:token,updated_at=NOW() WHERE id=:id', ['token'=>$token,'id'=>$id]);
+        if (!$count) Response::error('Концепция не найдена', 404);
+        byp_audit($db,$user,'concept.rotate','concept',$id);
+        Response::ok();
+    }
+
+    if ($action === 'concepts.delete' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $db->execute('DELETE FROM byp_concepts WHERE id=:id', ['id'=>$id]);
+        byp_audit($db,$user,'concept.delete','concept',$id);
+        Response::ok();
+    }
+
+    if ($action === 'auth.password' && $method === 'POST') {
+        $current = (string)($input['current_password'] ?? '');
+        $next = (string)($input['new_password'] ?? '');
+        $confirmation = (string)($input['new_password_confirmation'] ?? '');
+        $stored = $db->one('SELECT password_hash FROM byp_users WHERE id=:id', ['id'=>$user['id']]);
+        if (!$stored || !password_verify($current, (string)$stored['password_hash'])) {
+            Response::error('Текущий пароль указан неверно', 422);
+        }
+        if (strlen($next) < 12 || $next !== $confirmation) {
+            Response::error('Новый пароль должен содержать минимум 12 символов, а подтверждение должно совпадать', 422);
+        }
+        $db->execute('UPDATE byp_users SET password_hash=:hash, updated_at=NOW() WHERE id=:id', [
+            'hash'=>password_hash($next, PASSWORD_DEFAULT), 'id'=>$user['id'],
+        ]);
+        byp_audit($db,$user,'auth.password','user',(int)$user['id']);
+        Response::ok();
+    }
+
+    if (str_starts_with($action, 'owner.')) {
+        if (($user['role'] ?? '') !== 'owner') {
+            Response::error('Доступ разрешён только владельцу платформы', 403);
+        }
+
+        if ($action === 'owner.bootstrap' && $method === 'GET') {
+            if ((int)($db->one('SELECT COUNT(*) AS total FROM byp_module_catalog')['total'] ?? 0) === 0) {
+                $catalog = [
+                    ['content', 'Контент', 'Базовый', 'Страницы, блоки, меню, медиа и версии', '2.1.0', 0],
+                    ['seo', 'SEO Pro', 'Маркетинг', 'Метаданные, sitemap, редиректы и аудит', '1.8.2', 5900],
+                    ['forms', 'Формы и CRM', 'Продажи', 'Формы, обращения, статусы и уведомления', '1.4.0', 9900],
+                    ['commerce', 'Commerce', 'Интернет-магазин', 'Каталог, корзина, заказы и промокоды', '2.0.1', 14900],
+                    ['payments', 'Платежи', 'Интернет-магазин', 'ЮKassa, СБП, чеки и возвраты', '1.3.0', 7900],
+                    ['analytics', 'Аналитика', 'Маркетинг', 'События, цели, воронки и отчёты', '1.2.4', 5900],
+                ];
+                foreach ($catalog as $module) {
+                    $db->execute(
+                        'INSERT IGNORE INTO byp_module_catalog
+                         (module_key,name,category,description,current_version,price,compatibility,status,created_at,updated_at)
+                         VALUES (:key,:name,:category,:description,:version,:price,"Core >= 2.0","published",NOW(),NOW())',
+                        ['key'=>$module[0],'name'=>$module[1],'category'=>$module[2],'description'=>$module[3],'version'=>$module[4],'price'=>$module[5]]
+                    );
+                }
+            }
+            if ((int)($db->one('SELECT COUNT(*) AS total FROM byp_services')['total'] ?? 0) === 0) {
+                $services = [
+                    ['ux-ui', 'UX/UI-дизайн', 'Исследование, прототип и дизайн-система', 65000, 'проект'],
+                    ['frontend', 'Frontend-разработка', 'Адаптивная реализация утверждённого дизайна', 85000, 'проект'],
+                    ['launch', 'Запуск и настройка', 'Развёртывание, интеграции и обучение', 25000, 'проект'],
+                    ['migration', 'Перенос данных', 'Импорт материалов из прежней системы', 18000, 'проект'],
+                    ['support', 'Сопровождение', 'Поддержка, мониторинг и развитие', 12000, 'месяц'],
+                ];
+                foreach ($services as $service) {
+                    $db->execute(
+                        'INSERT IGNORE INTO byp_services
+                         (service_key,name,description,price_from,billing_unit,status,created_at,updated_at)
+                         VALUES (:key,:name,:description,:price,:unit,"active",NOW(),NOW())',
+                        ['key'=>$service[0],'name'=>$service[1],'description'=>$service[2],'price'=>$service[3],'unit'=>$service[4]]
+                    );
+                }
+            }
+            $db->execute(
+                'INSERT INTO byp_owner_notifications (notification_type,title,message,entity_type,entity_id,severity,is_read,created_at)
+                 SELECT "license_expiry", "Заканчивается лицензия",
+                        CONCAT(COALESCE(c.company,c.name,"Клиент"), ": ", l.domain, " — до ", DATE_FORMAT(l.valid_until,"%d.%m.%Y")),
+                        "license", l.id, "warning", 0, NOW()
+                 FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id
+                 WHERE l.valid_until BETWEEN NOW() AND DATE_ADD(NOW(), INTERVAL 30 DAY)
+                   AND NOT EXISTS (SELECT 1 FROM byp_owner_notifications n WHERE n.notification_type="license_expiry" AND n.entity_id=l.id AND n.created_at>DATE_SUB(NOW(),INTERVAL 7 DAY))'
+            );
+            $db->execute(
+                'INSERT INTO byp_owner_notifications (notification_type,title,message,entity_type,entity_id,severity,is_read,created_at)
+                 SELECT "task_overdue", "Просрочена договорная работа",
+                        CONCAT(COALESCE(c.company,c.name), ": ", t.title), "client_task", t.id, "danger", 0, NOW()
+                 FROM byp_client_tasks t JOIN byp_clients c ON c.id=t.client_id
+                 WHERE t.due_at < NOW() AND t.status NOT IN ("done","blocked")
+                   AND NOT EXISTS (SELECT 1 FROM byp_owner_notifications n WHERE n.notification_type="task_overdue" AND n.entity_id=t.id AND n.created_at>DATE_SUB(NOW(),INTERVAL 1 DAY))'
+            );
+            $settingsRows = $db->all('SELECT setting_key, setting_value FROM byp_owner_settings');
+            $settings = [];
+            foreach ($settingsRows as $row) $settings[$row['setting_key']] = $row['setting_value'];
+            $clients = $db->all(
+                'SELECT c.*,
+                    (SELECT COUNT(*) FROM byp_client_tasks t WHERE t.client_id=c.id) AS task_count,
+                    (SELECT COUNT(*) FROM byp_client_tasks t WHERE t.client_id=c.id AND t.status="done") AS done_count,
+                    (SELECT COALESCE(SUM(t.price),0) FROM byp_client_tasks t WHERE t.client_id=c.id) AS contract_total
+                 FROM byp_clients c ORDER BY c.updated_at DESC'
+            );
+            $licenses = $db->all(
+                'SELECT l.id,l.client_id,l.license_hint,l.domain,l.edition,l.license_term,l.purchase_price,l.core_version,l.installed_version,
+                        l.entitlements,l.status,l.activated_at,l.valid_until,l.last_seen_at,l.created_at,l.updated_at,
+                        COALESCE(c.company,c.name,"Без клиента") AS client_name,
+                        a.installation_id,a.active AS activation_active, (s.license_id IS NOT NULL) AS key_available,
+                        CASE WHEN l.status IN ("active","renewal","trial") AND l.license_term<>"lifetime" AND l.valid_until<UTC_DATE() THEN "expired" ELSE l.status END AS effective_status
+                 FROM byp_license_registry l LEFT JOIN byp_clients c ON c.id=l.client_id
+                 LEFT JOIN byp_license_activations a ON a.license_id=l.id
+                 LEFT JOIN byp_license_secrets s ON s.license_id=l.id ORDER BY l.updated_at DESC'
+            );
+            $tasks = $db->all(
+                'SELECT t.*, COALESCE(c.company,c.name) AS client_name, s.name AS service_name
+                 FROM byp_client_tasks t JOIN byp_clients c ON c.id=t.client_id
+                 LEFT JOIN byp_services s ON s.id=t.service_id ORDER BY t.updated_at DESC'
+            );
+            $orders = $db->all('SELECT * FROM byp_orders ORDER BY updated_at DESC LIMIT 200');
+            $builds = $db->all('SELECT * FROM byp_builds ORDER BY updated_at DESC LIMIT 100');
+            $notifications = $db->all('SELECT * FROM byp_owner_notifications ORDER BY is_read, created_at DESC LIMIT 100');
+            Response::ok([
+                'user'=>$user,
+                'clients'=>$clients,
+                'licenses'=>$licenses,
+                'tasks'=>$tasks,
+                'services'=>$db->all('SELECT * FROM byp_services ORDER BY name'),
+                'modules'=>$db->all('SELECT * FROM byp_module_catalog ORDER BY category,name'),
+                'edition_modules'=>$db->all('SELECT edition,module_key,availability FROM byp_edition_modules ORDER BY edition,module_key'),
+                'portfolio'=>$db->all('SELECT * FROM byp_portfolio_projects ORDER BY sort_order,title'),
+                'orders'=>$orders,
+                'builds'=>$builds,
+                'notifications'=>$notifications,
+                'settings'=>$settings,
+                'csrf'=>(string)($_SESSION['csrf'] ?? ''),
+            ]);
+        }
+
+        if ($action === 'owner.client.save' && $method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            $name = trim((string)($input['name'] ?? ''));
+            if ($name === '') Response::error('Укажите имя клиента', 422);
+            $params = [
+                'name'=>$name, 'email'=>trim((string)($input['email'] ?? '')),
+                'phone'=>trim((string)($input['phone'] ?? '')), 'company'=>trim((string)($input['company'] ?? '')),
+                'status'=>in_array(($input['status'] ?? ''), ['lead','active','paused','closed'], true) ? $input['status'] : 'active',
+                'notes'=>(string)($input['notes'] ?? ''),
+            ];
+            if ($id > 0) {
+                $params['id'] = $id;
+                $db->execute('UPDATE byp_clients SET name=:name,email=:email,phone=:phone,company=:company,status=:status,notes=:notes,updated_at=NOW() WHERE id=:id', $params);
+            } else {
+                $id = $db->insert('INSERT INTO byp_clients (name,email,phone,company,status,notes,created_at,updated_at) VALUES (:name,:email,:phone,:company,:status,:notes,NOW(),NOW())', $params);
+            }
+            byp_audit($db,$user,'owner.client.save','client',$id);
+            Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.task.save' && $method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            $clientId = (int)($input['client_id'] ?? 0);
+            $title = trim((string)($input['title'] ?? ''));
+            if ($clientId < 1 || $title === '') Response::error('Выберите клиента и укажите задачу', 422);
+            $status = in_array(($input['status'] ?? ''), ['planned','in_progress','review','done','blocked'], true) ? $input['status'] : 'planned';
+            $progress = max(0,min(100,(int)($input['progress'] ?? ($status === 'done' ? 100 : 0))));
+            $params = [
+                'client'=>$clientId,'title'=>$title,'description'=>(string)($input['description'] ?? ''),
+                'contract'=>trim((string)($input['contract_ref'] ?? '')),'service'=>(int)($input['service_id'] ?? 0) ?: null,
+                'assignee'=>trim((string)($input['assignee'] ?? '')),'status'=>$status,'progress'=>$progress,
+                'price'=>(float)($input['price'] ?? 0),'due'=>!empty($input['due_at']) ? (string)$input['due_at'] : null,
+                'completed'=>$status === 'done' ? date('Y-m-d H:i:s') : null,
+            ];
+            if ($id > 0) {
+                $params['id']=$id;
+                $db->execute('UPDATE byp_client_tasks SET client_id=:client,title=:title,description=:description,contract_ref=:contract,
+                    service_id=:service,assignee=:assignee,status=:status,progress=:progress,price=:price,due_at=:due,
+                    completed_at=:completed,updated_at=NOW() WHERE id=:id',$params);
+            } else {
+                $id=$db->insert('INSERT INTO byp_client_tasks (client_id,title,description,contract_ref,service_id,assignee,status,progress,price,due_at,completed_at,created_at,updated_at)
+                    VALUES (:client,:title,:description,:contract,:service,:assignee,:status,:progress,:price,:due,:completed,NOW(),NOW())',$params);
+            }
+            byp_audit($db,$user,'owner.task.save','client_task',$id);
+            Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.service.save' && $method === 'POST') {
+            $id=(int)($input['id'] ?? 0);
+            $name=trim((string)($input['name'] ?? ''));
+            if ($name==='') Response::error('Укажите название услуги',422);
+            $key=preg_replace('/[^a-z0-9_-]/','',mb_strtolower((string)($input['service_key'] ?? '')));
+            if ($key==='') $key='service-'.bin2hex(random_bytes(4));
+            $params=['key'=>$key,'name'=>$name,'description'=>(string)($input['description'] ?? ''),'price'=>(float)($input['price_from'] ?? 0),
+                'unit'=>trim((string)($input['billing_unit'] ?? 'проект')),'status'=>($input['status'] ?? '')==='inactive'?'inactive':'active'];
+            if($id>0){$params['id']=$id;$db->execute('UPDATE byp_services SET service_key=:key,name=:name,description=:description,price_from=:price,billing_unit=:unit,status=:status,updated_at=NOW() WHERE id=:id',$params);}
+            else{$id=$db->insert('INSERT INTO byp_services (service_key,name,description,price_from,billing_unit,status,created_at,updated_at) VALUES (:key,:name,:description,:price,:unit,:status,NOW(),NOW())',$params);}
+            byp_audit($db,$user,'owner.service.save','service',$id);
+            Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.license.save' && $method === 'POST') {
+            $id=(int)($input['id'] ?? 0);
+            $client=(int)($input['client_id'] ?? 0);
+            $edition=(string)($input['edition'] ?? 'Business');
+            if($client<1 || !in_array($edition,['Business','Commerce','Content'],true) || !$db->one('SELECT id FROM byp_clients WHERE id=?',[$client])) Response::error('Выберите клиента и редакцию',422);
+            $domain=\BYPCMS\Core\LicensePolicy::domain((string)($input['domain']??''));
+            if (!in_array($input['status']??'active',['active','renewal','expired','trial','suspended'],true)) Response::error('Некорректный статус лицензии',422);
+            $term=($input['license_term'] ?? '')==='lifetime'?'lifetime':'annual';
+            $annualPrices=['Business'=>9900,'Commerce'=>19900,'Content'=>7900];
+            $lifetimePrices=['Business'=>24900,'Commerce'=>49900,'Content'=>19900];
+            $price=(float)($term==='lifetime'?$lifetimePrices[$edition]:$annualPrices[$edition]);
+            $includedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability="included"',['edition'=>$edition]);
+            $allowedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',['edition'=>$edition]);
+            $includedKeys=array_column($includedRows,'module_key');
+            $allowedKeys=array_column($allowedRows,'module_key');
+            $entitlements=array_values(array_unique(array_merge($includedKeys,array_intersect(array_values(array_filter((array)($input['entitlements'] ?? []))),$allowedKeys))));
+            $params=['client'=>$client,'domain'=>$domain,'edition'=>$edition,'term'=>$term,'price'=>$price,
+                'core'=>(string)($input['core_version'] ?? '2.1.0'),'installed'=>(string)($input['installed_version'] ?? ''),
+                'entitlements'=>json_encode($entitlements,JSON_UNESCAPED_UNICODE),'status'=>(string)($input['status'] ?? 'active'),
+                'until'=>$term==='lifetime'?null:(!empty($input['valid_until'])?(string)$input['valid_until']:\BYPCMS\Core\LicensePolicy::renew(null,time()))];
+            if ($params['until']!==null && !preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D',$params['until'])) Response::error('Некорректная дата лицензии',422);
+            if (strlen($params['core'])>40 || strlen($params['installed'])>40) Response::error('Версия должна содержать не более 40 символов',422);
+            \BYPCMS\Core\LicensePolicy::expiry($params['until']);
+            $operation=(string)($input['operation_id']??'');
+            if ($id<1 && !preg_match('/^[a-f0-9]{32}$/D',$operation)) Response::error('Требуется идентификатор выдачи лицензии',422);
+            $pdo=$db->pdo();$pdo->beginTransaction();
+            try {
+            if($id>0){
+                if (!$db->one('SELECT id FROM byp_license_registry WHERE id=? FOR UPDATE',[$id])) throw new \BYPCMS\Core\LicenseException('Лицензия не найдена',404);
+                $params['id']=$id;$db->execute('UPDATE byp_license_registry SET client_id=:client,domain=:domain,edition=:edition,license_term=:term,purchase_price=:price,core_version=:core,
+                installed_version=:installed,entitlements=:entitlements,status=:status,valid_until=:until,updated_at=NOW() WHERE id=:id',$params);}
+            else{
+                $previous=$db->one('SELECT * FROM byp_license_operations WHERE operation_id=?',[$operation]);
+                if ($previous) {
+                    if ($previous['action']!=='create' || (int)$previous['user_id']!==(int)$user['id']) throw new \BYPCMS\Core\LicenseException('Идентификатор действия уже использован',409);
+                    $pdo->commit();Response::ok(['id'=>(int)$previous['license_id']]);
+                }
+                $plain=\BYPCMS\Core\LicenseAuthority::key();
+                $params['hash']=hash('sha256',$plain);$params['hint']=substr($plain,0,11).'••••';
+                $id=$db->insert('INSERT INTO byp_license_registry (client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at)
+                    VALUES (:client,:hash,:hint,:domain,:edition,:term,:price,:core,:installed,:entitlements,:status,NULL,:until,NOW(),NOW())',$params);
+                byp_license_authority($db,$config,$user)->storeKey($id,$plain);
+                $db->execute('INSERT INTO byp_license_operations(operation_id,license_id,action,user_id,result_json) VALUES(?,?,"create",?,?)',[$operation,$id,$user['id'],json_encode(['id'=>$id])]);
+            }
+            byp_audit($db,$user,'owner.license.save','license',$id);
+            $pdo->commit();
+            } catch (Throwable $error) {
+                if($pdo->inTransaction())$pdo->rollBack();
+                // A parallel retry may have committed the same issuance first.
+                if($error instanceof PDOException && $error->getCode()==='23000' && $operation!=='') {
+                    $previous=$db->one('SELECT * FROM byp_license_operations WHERE operation_id=?',[$operation]);
+                    if($previous && $previous['action']==='create' && (int)$previous['user_id']===(int)$user['id']) Response::ok(['id'=>(int)$previous['license_id']]);
+                }
+                throw $error;
+            }
+            Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.module.save' && $method === 'POST') {
+            $id=(int)($input['id'] ?? 0);$key=preg_replace('/[^a-z0-9_-]/','',mb_strtolower((string)($input['module_key'] ?? '')));
+            $name=trim((string)($input['name'] ?? ''));if($key===''||$name==='')Response::error('Укажите ключ и название модуля',422);
+            $params=['key'=>$key,'name'=>$name,'category'=>(string)($input['category'] ?? 'Расширение'),'description'=>(string)($input['description'] ?? ''),
+                'version'=>(string)($input['current_version'] ?? '1.0.0'),'price'=>(float)($input['price'] ?? 0),
+                'compatibility'=>(string)($input['compatibility'] ?? 'Core >= 2.0'),'status'=>(string)($input['status'] ?? 'published')];
+            if($id>0){$params['id']=$id;$db->execute('UPDATE byp_module_catalog SET module_key=:key,name=:name,category=:category,description=:description,current_version=:version,price=:price,compatibility=:compatibility,status=:status,updated_at=NOW() WHERE id=:id',$params);}
+            else{$id=$db->insert('INSERT INTO byp_module_catalog (module_key,name,category,description,current_version,price,compatibility,status,created_at,updated_at) VALUES (:key,:name,:category,:description,:version,:price,:compatibility,:status,NOW(),NOW())',$params);}
+            foreach(['Business','Commerce','Content'] as $editionName){
+                $availability=(string)($input['availability'][$editionName] ?? 'hidden');
+                $db->execute('INSERT INTO byp_edition_modules (edition,module_key,availability) VALUES (:edition,:key,:availability)
+                    ON DUPLICATE KEY UPDATE availability=VALUES(availability)',['edition'=>$editionName,'key'=>$key,'availability'=>$availability]);
+            }
+            byp_audit($db,$user,'owner.module.save','module_catalog',$id);
+            Response::ok(['id'=>$id]);
+        }
+
+        if ($action === 'owner.portfolio.upload' && $method === 'POST') {
+            $file = $_FILES['image'] ?? null;
+            if (!is_array($file) || (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                Response::error('Выберите изображение для загрузки', 422);
+            }
+            if ((int)$file['size'] > 8 * 1024 * 1024) Response::error('Размер изображения не должен превышать 8 МБ', 422);
+            $mime = (new finfo(FILEINFO_MIME_TYPE))->file((string)$file['tmp_name']);
+            $extensions = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp','image/gif'=>'gif'];
+            if (!isset($extensions[$mime])) Response::error('Разрешены JPG, PNG, WEBP и GIF', 422);
+            $directory = BYPCMS_ROOT . '/uploads/portfolio';
+            if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+                Response::error('Не удалось создать каталог загрузки', 500);
+            }
+            $name = date('Ymd-His') . '-' . bin2hex(random_bytes(5)) . '.' . $extensions[$mime];
+            if (!move_uploaded_file((string)$file['tmp_name'], $directory . '/' . $name)) {
+                Response::error('Не удалось сохранить изображение', 500);
+            }
+            Response::ok(['url'=>'/uploads/portfolio/'.$name]);
+        }
+
+        if ($action === 'owner.portfolio.save' && $method === 'POST') {
+            $id = (int)($input['id'] ?? 0);
+            $title = trim((string)($input['title'] ?? ''));
+            if ($title === '') Response::error('Укажите название проекта', 422);
+            $slug = preg_replace('/[^a-z0-9-]/', '-', mb_strtolower(trim((string)($input['slug'] ?? ''))));
+            $slug = trim((string)preg_replace('/-+/', '-', $slug), '-');
+            if ($slug === '') $slug = 'project-' . time();
+            $list = static function (string $key) use ($input): string {
+                $items = preg_split('/\r\n|\r|\n|,/', (string)($input[$key] ?? ''));
+                return json_encode(array_values(array_filter(array_map('trim', $items ?: []))), JSON_UNESCAPED_UNICODE);
+            };
+            $params = [
+                'slug'=>$slug,'title'=>$title,'category'=>trim((string)($input['category'] ?? '')),
+                'edition'=>trim((string)($input['edition'] ?? 'Business')),'year'=>trim((string)($input['project_year'] ?? date('Y'))),
+                'lead'=>(string)($input['lead'] ?? ''),'description'=>(string)($input['description'] ?? ''),
+                'result'=>(string)($input['result_text'] ?? ''),'cover'=>trim((string)($input['cover_image'] ?? '')),
+                'gallery'=>$list('gallery'),'features'=>$list('features'),'modules'=>$list('modules'),'services'=>$list('services'),
+                'url'=>trim((string)($input['project_url'] ?? '')),
+                'status'=>in_array(($input['status'] ?? ''), ['draft','published','archived'], true) ? $input['status'] : 'draft',
+                'sort'=>(int)($input['sort_order'] ?? 100),
+            ];
+            if ($id > 0) {
+                $params['id']=$id;
+                $db->execute('UPDATE byp_portfolio_projects SET slug=:slug,title=:title,category=:category,edition=:edition,project_year=:year,lead=:lead,description=:description,result_text=:result,cover_image=:cover,gallery=:gallery,features=:features,modules=:modules,services=:services,project_url=:url,status=:status,sort_order=:sort,updated_at=NOW() WHERE id=:id',$params);
+            } else {
+                $db->execute('INSERT INTO byp_portfolio_projects (slug,title,category,edition,project_year,lead,description,result_text,cover_image,gallery,features,modules,services,project_url,status,sort_order,created_at,updated_at) VALUES (:slug,:title,:category,:edition,:year,:lead,:description,:result,:cover,:gallery,:features,:modules,:services,:url,:status,:sort,NOW(),NOW())',$params);
+            }
+            byp_audit($db,$user,'owner.portfolio.save','portfolio',$id);
+            Response::ok();
+        }
+
+        if ($action === 'owner.settings.save' && $method === 'POST') {
+            foreach ((array)($input['settings'] ?? []) as $key=>$value) {
+                $clean=preg_replace('/[^a-z0-9_.-]/','',mb_strtolower((string)$key));
+                if($clean==='')continue;
+                $db->execute('INSERT INTO byp_owner_settings (setting_key,setting_value,updated_by,updated_at) VALUES (:key,:value,:user,NOW())
+                    ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_by=VALUES(updated_by),updated_at=NOW()',
+                    ['key'=>$clean,'value'=>is_scalar($value)?(string)$value:json_encode($value,JSON_UNESCAPED_UNICODE),'user'=>$user['id']]);
+            }
+            byp_audit($db,$user,'owner.settings.save','owner_settings');
+            Response::ok();
+        }
+
+        if ($action === 'owner.notification.read' && $method === 'POST') {
+            $id=(int)($input['id'] ?? 0);
+            if($id>0)$db->execute('UPDATE byp_owner_notifications SET is_read=1,read_at=NOW() WHERE id=:id',['id'=>$id]);
+            else$db->execute('UPDATE byp_owner_notifications SET is_read=1,read_at=NOW() WHERE is_read=0');
+            Response::ok();
+        }
+    }
+
+    if ($action === 'build.download' && $method === 'GET') {
+        if (($user['role'] ?? '') !== 'owner') Response::error('Сборка CMS доступна только владельцу', 403);
+        if (!class_exists('ZipArchive')) {
+            Response::error('На сервере не включено расширение PHP ZipArchive', 501);
+        }
+        $edition = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_GET['edition'] ?? 'Business'));
+        $licenseTerm = (string)($_GET['term'] ?? '') === 'lifetime' ? 'lifetime' : 'annual';
+        $requested = array_values(array_filter(explode(',', (string)($_GET['modules'] ?? 'content'))));
+        $editionRows = $db->all(
+            'SELECT module_key, availability FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',
+            ['edition'=>$edition]
+        );
+        $allowed = array_column($editionRows, 'module_key');
+        $included = array_column(array_values(array_filter($editionRows, fn(array $row): bool => $row['availability'] === 'included')), 'module_key');
+        $selected = array_values(array_unique(array_merge($included, array_intersect($requested, $allowed))));
+        $buildId = 'bypcms-' . strtolower($edition) . '-' . date('Ymd-His');
+        $archivePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $buildId . '.zip';
+        $zip = new ZipArchive();
+        if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            Response::error('Не удалось создать архив сборки', 500);
+        }
+        $root = realpath(BYPCMS_ROOT);
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+        foreach ($iterator as $file) {
+            if (!$file->isFile() || $file->isLink()) continue;
+            $full = $file->getRealPath();
+            if ($full === false || !str_starts_with($full, $root . DIRECTORY_SEPARATOR)) continue;
+            $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
+            if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
+            $topDirectory = explode('/', $relative)[0];
+            if (in_array($topDirectory, ['account','owner','demo','portfolio','services','modules','order','concepts','concept-example','nuovi-spazi-proposal','ballettschule-salzburg-konzept','ballet-salzburg-proposal'], true)) continue;
+            if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
+            $zip->addFile($full, 'site/' . $relative);
+        }
+        $zip->addFromString('site/_core/license-trust.json',json_encode(byp_license_authority($db,$config,$user)->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
+        $schema = require BYPCMS_ROOT . '/_core/schema.php';
+        $zip->addFromString('site/index.php', "<?php\nrequire_once __DIR__ . '/_core/UpdateRuntime.php';\n\\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__, '_core/client-front.php');\n");
+        $zip->addFromString('site/.htaccess', "DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
+        $zip->addFromString('database.sql', implode(";\n\n", $schema) . ";\n");
+        $zip->addFromString('build-manifest.json', json_encode([
+            'product' => 'BYPCMS',
+            'edition' => $edition,
+            'license_term' => $licenseTerm,
+            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+            'modules' => $selected,
+            'created_at' => date(DATE_ATOM),
+            'installer' => 'site/install/index.php',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $zip->addFromString('site/build-manifest.json', json_encode([
+            'product' => 'BYPCMS', 'edition' => strtolower($edition),
+            'license_term' => $licenseTerm, 'modules' => $selected,
+            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $zip->addFromString('README.txt', "BYPCMS {$edition}\n\n1. Загрузите содержимое папки site на сервер.\n2. Откройте /install/.\n3. Укажите параметры MySQL и создайте владельца.\n");
+        $zip->close();
+        $moduleRows = $selected ? $db->all(
+            'SELECT module_key, price FROM byp_module_catalog WHERE module_key IN (' . implode(',', array_fill(0,count($selected),'?')) . ')',
+            $selected
+        ) : [];
+        $optionalKeys = array_values(array_diff($selected,$included));
+        $moduleTotal = array_reduce($moduleRows, fn(float $sum,array $row): float => $sum + (in_array($row['module_key'],$optionalKeys,true) ? (float)$row['price'] : 0), 0.0);
+        $corePrices=$licenseTerm==='lifetime'
+            ? ['Business'=>24900,'Commerce'=>49900,'Content'=>19900]
+            : ['Business'=>9900,'Commerce'=>19900,'Content'=>7900];
+        $buildKey='BLD-'.strtoupper(bin2hex(random_bytes(5)));
+        $db->execute(
+            'INSERT INTO byp_builds (build_key,name,edition,core_version,modules,services,total,archive_path,status,created_at,updated_at)
+             VALUES (:key,:name,:edition,:core,:modules,"[]",:total,:archive,"ready",NOW(),NOW())',
+            ['key'=>$buildKey,'name'=>$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>(string)($config['app']['version'] ?? '2.1.0'),
+             'modules'=>json_encode($selected,JSON_UNESCAPED_UNICODE),'total'=>(float)($corePrices[$edition] ?? 24900)+$moduleTotal,'archive'=>$buildId.'.zip']
+        );
+        byp_audit($db, $user, 'build.download', 'build', null, ['edition' => $edition, 'modules' => $selected]);
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . $buildId . '.zip"');
+        header('Content-Length: ' . filesize($archivePath));
+        readfile($archivePath);
+        @unlink($archivePath);
+        exit;
+    }
+
+    if ($action === 'dashboard' && $method === 'GET') {
+        $counts = [
+            'pages' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_pages')['total'] ?? 0),
+            'published' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_pages WHERE status = "published"')['total'] ?? 0),
+            'users' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_users WHERE status = "active"')['total'] ?? 0),
+            'modules' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_modules WHERE status = "active"')['total'] ?? 0),
+            'submissions' => (int)($db->one('SELECT COUNT(*) AS total FROM byp_form_submissions WHERE status = "new"')['total'] ?? 0),
+        ];
+        $recentPages = $db->all('SELECT id, title, slug, status, updated_at FROM byp_pages ORDER BY updated_at DESC LIMIT 5');
+        $license = byp_license_status($config);
+        $license['status']=$license['state'];
+        $modules = $db->all('SELECT module_key, name, version, status, updated_at FROM byp_modules ORDER BY name');
+        Response::ok([
+            'counts' => $counts,
+            'recent_pages' => $recentPages,
+            'license' => $license,
+            'modules' => $modules,
+            'health' => ['score' => 100, 'core' => (string)($config['app']['version'] ?? '2.0.0'), 'environment' => 'production'],
+        ]);
+    }
+
+    if ($action === 'pages.list' && $method === 'GET') {
+        $systemPages = [
+            ['modules', 'Модули', 'Каталог модулей BYPCMS', 'catalog'],
+            ['services', 'Услуги', 'Проектирование, дизайн, разработка, запуск и сопровождение', 'services'],
+            ['order', 'Оформление заказа', 'Заявка на лицензию, модули и дополнительные услуги', 'order'],
+            ['demo', 'Демонстрация', 'Безопасная демонстрационная панель BYPCMS', 'demo'],
+        ];
+        foreach ($systemPages as $systemPage) {
+            $db->execute(
+                'INSERT IGNORE INTO byp_pages
+                 (author_id,slug,title,excerpt,content,blocks,template,status,published_at,created_at,updated_at)
+                 VALUES (:author,:slug,:title,:excerpt,"","[]",:template,"published",NOW(),NOW(),NOW())',
+                ['author'=>$user['id'],'slug'=>$systemPage[0],'title'=>$systemPage[1],'excerpt'=>$systemPage[2],'template'=>$systemPage[3]]
+            );
+        }
+        Response::ok(['pages' => $db->all(
+            'SELECT p.id, p.parent_id, p.slug, p.title, p.excerpt, p.content, p.template, p.status, p.published_at, p.created_at, p.updated_at,
+                    u.name AS author_name
+             FROM byp_pages p LEFT JOIN byp_users u ON u.id = p.author_id ORDER BY p.updated_at DESC'
+        )]);
+    }
+
+    if ($action === 'pages.create' && $method === 'POST') {
+        $title = trim((string)($input['title'] ?? ''));
+        $slug = trim((string)($input['slug'] ?? ''));
+        if ($title === '' || !preg_match('/^[a-z0-9][a-z0-9\-\/]*$/', $slug)) {
+            Response::error('Укажите заголовок и корректный URL', 422);
+        }
+        $id = $db->insert(
+            'INSERT INTO byp_pages (author_id, slug, title, excerpt, content, blocks, template, status, created_at, updated_at)
+             VALUES (:author, :slug, :title, :excerpt, :content, :blocks, :template, :status, NOW(), NOW())',
+            [
+                'author' => $user['id'],
+                'slug' => $slug,
+                'title' => $title,
+                'excerpt' => (string)($input['excerpt'] ?? ''),
+                'content' => (string)($input['content'] ?? ''),
+                'blocks' => json_encode($input['blocks'] ?? [], JSON_UNESCAPED_UNICODE),
+                'template' => (string)($input['template'] ?? 'default'),
+                'status' => in_array(($input['status'] ?? ''), ['draft', 'published'], true) ? $input['status'] : 'draft',
+            ]
+        );
+        byp_audit($db, $user, 'page.create', 'page', $id);
+        Response::ok(['id' => $id]);
+    }
+
+    if ($action === 'pages.update' && $method === 'POST') {
+        $id = (int)($input['id'] ?? 0);
+        $page = $db->one('SELECT * FROM byp_pages WHERE id = :id', ['id' => $id]);
+        if (!$page) {
+            Response::error('Страница не найдена', 404);
+        }
+        $db->execute(
+            'INSERT INTO byp_page_revisions (page_id, user_id, snapshot, created_at) VALUES (:page, :user, :snapshot, NOW())',
+            ['page' => $id, 'user' => $user['id'], 'snapshot' => json_encode($page, JSON_UNESCAPED_UNICODE)]
+        );
+        $db->execute(
+            'UPDATE byp_pages SET title=:title, slug=:slug, excerpt=:excerpt, content=:content, blocks=:blocks,
+             template=:template, status=:status, published_at=IF(:status2="published", COALESCE(published_at,NOW()), published_at),
+             updated_at=NOW() WHERE id=:id',
+            [
+                'title' => trim((string)($input['title'] ?? $page['title'])),
+                'slug' => trim((string)($input['slug'] ?? $page['slug'])),
+                'excerpt' => (string)($input['excerpt'] ?? $page['excerpt']),
+                'content' => (string)($input['content'] ?? $page['content']),
+                'blocks' => json_encode($input['blocks'] ?? json_decode((string)$page['blocks'], true) ?? [], JSON_UNESCAPED_UNICODE),
+                'template' => (string)($input['template'] ?? $page['template']),
+                'status' => (string)($input['status'] ?? $page['status']),
+                'status2' => (string)($input['status'] ?? $page['status']),
+                'id' => $id,
+            ]
+        );
+        byp_audit($db, $user, 'page.update', 'page', $id);
+        Response::ok(['id' => $id]);
+    }
+
+    if ($action === 'modules.list' && $method === 'GET') {
+        Response::ok(['modules' => $db->all('SELECT id, module_key, name, version, status, manifest, settings, installed_at, updated_at FROM byp_modules ORDER BY name')]);
+    }
+
+    if ($action === 'modules.toggle' && $method === 'POST') {
+        $key = (string)($input['module_key'] ?? '');
+        $status = ($input['status'] ?? '') === 'active' ? 'active' : 'inactive';
+        $db->execute('UPDATE byp_modules SET status=:status, updated_at=NOW() WHERE module_key=:key', ['status' => $status, 'key' => $key]);
+        byp_audit($db, $user, 'module.toggle', 'module', null, ['module_key' => $key, 'status' => $status]);
+        Response::ok();
+    }
+
+    if ($action === 'modules.settings' && $method === 'POST') {
+        $key = preg_replace('/[^a-z0-9_\-]/', '', (string)($input['module_key'] ?? ''));
+        $module = $db->one('SELECT id, settings FROM byp_modules WHERE module_key=:key', ['key'=>$key]);
+        if (!$module) {
+            Response::error('Модуль не найден', 404);
+        }
+        $settings = (array)($input['settings'] ?? []);
+        $db->execute(
+            'UPDATE byp_modules SET settings=:settings, updated_at=NOW() WHERE module_key=:key',
+            ['settings'=>json_encode($settings, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'key'=>$key]
+        );
+        byp_audit($db, $user, 'module.settings', 'module', (int)$module['id'], ['module_key'=>$key]);
+        Response::ok(['settings'=>$settings]);
+    }
+
+    if ($action === 'settings.list' && $method === 'GET') {
+        Response::ok(['settings' => $db->all('SELECT setting_group, setting_key, setting_value, value_type, is_public, updated_at FROM byp_settings ORDER BY setting_group, setting_key')]);
+    }
+
+    if ($action === 'settings.save' && $method === 'POST') {
+        $group = preg_replace('/[^a-z0-9_\-]/', '', (string)($input['group'] ?? 'general'));
+        $key = preg_replace('/[^a-z0-9_\-\.]/', '', (string)($input['key'] ?? ''));
+        if ($key === '') {
+            Response::error('Не указан ключ настройки', 422);
+        }
+        $db->execute(
+            'INSERT INTO byp_settings (setting_group, setting_key, setting_value, value_type, is_public, updated_by, updated_at)
+             VALUES (:group_name, :key_name, :value_data, :value_type, :public_flag, :user_id, NOW())
+             ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value), value_type=VALUES(value_type),
+             is_public=VALUES(is_public), updated_by=VALUES(updated_by), updated_at=NOW()',
+            [
+                'group_name' => $group,
+                'key_name' => $key,
+                'value_data' => is_scalar($input['value'] ?? null) ? (string)$input['value'] : json_encode($input['value'], JSON_UNESCAPED_UNICODE),
+                'value_type' => (string)($input['type'] ?? 'string'),
+                'public_flag' => !empty($input['is_public']) ? 1 : 0,
+                'user_id' => $user['id'],
+            ]
+        );
+        byp_audit($db, $user, 'setting.save', 'setting', null, ['group' => $group, 'key' => $key]);
+        Response::ok();
+    }
+
+    if ($action === 'audit.list' && $method === 'GET') {
+        Response::ok(['events' => $db->all(
+            'SELECT a.id, a.action, a.entity_type, a.entity_id, a.ip_address, a.metadata, a.created_at, u.name AS user_name
+             FROM byp_audit_logs a LEFT JOIN byp_users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 100'
+        )]);
+    }
+
+    Response::error('Маршрут API не найден', 404);
+} catch (\BYPCMS\Core\LicenseException $error) {
+    Response::error($error->getMessage(),$error->httpStatus,['code'=>$error->reason]);
+} catch (InvalidArgumentException $error) {
+    Response::error($error->getMessage(),422);
+} catch (Throwable $error) {
+    error_log('[BYPCMS] ' . $error->getMessage());
+    Response::error('Внутренняя ошибка BYPCMS', 500, !empty($config['app']['debug']) ? ['message' => $error->getMessage()] : []);
+}

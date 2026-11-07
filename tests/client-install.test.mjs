@@ -4,7 +4,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const read = p => readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const installer=read('server/install/index.php'), builder=read('server/api/index.php'), front=read('server/_core/client-front.php');
+const installer=read('server/install/index.php'), builder=read('server/api/app.php'), front=read('server/_core/client-front.php');
 test('installer uses package edition and modules',()=>{assert.match(installer,/\$manifest\['edition'\]/);assert.match(installer,/foreach \(\$packageModules as \$key\)/);assert.match(installer,/'edition' => \$edition/);});
 test('package carries runtime manifest and HTTP router',()=>{for(const path of ['site/build-manifest.json','site/index.php','site/.htaccess']) assert.ok(builder.includes(path));});
 test('private and platform files excluded from customer package',()=>{for(const path of ['_storage/','_private/','.env','.log',"'owner'","'portfolio'"]) assert.ok(builder.includes(path),path);});

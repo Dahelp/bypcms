@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 'app' => [
                     'name' => $siteName,
                     'url' => $siteUrl,
-                    'version' => '2.0.0',
+                    'version' => (string)($manifest['core_version'] ?? '2.1.0'),
                     'debug' => false,
                     'key' => bin2hex(random_bytes(32)),
                     'edition' => $edition,

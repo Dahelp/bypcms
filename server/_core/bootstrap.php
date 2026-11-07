@@ -9,7 +9,7 @@ require_once __DIR__ . '/Response.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Auth.php';
 
-const BYPCMS_ROOT = __DIR__ . '/..';
+define('BYPCMS_ROOT', defined('BYPCMS_SITE_ROOT') ? BYPCMS_SITE_ROOT : dirname(__DIR__));
 const BYPCMS_STORAGE = BYPCMS_ROOT . '/_storage';
 const BYPCMS_CONFIG = BYPCMS_STORAGE . '/config.php';
 
@@ -70,6 +70,9 @@ header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
 $config = byp_config();
+require_once BYPCMS_ROOT.'/_core/UpdateRuntime.php';
+$activeRelease = \BYPCMS\Core\UpdateRuntime::pointer(BYPCMS_ROOT);
+if ($activeRelease) $config['app']['version']=$activeRelease['version'];
 $db = new Database($config);
 $auth = new Auth($db);
 

@@ -12,6 +12,7 @@ import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
 import LicenseSettings, {licenseStateLabels} from "../components/LicenseSettings";
+import UpdateSettings from "../components/UpdateSettings";
 import "./admin.css";
 import "./readable.css";
 
@@ -33,6 +34,7 @@ const navigation = [
   ["concepts", "Концепции"],
   ["modules", "Модули"],
   ["license", "Лицензия"],
+  ["updates", "Обновления"],
   ["settings", "Настройки"],
 ];
 
@@ -352,6 +354,7 @@ export default function AdminPage() {
           )}
 
           {active === "license" && <LicenseSettings csrf={csrf} owner={user.role==="owner"}/>}
+          {active === "updates" && <UpdateSettings csrf={csrf} owner={user.role==="owner"}/>}
           {active === "settings" && configurationReady && (
             <section className="dataPanel settingsIntro">
               <p>СИСТЕМА</p><h2>Настройки BYPCMS</h2><button type="button" className="panelLinkButton" disabled={session.busy} onClick={()=>void session.logout()}>Выйти из учётной записи</button>

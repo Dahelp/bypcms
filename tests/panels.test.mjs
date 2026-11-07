@@ -101,7 +101,7 @@ test('a refresh failure preserves the successful mutation result and asks for a 
 });
 
 test('bulk endpoint runs behind existing authentication and CSRF checks',()=>{
-  const source=read('server/api/index.php');const route=source.indexOf("if ($action === 'panel.bulk'");
+  const source=read('server/api/app.php');const route=source.indexOf("if ($action === 'panel.bulk'");
   assert.ok(route>source.indexOf('$user = $auth->requireUser();'));
   assert.ok(route>source.indexOf('$auth->verifyCsrf();',source.indexOf('$user = $auth->requireUser();')));
   assert.match(source,/PanelBulk::validate\(\$input, \$user\)/);

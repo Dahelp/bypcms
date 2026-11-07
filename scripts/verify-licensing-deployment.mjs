@@ -7,6 +7,11 @@ const endpoints=[
  ['/api/index.php?action=licensing.challenge',{key:'BYP-DEPLOYMENT-CHECK-INVALID-KEY',installation_id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',site_url:'https://example.invalid',edition:'content'},403,'license_invalid'],
  ['/_core/LicensePolicy.php',undefined,403],
  ['/_storage/config.php',undefined,403],
+ ['/updates/index.php?action=status',undefined,401],
+ ['/updates/index.php?action=publish',{},403],
+ ['/api/app.php',undefined,403],
+ ['/_private/update-candidate.zip',undefined,403],
+ ['/_releases/.htaccess',undefined,403],
 ];
 for(const[path,body,expected,marker]of endpoints){
  const response=await fetch(origin+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),redirect:'manual',signal:AbortSignal.timeout(15000)});
@@ -15,3 +20,9 @@ for(const[path,body,expected,marker]of endpoints){
  else await response.arrayBuffer();
  console.log(`PASS ${path} → ${expected}`);
 }
+const recovery=await fetch(origin+'/updates/recovery.php',{redirect:'manual',signal:AbortSignal.timeout(15000)});
+if(recovery.status!==200||!(await recovery.text()).includes('Восстановление BYPCMS'))throw new Error('Independent recovery screen is unavailable');
+console.log('PASS /updates/recovery.php → 200');
+const feed=await fetch(origin+'/api/index.php?action=updates.catalog',{redirect:'manual',signal:AbortSignal.timeout(15000)});
+const catalog=await feed.json();if(feed.status!==200||catalog.catalog?.schema!=='bypcms.updates/v1'||!catalog.catalog?.signature)throw new Error('Signed production update catalog is unavailable');
+console.log('PASS signed update catalog → 200');

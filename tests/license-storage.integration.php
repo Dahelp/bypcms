@@ -39,6 +39,8 @@ check($migrated['license_key_hash']===hash('sha256',$plain),'legacy delivery kee
 check(substr($migrated['valid_until'],0,10)===substr($license['valid_until'],0,10),'migration preserves original term start');
 customer_package_trust($db,$config,$delivery['archive_path']);
 $zip=new ZipArchive();$zip->open($delivery['archive_path']);check($zip->getFromName('site/_core/license-trust.json')!==false,'customer archive carries public trust');$zip->close();
+$zip->open($delivery['archive_path']);foreach(['site/_core/UpdateRuntime.php','site/api/app.php','site/updates/index.php','site/admin/index.php']as $entry)$zip->deleteName($entry);$zip->close();
+customer_package_trust($db,$config,$delivery['archive_path']);$zip->open($delivery['archive_path']);foreach(['site/_core/UpdateRuntime.php','site/api/app.php','site/updates/index.php','site/admin/index.php']as $entry)check($zip->getFromName($entry)!==false,'legacy download gains update bootstrap');token_get_all($zip->getFromName('site/index.php'),TOKEN_PARSE);$zip->close();
 $authority=new \BYPCMS\Core\LicenseAuthority($db->pdo(),BYPCMS_STORAGE,$config);
 $installation=bin2hex(random_bytes(16));
 $challenge=$authority->challenge(['key'=>$plain,'installation_id'=>$installation,'site_url'=>'http://qa.example.test:8029','edition'=>'content'],time());

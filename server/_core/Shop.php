@@ -11,7 +11,7 @@ require_once __DIR__.'/LicenseCrypto.php';
 
 /** Installed store only. No platform accounts, license orders or payment settings. */
 final class Shop {
-    public const VERSION='2.5.0';
+    public const VERSION='2.5.1';
     public const TABLES=['byp_shop_groups','byp_shop_limits','byp_shop_products','byp_shop_variants','byp_shop_carts','byp_shop_orders','byp_shop_items','byp_shop_payments','byp_shop_refunds','byp_shop_mail'];
     public Content $content;
     public function __construct(public Database $db,public array $config,public string $root){$this->content=new Content($db,$config,$root);self::schema($db->pdo());}

@@ -12,6 +12,11 @@
                 "path": "themes/focus/assets/frame-1-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-1-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -28,6 +33,11 @@
                 "path": "themes/focus/assets/frame-2-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-2-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -44,6 +54,11 @@
                 "path": "themes/focus/assets/frame-3-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-3-1280.webp",
+                "width": 1280,
+                "height": 853
             }
         ]
     },
@@ -60,6 +75,11 @@
                 "path": "themes/focus/assets/frame-4-960.webp",
                 "width": 960,
                 "height": 720
+            },
+            {
+                "path": "themes/focus/assets/frame-4-1280.webp",
+                "width": 1280,
+                "height": 960
             }
         ]
     },
@@ -76,6 +96,11 @@
                 "path": "themes/focus/assets/frame-5-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-5-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -92,6 +117,11 @@
                 "path": "themes/focus/assets/frame-6-960.webp",
                 "width": 960,
                 "height": 572
+            },
+            {
+                "path": "themes/focus/assets/frame-6-1280.webp",
+                "width": 1280,
+                "height": 762
             }
         ]
     },
@@ -108,6 +138,11 @@
                 "path": "themes/focus/assets/frame-7-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-7-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -124,6 +159,11 @@
                 "path": "themes/focus/assets/frame-8-960.webp",
                 "width": 960,
                 "height": 641
+            },
+            {
+                "path": "themes/focus/assets/frame-8-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -140,6 +180,11 @@
                 "path": "themes/focus/assets/frame-9-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-9-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -156,6 +201,11 @@
                 "path": "themes/focus/assets/frame-10-960.webp",
                 "width": 960,
                 "height": 638
+            },
+            {
+                "path": "themes/focus/assets/frame-10-1280.webp",
+                "width": 1280,
+                "height": 850
             }
         ]
     },
@@ -172,6 +222,11 @@
                 "path": "themes/focus/assets/frame-11-960.webp",
                 "width": 960,
                 "height": 640
+            },
+            {
+                "path": "themes/focus/assets/frame-11-1280.webp",
+                "width": 1280,
+                "height": 854
             }
         ]
     },
@@ -188,6 +243,11 @@
                 "path": "themes/focus/assets/frame-12-960.webp",
                 "width": 960,
                 "height": 720
+            },
+            {
+                "path": "themes/focus/assets/frame-12-1280.webp",
+                "width": 1280,
+                "height": 960
             }
         ]
     }

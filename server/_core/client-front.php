@@ -4,6 +4,7 @@ declare(strict_types=1);
 $contentRoot = defined('BYPCMS_SITE_ROOT') ? BYPCMS_SITE_ROOT : dirname(__DIR__);
 if (is_file($contentRoot.'/_storage/config.php')) {
     $contentConfig = require $contentRoot.'/_storage/config.php';
+    if(strtolower($contentConfig['app']['edition']??'')==='commerce'){require __DIR__.'/shop-front.php';return;}
     if(strtolower($contentConfig['app']['edition']??'')==='business'){require __DIR__.'/business-front.php';return;}
     if (strtolower($contentConfig['app']['edition'] ?? '') === 'content') {
         $journal=true;

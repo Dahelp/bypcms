@@ -22,6 +22,8 @@ try {
     if($action==='media.alt'&&$method==='POST'){$db->execute('UPDATE byp_media SET alt_text=? WHERE id=?',[mb_substr($input['alt']??'',0,500),(int)$input['id']]);Response::ok();}
     if($action==='media.delete'&&$method==='POST'){
         $file=$db->one('SELECT * FROM byp_media WHERE id=?',[(int)$input['id']]);if(!$file)throw new RuntimeException('Файл не найден.');
+        if(strtolower($config['app']['edition']??'')==='commerce'&&$db->one('SELECT id FROM byp_shop_products WHERE images LIKE ? LIMIT 1',['%'.basename($file['path']).'%']))throw new RuntimeException('Файл используется в товаре. Сначала замените его.');
+        if(strtolower($config['app']['edition']??'')==='commerce'&&$db->one('SELECT id FROM byp_shop_groups WHERE image LIKE ? LIMIT 1',['%'.basename($file['path']).'%']))throw new RuntimeException('Файл используется в подборке. Сначала замените его.');
         if($db->one('SELECT id FROM byp_page_revisions WHERE snapshot LIKE ? LIMIT 1',['%'.basename($file['path']).'%']))throw new RuntimeException('Файл используется в истории версий. Его удаление нарушит восстановление.');
         if($db->one('SELECT p.id FROM byp_pages p LEFT JOIN byp_content_meta m ON m.page_id=p.id WHERE p.content LIKE ? OR p.blocks LIKE ? OR m.data LIKE ? LIMIT 1',array_fill(0,3,'%'.basename($file['path']).'%')))throw new RuntimeException('Файл используется в материале. Сначала замените его.');
         if(preg_match('#^uploads/content/[a-f0-9]{32}\.(jpg|png|webp|gif|pdf)$#D',$file['path'])&&is_file(BYPCMS_ROOT.'/'.$file['path'])&&!unlink(BYPCMS_ROOT.'/'.$file['path']))throw new RuntimeException('Не удалось удалить файл.');

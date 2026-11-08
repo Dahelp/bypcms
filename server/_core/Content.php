@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by the installed Journal, editor and previews. */
 final class Content {
-    public const VERSION='2.2.0';
+    public const VERSION='2.3.0';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]='/'.$v['path'].' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=$url.' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
@@ -24,7 +24,7 @@ final class Content {
     public static function e(mixed $s): string {return htmlspecialchars((string)$s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
     public static function imageUrl(string $url): string {return strlen($url)<=550000&&preg_match('#^data:image/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$#D',$url)?$url:self::url($url);}
     public static function asset(string $path): string {
-        if(preg_match('#^/themes/(journal|atelier)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
+        if(preg_match('#^/themes/(journal|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
     }
     public static function url(string $url): string {
         $url=trim($url);
@@ -66,7 +66,7 @@ final class Content {
     public function configure(array $input): void {
         if(!empty($input['activate_journal']))$input['theme']='journal';
         $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
-        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:['journal'],true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
+        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
         if(isset($data['site_name'])&&(trim($data['site_name'])===''||mb_strlen($data['site_name'])>100))throw new RuntimeException('Укажите название сайта до 100 символов.');
         if(isset($data['accent'])&&!preg_match('/^#[0-9a-f]{6}$/i',$data['accent']))throw new RuntimeException('Некорректный цвет.');
         if(isset($data['email'])&&$data['email']!==''&&!filter_var($data['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Проверьте email.');
@@ -95,7 +95,8 @@ final class Content {
         $v['title']=trim((string)($v['title']??''));$v['slug']=trim((string)($v['slug']??''),'/ ');$v['kind']=$v['kind']??'article';
         if($v['title']===''||mb_strlen($v['title'])>255)throw new RuntimeException('Название обязательно, не более 255 символов.');
         if(!preg_match('#^[a-z0-9][a-z0-9/-]{0,189}$#D',$v['slug'])||str_contains($v['slug'],'//')||in_array(explode('/',$v['slug'])[0],['admin','manage','api','themes','uploads','_core','_storage','_private','_releases','updates','install','category','author','search','articles','preview'],true))throw new RuntimeException('Укажите уникальный адрес латиницей; служебные адреса зарезервированы.');
-        if(!in_array($v['kind'],strtolower($this->config['app']['edition']??'')==='business'?['service','project','person','page']:['article','page'],true)||!in_array($v['status']??'draft',['draft','published','scheduled','archived'],true))throw new RuntimeException('Некорректный тип или статус.');
+        if(strtolower($this->config['app']['edition']??'')==='commerce'&&in_array(explode('/',$v['slug'])[0],['catalog','product','cart','checkout','order','account','payment-notification'],true))throw new RuntimeException('Этот адрес используется магазином.');
+        if(!in_array($v['kind'],strtolower($this->config['app']['edition']??'')==='business'?['service','project','person','page']:(strtolower($this->config['app']['edition']??'')==='commerce'?['page']:['article','page']),true)||!in_array($v['status']??'draft',['draft','published','scheduled','archived'],true))throw new RuntimeException('Некорректный тип или статус.');
         $v['status']=$v['status']??'draft';$date=trim((string)($v['published_at']??''));
         if($date!==''){ $dt=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date,new \DateTimeZone('UTC'))?:\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$date,new \DateTimeZone('UTC'));if(!$dt||$dt->format(str_contains($date,'T')?'Y-m-d\\TH:i':'Y-m-d H:i:s')!==$date)throw new RuntimeException('Проверьте дату публикации (UTC).');$date=$dt->format('Y-m-d H:i:s');}
         if($v['status']==='scheduled'&&($date===''||strtotime($date.' UTC')<=time()))throw new RuntimeException('Для отложенной публикации укажите будущую дату (UTC).');
@@ -137,6 +138,7 @@ final class Content {
     }
     public function terms(string $kind=''): array {return $this->db->all('SELECT * FROM byp_content_terms'.($kind!==''?' WHERE kind=?':'').' ORDER BY title',$kind!==''?[$kind]:[]);}
     public function termSave(array $v): int {
+        if(strtolower($this->config['app']['edition']??'')==='commerce'&&in_array(explode('/',$v['slug'])[0],['catalog','product','cart','checkout','order','account','payment-notification'],true))throw new RuntimeException('Этот адрес используется магазином.');
         if(!in_array($v['kind']??'',['category','author'],true)||!preg_match('/^[a-z0-9][a-z0-9-]{0,189}$/D',$v['slug']??'')||trim($v['title']??'')==='')throw new RuntimeException('Заполните название и адрес латиницей.');
         $id=(int)($v['id']??0);$old=$id?$this->db->one('SELECT * FROM byp_content_terms WHERE id=?',[$id]):null;
         if($id&&!$old)throw new RuntimeException('Запись не найдена.');if($old&&$old['kind']!==$v['kind'])throw new RuntimeException('Нельзя изменить тип рубрики или автора.');

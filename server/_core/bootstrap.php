@@ -81,6 +81,7 @@ if (($config['app']['installation_type'] ?? 'platform') === 'client') {
     require_once __DIR__.'/Content.php';
     \BYPCMS\Core\Content::schema($db->pdo());
     if(strtolower($config['app']['edition']??'')==='business'){require_once __DIR__.'/Business.php';\BYPCMS\Core\Business::schema($db->pdo());}
+    if(strtolower($config['app']['edition']??'')==='commerce'){require_once __DIR__.'/Shop.php';\BYPCMS\Core\Shop::schema($db->pdo());}
     return;
 }
 

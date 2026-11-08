@@ -1,0 +1,14 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../server/_core/Shop.php';require_once __DIR__.'/../server/_core/Gallery.php';
+use BYPCMS\Core\{Shop,Gallery,PaymentGateway};
+$n=0;$check=static function($v,$m)use(&$n){if(!$v)throw new RuntimeException($m);$n++;};
+$check(Shop::contact(['name'=>'Buyer','email'=>'buyer@example.test','phone'=>'+79990000000','address'=>'Test address','consent'=>1,'terms'=>1])['name']==='Buyer','checkout contact');
+foreach(['email'=>'wrong','phone'=>'abc','terms'=>0,'consent'=>0,'address'=>'']as $key=>$v)try{Shop::contact(array_replace(['name'=>'Buyer','email'=>'buyer@example.test','phone'=>'+79990000000','address'=>'Test','consent'=>1,'terms'=>1],[$key=>$v]));throw new LogicException('must reject '.$key);}catch(RuntimeException $x){$check(true,'invalid input');}
+for($qty=1;$qty<25;$qty++){foreach([0,1,37,90]as $pct){$items=[['title'=>'First','price'=>12345,'quantity'=>$qty],['title'=>'Second','price'=>29900,'quantity'=>3]];$sub=12345*$qty+29900*3;$discount=intdiv($sub*$pct,100);$receipt=Shop::receiptItems($items,$discount,90000,1);$total=array_sum(array_map(fn($r)=>PaymentGateway::minor($r['amount']['value'])*(int)$r['quantity'],$receipt));$check($total===$sub-$discount+90000,'exact receipt allocation');}}
+$seed=require __DIR__.'/../server/_core/GallerySeed.php';$s=['site_name'=>'GALLERY_TEST','site_url'=>'https://shop.example.test'];
+foreach(['','catalog','product/forma-chair','cart','checkout','account','order','about','delivery','returns','terms','privacy','contact','missing']as $path){$_GET=[];ob_start();Gallery::render($seed['products'],$s,$seed['pages'],$path,'/gallery',['demo'=>true]);$html=ob_get_clean();$check(str_contains($html,'g-view-')&&str_contains($html,'GALLERY_TEST')&&str_contains($html,'gallery.css'),'renderer '.$path);$check(!str_contains($html,'Warning:')&&!str_contains($html,'Fatal error'),'no errors '.$path);}
+$_GET=['q'=>'UNMATCHED_TEST'];ob_start();Gallery::render($seed['products'],$s,$seed['pages'],'catalog');$html=ob_get_clean();$check(str_contains($html,'Пока ничего не найдено'),'empty search');
+$_GET=['variant'=>2];ob_start();Gallery::render($seed['products'],$s,$seed['pages'],'product/forma-chair');$html=ob_get_clean();$check(str_contains($html,'Нет в наличии')&&str_contains($html,'disabled>Недоступно'),'unavailable variant');
+$_GET=[];set_error_handler(static function($n,$message){throw new RuntimeException($message);});ob_start();Gallery::render([],['site_name'=>'Preview'],[['slug'=>'new-preview','title'=>'Unsaved page','content'=>'<p>UNSAVED_BODY</p>']],'new-preview','',['preview'=>true]);$preview=ob_get_clean();restore_error_handler();$check(str_contains($preview,'UNSAVED_BODY')&&str_contains($preview,'preview-close'),'new page preview does not require optional excerpt');
+echo 'Commerce / Gallery: '.$n." checks passed\n";

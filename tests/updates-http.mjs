@@ -31,6 +31,9 @@ for(let i=0;i<300;i++){
 assert.equal(job.state,'completed',JSON.stringify(job));check(sawMaintenance,'snapshot was protected by maintenance');
 const status=await (await fetch(f.client.origin+'/api/index.php?action=status')).json();check(status.version===release.version,'real runtime switches to new code');
 check((await fetch(f.client.origin+'/')).status===200,'public frontend works after update');
+const storefront=await (await fetch(f.client.origin+'/')).text();
+for(const path of [...storefront.matchAll(/(?:src|href)="([^"]*(?:gallery|atelier|journal)\.(?:css|js)[^"]*)"/g)].map(m=>m[1])){check(path.includes('/_update-assets/'+job.id+'/'),'theme follows active release');check((await fetch(f.client.origin+path)).status===200,'active theme asset works');}
+
 check((await fetch(f.client.origin+'/_releases/'+job.id+'/api/app.php')).status===403,'release PHP is private');
 check((await fetch(f.client.origin+'/_storage/updates/jobs/'+job.id+'.json')).status===403,'journal and backup paths are private');
 const admin=await (await fetch(f.client.origin+'/admin/?section=updates')).text();check(admin.includes('/_update-assets/'+job.id+'/_next/'),'admin uses release assets');

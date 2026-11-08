@@ -1,7 +1,7 @@
 import assert from'node:assert/strict';
 const origin=process.env.BYPCMS_BUSINESS_ORIGIN||'https://demo.bypcms.ru';
 for(const path of ['/atelier/','/atelier/services/','/atelier/services/interiors/','/atelier/projects/','/atelier/projects/quiet-house/','/atelier/about/','/atelier/team/','/atelier/contact/','/atelier/privacy/','/atelier/search/?q=проект']){
- const r=await fetch(origin+path,{cache:'no-store',signal:AbortSignal.timeout(30000)}),html=await r.text();assert.equal(r.status,200,path);assert.ok(html.includes('atelier.css')&&html.includes('a-footer')&&!html.includes('Warning:')&&!html.includes('Fatal error'),path);if(path==='/atelier/contact/')assert.ok(!html.includes('id="business-request"'),'showcase cannot submit production leads');
+ const r=await fetch(origin+path,{cache:'no-store',signal:AbortSignal.timeout(30000)}),html=await r.text();assert.equal(r.status,200,path);assert.ok(html.includes('atelier.css')&&html.includes('a-footer')&&html.includes('class="a-site a-view-')&&!html.includes('Warning:')&&!html.includes('Fatal error'),path);if(path==='/atelier/contact/')assert.ok(!html.includes('id="business-request"'),'showcase cannot submit production leads');
 }
 for(const path of ['/themes/atelier/atelier.css','/themes/atelier/atelier.js','/themes/atelier/assets/manrope.ttf','/themes/atelier/assets/project-1.jpg','/themes/atelier/assets/project-1-480.webp','/themes/atelier/assets/project-1-1280.webp']){const r=await fetch(origin+path);assert.equal(r.status,200,path);assert.ok(!r.headers.get('content-type')?.includes('text/html'),path);await r.arrayBuffer();}
 const missing=await fetch(origin+'/atelier/no-such-case/');assert.equal(missing.status,404);await missing.text();

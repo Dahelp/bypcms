@@ -11,7 +11,7 @@ require_once __DIR__.'/LicenseCrypto.php';
 
 /** Installed store only. No platform accounts, license orders or payment settings. */
 final class Shop {
-    public const VERSION='2.3.0';
+    public const VERSION='2.3.1';
     public const TABLES=['byp_shop_groups','byp_shop_limits','byp_shop_products','byp_shop_variants','byp_shop_carts','byp_shop_orders','byp_shop_items','byp_shop_payments','byp_shop_refunds','byp_shop_mail'];
     public Content $content;
     public function __construct(public Database $db,public array $config,public string $root){$this->content=new Content($db,$config,$root);self::schema($db->pdo());}
@@ -32,7 +32,7 @@ final class Shop {
         foreach($sql as $table=>$fields)$pdo->exec('CREATE TABLE IF NOT EXISTS '.$table.' ('.$fields.') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
         $pdo->exec('INSERT IGNORE INTO byp_migrations(migration,batch,applied_at) VALUES("2026_11_08_gallery_v1",4,NOW())');
     }
-    public static function money(int $minor):string{return number_format($minor/100,0,',',' ').' ₽';}
+    public static function money(int $minor):string{return Content::money($minor);}
     public static function uuid():string{$h=bin2hex(random_bytes(16));return substr($h,0,8).'-'.substr($h,8,4).'-4'.substr($h,13,3).'-a'.substr($h,17,3).'-'.substr($h,20);}
     public function actor(string $token):string{return hash_hmac('sha256',$token,$this->config['app']['key']);}
     public function settings(bool $secret=false):array {

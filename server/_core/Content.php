@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by the installed Journal, editor and previews. */
 final class Content {
-    public const VERSION='2.3.0';
+    public const VERSION='2.3.1';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]='/'.$v['path'].' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=$url.' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
@@ -22,6 +22,7 @@ final class Content {
         $pdo->exec('INSERT IGNORE INTO byp_migrations(migration,batch,applied_at) VALUES("2026_11_07_journal_v1",2,NOW())');
     }
     public static function e(mixed $s): string {return htmlspecialchars((string)$s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
+    public static function money(int $minor): string {return number_format($minor/100,$minor%100===0?0:2,',',' ').' ₽';}
     public static function imageUrl(string $url): string {return strlen($url)<=550000&&preg_match('#^data:image/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$#D',$url)?$url:self::url($url);}
     public static function asset(string $path): string {
         if(preg_match('#^/themes/(journal|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;

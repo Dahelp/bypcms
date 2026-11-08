@@ -17,8 +17,8 @@ http.createServer(async(req,res)=>{
  }
  if(url.pathname.startsWith('/pay/')){
   const payment=payments.get(url.pathname.slice(5));if(!payment)return json(res,{},404);
-  if(req.method==='POST'){payment.status='succeeded';payment.paid=true;res.writeHead(303,{Location:payment.return_url});res.end();return;}
-  res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Изолированная оплата</title><main style="max-width:500px;margin:40px auto;font:18px system-ui"><h1>Тестовая ЮKassa</h1><p>Локальный стенд. Деньги не списываются.</p><p>'+payment.amount.value+' RUB</p><form method="post"><button style="padding:16px">Подтвердить тестовую оплату</button></form><a href="'+payment.return_url+'">Вернуться без оплаты</a></main>');return;
+  if(req.method==='POST'){if(payment.status==='pending'){payment.status=new URLSearchParams(raw).get('action')==='cancel'?'canceled':'succeeded';payment.paid=payment.status==='succeeded';}res.writeHead(303,{Location:payment.return_url});res.end();return;}
+  res.setHeader('Content-Type','text/html; charset=utf-8');res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Изолированная оплата</title><main style="max-width:500px;margin:40px auto;font:18px system-ui"><h1>Тестовая ЮKassa</h1><p>Локальный стенд. Деньги не списываются.</p><p>'+payment.amount.value+' RUB</p><form method="post"><button style="padding:16px">Подтвердить тестовую оплату</button></form><form method="post"><input type="hidden" name="action" value="cancel"><button style="padding:16px">Отменить тестовый платёж</button></form><a href="'+payment.return_url+'">Вернуться без оплаты</a></main>');return;
  }
  if(req.headers.authorization!=='Basic '+Buffer.from('12345:qa-payment-secret').toString('base64'))return json(res,{type:'error'},401);
  if(url.pathname==='/v3/refunds'&&req.method==='POST'){

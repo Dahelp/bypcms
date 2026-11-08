@@ -5,7 +5,7 @@ require_once __DIR__.'/../server/_core/UpdateRuntime.php';
 use BYPCMS\Core\UpdatePackage as Package;
 $checks=0;function check(bool $ok,string $message):void{global $checks;if(!$ok)throw new RuntimeException($message);$checks++;}
 function rejects(callable $callback,string $message):void{try{$callback();}catch(Throwable $error){check(true,$message);return;}throw new RuntimeException($message);}
-foreach(['_core/bootstrap.php','_core/LicenseClient.php','api/app.php','admin/index.html','_next/static/a.js','_next/static/a.css']as $path)check(Package::path($path),'supported managed path');
+foreach(['_core/bootstrap.php','_core/LicenseClient.php','api/app.php','admin/index.html','_next/static/a.js','_next/static/a.css','themes/gallery/assets/manrope.woff2','_next/static/gallery/assets/cormorant.woff2']as $path)check(Package::path($path),'supported managed path');
 foreach(['../config.php','files/../config.php','/absolute','_core/../config.php','_core/UpdateRuntime.php','_core/UpdateEngine.php','api/index.php','updates/index.php','_storage/config.php','uploads/a.jpg','project/a.php','themes/custom/page.html','_core/license-trust.json','_next/static/a.php','_next/static\\a.js']as $path)check(!Package::path($path),'protected or traversing path rejected');
 $files=['api/app.php'=>'<?php echo "OK";','_core/bootstrap.php'=>'<?php','_core/client-front.php'=>'<?php','admin/index.html'=>'<!doctype html><title>Test</title>'];
 $m=['schema'=>'bypcms.release/v1','version'=>'2.1.1','from'=>['2.1.0'],'editions'=>['content'],'modules'=>['content'],'php_min'=>'8.2.0','migrations'=>[],'files'=>[]];

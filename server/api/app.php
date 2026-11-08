@@ -18,6 +18,14 @@ if ($method === 'OPTIONS') {
 
 try {
     byp_license_route($action,$method,$input,$db,$config,null);
+    if (($config['app']['installation_type'] ?? 'platform') === 'client') {
+        if($method!=='GET' && (str_starts_with($action,'settings.')||str_starts_with($action,'modules.')) && !in_array($auth->requireUser()['role'],['owner','admin'],true))Response::error('Настройки доступны администратору.',403);
+        if(strtolower($config['app']['edition']??'')==='content' && (($action==='modules.toggle'&&in_array($input['module_key']??'',['content','seo'],true)&&($input['status']??'')!=='active')||($action==='panel.bulk'&&($input['collection']??'')==='modules'&&($input['status']??'')!=='active'&&array_intersect((array)($input['ids']??[]),['content','seo']))))Response::error('Content и базовый SEO обязательны для темы Journal.',422);
+        if (str_starts_with($action,'owner.') || str_starts_with($action,'concepts.') || $action==='build.download' || $action==='portfolio.public') Response::error('Раздел доступен только на платформе BYPCMS',403);
+        if (strtolower($config['app']['edition'] ?? '') === 'content' && (str_starts_with($action,'content.') || str_starts_with($action,'pages.') || str_starts_with($action,'media.'))) {
+            require __DIR__.'/../_core/content-api.php';
+        }
+    }
     if ($action === 'status' && $method === 'GET') {
         $db->one('SELECT 1 AS healthy');
         Response::ok([
@@ -40,11 +48,13 @@ try {
             Response::error('Неверный email или пароль', 401);
         }
         byp_audit($db, $user, 'auth.login', 'user', (int)$user['id']);
+        if (($config['app']['installation_type']??'platform')==='client' && strtolower($config['app']['edition']??'')==='content') $user['content_admin']='/manage/';
         Response::ok(['user' => $user, 'csrf' => $_SESSION['csrf']]);
     }
 
     if ($action === 'auth.me' && $method === 'GET') {
         $user = $auth->requireUser();
+        if (($config['app']['installation_type']??'platform')==='client' && strtolower($config['app']['edition']??'')==='content') $user['content_admin']='/manage/';
         Response::ok(['user' => $user, 'csrf' => (string)($_SESSION['csrf'] ?? '')]);
     }
 
@@ -529,6 +539,8 @@ try {
         if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             Response::error('Не удалось создать архив сборки', 500);
         }
+        require_once __DIR__.'/../_core/Content.php';
+        $packageVersion=strtolower($edition)==='content'?\BYPCMS\Core\Content::VERSION:(string)($config['app']['version']??'2.1.0');
         $root = realpath(BYPCMS_ROOT);
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
@@ -538,20 +550,21 @@ try {
             $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
             if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
             $topDirectory = explode('/', $relative)[0];
-            if (in_array($topDirectory, ['account','owner','demo','portfolio','services','modules','order','concepts','concept-example','nuovi-spazi-proposal','ballettschule-salzburg-konzept','ballet-salzburg-proposal'], true)) continue;
+            if (!in_array($topDirectory, ['_core','api','install','admin','_next','themes','updates','_releases'], true)) continue;
             if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
             $zip->addFile($full, 'site/' . $relative);
         }
         $zip->addFromString('site/_core/license-trust.json',json_encode(byp_license_authority($db,$config,$user)->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
         $zip->addFromString('site/index.php', "<?php\nrequire_once __DIR__ . '/_core/UpdateRuntime.php';\n\\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__, '_core/client-front.php');\n");
+        $zip->addFile(BYPCMS_ROOT.'/uploads/.htaccess','site/uploads/.htaccess');
         $zip->addFromString('site/.htaccess', "DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
         $zip->addFromString('database.sql', implode(";\n\n", $schema) . ";\n");
         $zip->addFromString('build-manifest.json', json_encode([
             'product' => 'BYPCMS',
             'edition' => $edition,
             'license_term' => $licenseTerm,
-            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+            'core_version' => $packageVersion,
             'modules' => $selected,
             'created_at' => date(DATE_ATOM),
             'installer' => 'site/install/index.php',
@@ -559,7 +572,7 @@ try {
         $zip->addFromString('site/build-manifest.json', json_encode([
             'product' => 'BYPCMS', 'edition' => strtolower($edition),
             'license_term' => $licenseTerm, 'modules' => $selected,
-            'core_version' => (string)($config['app']['version'] ?? '2.1.0'),
+            'core_version' => $packageVersion,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $zip->addFromString('README.txt', "BYPCMS {$edition}\n\n1. Загрузите содержимое папки site на сервер.\n2. Откройте /install/.\n3. Укажите параметры MySQL и создайте владельца.\n");
         $zip->close();
@@ -576,7 +589,7 @@ try {
         $db->execute(
             'INSERT INTO byp_builds (build_key,name,edition,core_version,modules,services,total,archive_path,status,created_at,updated_at)
              VALUES (:key,:name,:edition,:core,:modules,"[]",:total,:archive,"ready",NOW(),NOW())',
-            ['key'=>$buildKey,'name'=>$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>(string)($config['app']['version'] ?? '2.1.0'),
+            ['key'=>$buildKey,'name'=>$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>$packageVersion,
              'modules'=>json_encode($selected,JSON_UNESCAPED_UNICODE),'total'=>(float)($corePrices[$edition] ?? 24900)+$moduleTotal,'archive'=>$buildId.'.zip']
         );
         byp_audit($db, $user, 'build.download', 'build', null, ['edition' => $edition, 'modules' => $selected]);
@@ -610,6 +623,7 @@ try {
     }
 
     if ($action === 'pages.list' && $method === 'GET') {
+        if (($config['app']['installation_type'] ?? 'platform') !== 'client') {
         $systemPages = [
             ['modules', 'Модули', 'Каталог модулей BYPCMS', 'catalog'],
             ['services', 'Услуги', 'Проектирование, дизайн, разработка, запуск и сопровождение', 'services'],
@@ -623,6 +637,7 @@ try {
                  VALUES (:author,:slug,:title,:excerpt,"","[]",:template,"published",NOW(),NOW(),NOW())',
                 ['author'=>$user['id'],'slug'=>$systemPage[0],'title'=>$systemPage[1],'excerpt'=>$systemPage[2],'template'=>$systemPage[3]]
             );
+        }
         }
         Response::ok(['pages' => $db->all(
             'SELECT p.id, p.parent_id, p.slug, p.title, p.excerpt, p.content, p.template, p.status, p.published_at, p.created_at, p.updated_at,

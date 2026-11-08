@@ -76,6 +76,13 @@ if ($activeRelease) $config['app']['version']=$activeRelease['version'];
 $db = new Database($config);
 $auth = new Auth($db);
 
+// Installed sites never import platform sales, portfolio or demonstration data.
+if (($config['app']['installation_type'] ?? 'platform') === 'client') {
+    require_once __DIR__.'/Content.php';
+    \BYPCMS\Core\Content::schema($db->pdo());
+    return;
+}
+
 $platformMarker = BYPCMS_STORAGE . '/platform-schema-v5.lock';
 if (!is_file($platformMarker)) {
     foreach (require __DIR__ . '/platform_schema.php' as $statement) {

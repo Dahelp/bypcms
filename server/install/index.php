@@ -11,10 +11,13 @@ $_SESSION['install_csrf'] ??= bin2hex(random_bytes(24));
 
 $installed = is_file(CONFIG_PATH);
 $errors = [];
+if(version_compare(PHP_VERSION,'8.2.0','<'))$errors[]='Требуется PHP 8.2 или новее.';
+foreach(['pdo_mysql','mbstring','zip']as $extension)if(!extension_loaded($extension))$errors[]='Включите расширение PHP: '.$extension;
 $success = false;
 $manifest = is_file(ROOT_PATH . '/build-manifest.json')
     ? json_decode((string)file_get_contents(ROOT_PATH . '/build-manifest.json'), true) : null;
 $edition = strtolower((string)($manifest['edition'] ?? 'business'));
+if($edition==='content'){foreach(['dom','fileinfo','gd']as $extension)if(!extension_loaded($extension))$errors[]='Для Content включите расширение PHP: '.$extension;if(extension_loaded('gd')&&(!function_exists('imagewebp')||!(imagetypes()&IMG_WEBP)))$errors[]='Для Content требуется поддержка WebP в PHP GD.';}
 if (!in_array($edition, ['content', 'business', 'commerce'], true)) {
     $errors[] = 'Некорректная редакция в manifest сборки.';
 }
@@ -94,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 if (preg_match('/^CREATE TABLE IF NOT EXISTS ([a-z0-9_]+)/i', $statement, $match)) $createdTables[] = $match[1];
             }
 
+            if (is_array($manifest) && $edition==='content') {
+                require_once ROOT_PATH.'/_core/Content.php';
+                \BYPCMS\Core\Content::schema($pdo);
+                array_push($createdTables,'byp_content_meta','byp_content_terms','byp_content_redirects');
+            }
             $pdo->beginTransaction();
             $roleStatement = $pdo->prepare(
                 'INSERT INTO byp_roles (slug, name, permissions, created_at, updated_at)
@@ -165,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 'INSERT INTO byp_pages (author_id, slug, title, excerpt, content, blocks, template, status, published_at, created_at, updated_at)
                  VALUES (:author, "home", "Главная", :excerpt, :content, :blocks, "landing", "published", NOW(), NOW(), NOW())'
             );
-            if (!(int)$pdo->query('SELECT COUNT(*) FROM byp_pages')->fetchColumn()) {
+            if (!(int)$pdo->query('SELECT COUNT(*) FROM byp_pages')->fetchColumn() && (!is_array($manifest) || $edition!=='content')) {
                 $pageStatement->execute([
                     'author' => $adminId,
                     'excerpt' => 'Главная страница BYPCMS',
@@ -176,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 ]);
             }
 
-            if (is_array($manifest)) {
+            if (is_array($manifest) && $edition!=='content') {
                 $starter = $pdo->prepare('INSERT INTO byp_pages (author_id,slug,title,excerpt,content,blocks,template,status,published_at,created_at,updated_at) SELECT :author,:slug,:title,:excerpt,:content,"[]","page","published",NOW(),NOW(),NOW() WHERE NOT EXISTS (SELECT 1 FROM byp_pages WHERE slug=:existing)');
                 foreach ([['about','О компании'],['contacts','Контакты'],[$edition==='content'?'journal':($edition==='commerce'?'catalog':'services'),$edition==='content'?'Журнал':($edition==='commerce'?'Каталог':'Услуги')]] as [$starterSlug,$starterTitle]) {
                     $starter->execute(['author'=>$adminId,'slug'=>$starterSlug,'existing'=>$starterSlug,'title'=>$starterTitle,'excerpt'=>$starterTitle.' — '.$siteName,'content'=>'Заполните содержание этой страницы в разделе «Контент» панели управления.']);
@@ -199,6 +207,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 'INSERT IGNORE INTO byp_migrations (migration, batch, applied_at)
                  VALUES ("2026_07_27_000001_initial_core", 1, NOW())'
             );
+            if (is_array($manifest) && $edition==='content') \BYPCMS\Core\Content::seed($pdo,$adminId,$siteName);
             $pdo->commit();
 
             $config = [

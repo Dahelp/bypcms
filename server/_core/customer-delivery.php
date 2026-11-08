@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__.'/LicenseAuthority.php';
+require_once __DIR__.'/Content.php';
 require_once __DIR__.'/UpdateRuntime.php';
 require_once __DIR__.'/PaymentGateway.php';
 require_once __DIR__.'/CommerceAccess.php';
@@ -23,7 +24,7 @@ function customer_license_register($db,array $config,array $order,array $deliver
     $details=$db->one("SHOW TABLES LIKE 'byp_commerce_orders'")?$db->one('SELECT amount_minor,mode FROM byp_commerce_orders WHERE order_id=?',[$order['id']]):null;
     $price=$details?\BYPCMS\Core\PaymentGateway::amount((int)$details['amount_minor']):'0.00';$status=($details['mode']??'')==='test'?'trial':'active';
     if($status==='trial'){$term='annual';$until=gmdate('Y-m-d',time()+7*86400);}
-    $id=$db->insert('INSERT INTO byp_license_registry(client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,"",?,?,NULL,?,NOW(),NOW())',[$clientId,hash('sha256',$plain),substr($plain,0,12).'••••',\BYPCMS\Core\LicensePolicy::domain($order['domain']),ucfirst($order['edition']),$term,$price,$config['app']['version']??'2.1.0',$order['modules'],$status,$until]);
+    $id=$db->insert('INSERT INTO byp_license_registry(client_id,license_key_hash,license_hint,domain,edition,license_term,purchase_price,core_version,installed_version,entitlements,status,activated_at,valid_until,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,"",?,?,NULL,?,NOW(),NOW())',[$clientId,hash('sha256',$plain),substr($plain,0,12).'••••',\BYPCMS\Core\LicensePolicy::domain($order['domain']),ucfirst($order['edition']),$term,$price,strtolower($order['edition'])==='content'?\BYPCMS\Core\Content::VERSION:($config['app']['version']??'2.1.0'),$order['modules'],$status,$until]);
     (new \BYPCMS\Core\LicenseAuthority($db->pdo(),BYPCMS_STORAGE,$config))->storeKey($id,$plain);
     $db->execute('INSERT INTO byp_license_order_links(order_id,license_id) VALUES(?,?)',[$order['id'],$id]);
     return $id;
@@ -47,7 +48,8 @@ function customer_package_trust($db,array $config,string $path): void {
         if(!$bootstrap){
             foreach(['_core','api','install','admin','_next','updates','_releases']as $directory){$source=BYPCMS_ROOT.'/'.$directory;if(!is_dir($source))continue;foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source,FilesystemIterator::SKIP_DOTS))as $file){if(!$file->isFile()||$file->isLink())continue;$relative=str_replace('\\','/',substr($file->getPathname(),strlen(BYPCMS_ROOT)+1));if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;$zip->addFile($file->getPathname(),'site/'.$relative);}}
             $zip->addFromString('site/index.php',"<?php require_once __DIR__.'/_core/UpdateRuntime.php'; \\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__,'_core/client-front.php');");
-            $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
+            $zip->addFile(BYPCMS_ROOT.'/uploads/.htaccess','site/uploads/.htaccess');
+        $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
         }
         $zip->addFromString('site/_core/license-trust.json',json_encode($trust,JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         if(!$zip->close()||!rename($temporary,$path))throw new RuntimeException('Не удалось обновить пакет');
@@ -70,8 +72,9 @@ function customer_fulfill($db,array $config,int $id,int $owner,bool $paid=false)
         $root=realpath(BYPCMS_ROOT);
         foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS)) as $file){if(!$file->isFile()||$file->isLink())continue;$relative=str_replace('\\','/',substr($file->getPathname(),strlen($root)+1));$first=explode('/',$relative)[0];if(!in_array($first,['_core','api','install','admin','_next','themes','updates','_releases'],true))continue;if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;$zip->addFile($file->getPathname(),'site/'.$relative);}
         $zip->addFromString('site/index.php',"<?php require_once __DIR__.'/_core/UpdateRuntime.php'; \\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__,'_core/client-front.php');");
+        $zip->addFile(BYPCMS_ROOT.'/uploads/.htaccess','site/uploads/.htaccess');
         $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
-        $manifest=['test_purchase'=>!$paid||($proof['mode']??'')==='test','product'=>'BYPCMS','edition'=>$order['edition'],'modules'=>json_decode($order['modules'],true),'license_term'=>(!$paid||($proof['mode']??'')==='test')?'annual':$order['license_term'],'domain'=>$order['domain'],'order_id'=>$id,'core_version'=>$config['app']['version']??'2.1.0'];
+        $manifest=['test_purchase'=>!$paid||($proof['mode']??'')==='test','product'=>'BYPCMS','edition'=>$order['edition'],'modules'=>json_decode($order['modules'],true),'license_term'=>(!$paid||($proof['mode']??'')==='test')?'annual':$order['license_term'],'domain'=>$order['domain'],'order_id'=>$id,'core_version'=>strtolower($order['edition'])==='content'?\BYPCMS\Core\Content::VERSION:($config['app']['version']??'2.1.0')];
         $zip->addFromString('site/build-manifest.json',json_encode($manifest,JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE));
         $zip->addFromString('site/_core/license-trust.json',json_encode((new \BYPCMS\Core\LicenseAuthority($pdo,BYPCMS_STORAGE,$config))->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         $zip->addFromString('README.txt',($paid&&($proof['mode']??'')!=='test'?"BYPCMS PURCHASE. ":"TEST PURCHASE — not production-certified. ")." Upload site/ contents; open /install/. Use a new empty database. Create the admin password in installer. Then open /admin/?section=license and activate the purchase key on the licensed HTTPS domain.\n");

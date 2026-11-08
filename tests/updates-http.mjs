@@ -42,7 +42,7 @@ for(let i=0;i<300;i++){job=(await call(f.client,'step',{id:job.id})).job;if(['ro
 assert.equal(job.state,'rolled_back',JSON.stringify(job));
 check((await (await fetch(f.client.origin+'/api/index.php?action=status')).json()).version===baseline,'manual rollback restores previous runtime');
 check((await fetch(f.client.origin+'/')).status===200,'public site returns after rollback');
-check(await verifyUpdateAssets(f.client.origin,(await call(f.client,'status')).current.release)>0,'restored admin and lazy chunks use the restored release');
+const restoredRelease=(await call(f.client,'status')).current.release;if(restoredRelease)check(await verifyUpdateAssets(f.client.origin,restoredRelease)>0,'restored admin and lazy chunks use the restored release');else check((await (await fetch(f.client.origin+'/admin/')).text()).includes('/_next/'),'first-update rollback restores original admin assets');
 check((await (await fetch(f.client.origin+'/uploads/qa-preserve.txt')).text())==='Do not change user media','media file preserved');
 check((await (await fetch(f.client.origin+'/project/qa-preserve.txt')).text())==='Do not change user project','project file preserved');
 check((await call(f.client,'rollback',{id:job.id})).job.state==='rolled_back','rollback retry is idempotent');

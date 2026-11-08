@@ -18,6 +18,7 @@ import { useDemoSession } from "./useDemoSession";
 import { editorReturnHref, resolveDemoSection } from "./demo-navigation";
 import "./demo.css";
 import "./site-preview.css";
+import JournalPreview from "./JournalPreview";
 
 import {sanitizeDemoHtml} from "./safe-html";
 
@@ -64,7 +65,7 @@ function DemoWorkspace() {
     setEdition(nextEdition);
     let records = seedEntities;
     let nextTheme = initialTheme;
-    let nextSettings = initialSettings;
+    let nextSettings = {...initialSettings,...(nextEdition==='content'?{siteName:'Journal',slogan:'Архитектура. Люди. Пространство.',email:'hello@journal.demo'}:nextEdition==='commerce'?{siteName:'Forma Store',slogan:'Предметы для осмысленного пространства',email:'hello@forma.demo'}:{})};
     let nextModules = defaultInstalledModules;
     let siteSnapshotValid=!route.has("sitePreview");
     try {
@@ -76,7 +77,8 @@ function DemoWorkspace() {
       if (saved) {
         if (Array.isArray(saved.entities)) records = saved.entities;
         if (saved.theme) nextTheme = { ...initialTheme, ...saved.theme, editionTemplates: { ...initialTheme.editionTemplates, ...saved.theme.editionTemplates } };
-        if (saved.settings) nextSettings = { ...initialSettings, ...saved.settings };
+        if (saved.settings && (siteToken || saved.settingsEdition===nextEdition || (!saved.settingsEdition && (nextEdition==='business'||saved.settings.siteName!==initialSettings.siteName)))) nextSettings = { ...nextSettings, ...saved.settings };
+        if(!siteToken){const brand=sessionStorage.getItem('bypcms-demo-brand-'+nextEdition);if(brand)nextSettings={...nextSettings,...JSON.parse(brand)};}
         if (saved.installedModules) nextModules = { ...defaultInstalledModules, ...saved.installedModules };
       }
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
@@ -122,8 +124,8 @@ function DemoWorkspace() {
   }, []);
   useEffect(() => {
     if (!ready) return;
-    sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities, theme, settings, installedModules }));
-  }, [entities, theme, settings, installedModules, ready]);
+    try{sessionStorage.setItem("bypcms-real-demo-v1", JSON.stringify({ entities, theme, settings, settingsEdition:edition, installedModules }));sessionStorage.setItem('bypcms-demo-brand-'+edition,JSON.stringify(settings));}catch{setNotice('Не удалось сохранить демо-сессию: хранилище браузера заполнено.');}
+  }, [entities, theme, settings, installedModules, ready, edition]);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") { event.preventDefault(); setSearchOpen(true); }
@@ -196,7 +198,7 @@ function DemoWorkspace() {
 
   if (!ready || !auth.ready) return <PanelRouteLoading/>;
   if (!auth.logged && !publicSnapshot) return <Login onLogin={() => { try{auth.login();}catch{flash("Не удалось сохранить демо-сессию. Проверьте доступ браузера к хранилищу сайта и повторите вход.");} }} notice={notice || auth.error} flash={flash} />;
-  if (preview) return <main className="realDemo previewDocument"><PublicPreview entity={preview} edition={edition} theme={theme} settings={settings} unsaved={Boolean(editing && !editingSaved)} closeHref={panelHref({ edition, section: view, record: editingSaved?editing?.id:undefined, editor:editing && !editingSaved?"new":undefined, draft:editing && !editingSaved?editing.id:undefined, tab: editing ? editorTab : undefined })} /></main>;
+  if (preview) return <main className="realDemo previewDocument"><PublicPreview entities={entities} siteView={publicSnapshot} entity={preview} edition={edition} theme={theme} settings={settings} unsaved={Boolean(editing && !editingSaved)} closeHref={panelHref({ edition, section: view, record: editingSaved?editing?.id:undefined, editor:editing && !editingSaved?"new":undefined, draft:editing && !editingSaved?editing.id:undefined, tab: editing ? editorTab : undefined })} /></main>;
 
   return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
     <aside className="realSidebar workspaceMenu">
@@ -229,7 +231,7 @@ function DemoWorkspace() {
         {view === "media" && <DemoMediaLibrary />}
         {view === "seo" && <SeoCenter bulkActions={statusBulkActions<DemoEntity>([["Опубликовано","Опубликовать"],["Черновик","В черновики"]],(rows,status)=>batchEntities(rows,"status",status))} entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
         {view === "analytics" && <Analytics edition={edition} flash={flash} />}
-        {view === "design" && <DesignStudioV2 edition={edition} theme={theme} setTheme={setTheme} settings={settings} setSettings={setSettings} flash={flash} />}
+        {view === "design" && <DesignStudioV2 entities={entities} edition={edition} theme={theme} setTheme={setTheme} settings={settings} setSettings={setSettings} flash={flash} />}
         {view === "extensions" && <ExtensionCenterV2 edition={edition} installed={activeModules} setInstalled={keys => setInstalledModules(value => ({ ...value, [edition]: keys }))} flash={flash} />}
         {moduleRegistry.some(module => module.key === view && module.menu) && <InjectedModulePage edition={edition} module={moduleRegistry.find(module => module.key === view)!} />}
         {view === "settings" && <SettingsPanelV2 edition={edition} settings={settings} setSettings={setSettings} modules={moduleRegistry.filter(module => activeModules.includes(module.key) && module.slots.includes("settings.section"))} flash={flash} />}
@@ -584,7 +586,7 @@ function SettingsPanel({ settings, setSettings, modules, flash }: { settings: Se
 
 const fontChoices = ["Inter", "Manrope", "Roboto", "Montserrat", "Open Sans", "PT Sans", "PT Serif", "Playfair Display", "Lora", "Georgia", "Arial", "Verdana", "Trebuchet MS", "Times New Roman"];
 
-function DesignStudioV2({ edition, theme, setTheme, settings, setSettings, flash }: { edition: EditionKey; theme: ThemeState; setTheme: React.Dispatch<React.SetStateAction<ThemeState>>; settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; flash: (message: string) => void }) {
+function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSettings, flash }: { entities:DemoEntity[]; edition: EditionKey; theme: ThemeState; setTheme: React.Dispatch<React.SetStateAction<ThemeState>>; settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; flash: (message: string) => void }) {
   const [panel, setPanel] = useState<"templates" | "brand" | "layout" | "code">("templates");
   const updateTheme = <K extends keyof ThemeState>(key: K, value: ThemeState[K]) => setTheme(old => ({ ...old, [key]: value }));
   const chooseTemplate = (template: string) => setTheme(old => ({ ...old, template, editionTemplates: { ...old.editionTemplates, [edition]: template } }));
@@ -602,12 +604,13 @@ function DesignStudioV2({ edition, theme, setTheme, settings, setSettings, flash
     reader.readAsText(file);
     flash("Шаблон загружен в безопасный редактор предпросмотра");
   }
-  return <><PageHeading eyebrow="ДИЗАЙН САЙТА" title="Визуальные настройки" description="Шаблон, фирменный стиль и код с живым предпросмотром" actions={<button onClick={() => flash("Настройки дизайна опубликованы")}>Опубликовать дизайн</button>} /><nav className="designTabs" aria-label="Разделы дизайн-студии">{[["templates","Шаблоны"],["brand","Бренд и шрифты"],["layout","Шапка и макет"],["code","Код шаблона"]].map(([id,label]) => <button className={panel === id ? "active" : ""} onClick={() => setPanel(id as typeof panel)} key={id}>{label}</button>)}</nav><div className="designEditor designEditorV2"><aside>
+  if(edition==='content'&&theme.template==='journal')return <><PageHeading eyebrow="ДИЗАЙН САЙТА" title="Journal · редакционный журнал" description="Полноценная тема Content: истории, рубрики, авторы и поиск" actions={<><a className="panelLinkButton" href="/journal/" target="_blank" rel="noopener">Открыть Journal ↗</a><button onClick={()=>flash('Дизайн сохранён в вашей демо-сессии')}>Сохранить дизайн</button></>}/><div className="designStudio"><aside><section className="templateChooser"><small>ТЕМЫ CONTENT</small>{templateCatalog.content.map(item=><button className={theme.template===item.id?'active':''} key={item.id} onClick={()=>chooseTemplate(item.id)}><i className={`miniTemplate ${item.id}`}/><span><b>{item.name}</b><small>{item.id==='journal'?'Полноценная редакционная тема':item.note}</small></span>{theme.template===item.id?'✓':'→'}</button>)}</section><section><small>БРЕНД ИЗДАНИЯ</small><label>Название<input value={settings.siteName} onChange={e=>updateSettings('siteName',e.target.value)}/></label><label>Подпись<input value={settings.slogan||''} onChange={e=>updateSettings('slogan',e.target.value)}/></label><label className="uploadButton">Загрузить логотип<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>loadLogo(e.target.files?.[0])}/></label>{settings.logo&&<button onClick={()=>updateSettings('logo','')}>Убрать логотип</button>}<label>Акцентный цвет<input type="color" value={theme.accent} onChange={e=>updateTheme('accent',e.target.value)}/></label><label>Шрифт интерфейса<select value={theme.font==='system'?'system':'manrope'} onChange={e=>updateTheme('font',e.target.value)}><option value="manrope">Manrope</option><option value="system">Системный</option></select></label><label>Шрифт заголовков<select value={theme.headingFont==='georgia'?'georgia':'cormorant'} onChange={e=>updateTheme('headingFont',e.target.value)}><option value="cormorant">Cormorant Garamond</option><option value="georgia">Georgia</option></select></label><p className="fieldHelp">Предпросмотр использует тот же шаблон, что установленная CMS. Демо-изменения доступны только в вашей сессии.</p></section></aside><LiveSite entities={entities} edition={edition} entity={null} theme={theme} settings={settings}/></div></>;
+  return <><PageHeading eyebrow="ДИЗАЙН САЙТА" title="Визуальные настройки" description="Шаблон, фирменный стиль и код с живым предпросмотром" actions={<>{edition==='content'&&theme.template==='journal'&&<a className="panelLinkButton" href="/journal/" target="_blank" rel="noopener">Открыть Journal ↗</a>}<button onClick={() => flash("Настройки дизайна сохранены в демо-сессии")}>Сохранить дизайн</button></>} /><nav className="designTabs" aria-label="Разделы дизайн-студии">{[["templates","Шаблоны"],["brand","Бренд и шрифты"],["layout","Шапка и макет"],["code","Код шаблона"]].map(([id,label]) => <button className={panel === id ? "active" : ""} onClick={() => setPanel(id as typeof panel)} key={id}>{label}</button>)}</nav><div className="designEditor designEditorV2"><aside>
     {panel === "templates" && <section className="templateChooser"><small>3 ШАБЛОНА ДЛЯ BYPCMS {editions[edition].name.toUpperCase()}</small>{templateCatalog[edition].map(item => <button className={theme.template === item.id ? "active" : ""} onClick={() => chooseTemplate(item.id)} key={item.id}><i className={`miniTemplate ${item.id}`} /><span><b>{item.name}</b><small>{item.note}</small></span>{theme.template === item.id ? "✓" : "→"}</button>)}</section>}
     {panel === "code" && <section className="templateDeveloper"><small>СВОЙ ШАБЛОН</small><h3>Редактор разработчика</h3><p className="fieldHelp">Загрузите HTML-шаблон или редактируйте разметку. Скрипты и опасные атрибуты удаляются, переменные заменяются данными проекта.</p><div className="templateVariables">{["{{site.name}}","{{site.slogan}}","{{page.title}}","{{page.excerpt}}","{{page.image}}","{{product.price}}"].map(variable => <code key={variable}>{variable}</code>)}</div><label className="uploadButton">Загрузить HTML-шаблон<input type="file" accept=".html,.htm,.txt" onChange={event => loadTemplate(event.target.files?.[0])} /></label><label>Название шаблона<input value={theme.customTemplateName || ""} onChange={event => updateTheme("customTemplateName", event.target.value)} placeholder="Мой шаблон" /></label><label>HTML-разметка<textarea rows={18} spellCheck={false} value={theme.customTemplateSource || ""} onChange={event => updateTheme("customTemplateSource", event.target.value)} placeholder="<section><h1>{{page.title}}</h1></section>" /></label><button className="primary" onClick={() => chooseTemplate("custom")}>Применить и показать справа</button></section>}
     {panel === "brand" && <><section><small>ЛОГОТИП И СЛОГАН</small><div className="logoControl">{settings.logo ? <img src={settings.logo} alt="Логотип сайта" /> : <b>{settings.siteName.slice(0, 1)}</b>}<span><strong>{settings.siteName}</strong><small>{settings.slogan}</small></span></div><label className="uploadButton">Загрузить логотип<input type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" onChange={event => loadLogo(event.target.files?.[0])} /></label>{settings.logo && <button onClick={() => updateSettings("logo", "")}>Удалить логотип</button>}<label>Слоган<input value={settings.slogan || ""} onChange={event => updateSettings("slogan", event.target.value)} placeholder="Короткая фраза о компании" /></label></section><section><small>ТИПОГРАФИКА</small><label>Основной текст<select value={theme.font} onChange={event => updateTheme("font", event.target.value)}>{fontChoices.map(font => <option key={font}>{font}</option>)}</select></label><label>Заголовки<select value={theme.headingFont || theme.font} onChange={event => updateTheme("headingFont", event.target.value)}>{fontChoices.map(font => <option key={font}>{font}</option>)}</select></label><label>Свой шрифт<input value={theme.customFont || ""} onChange={event => updateTheme("customFont", event.target.value)} placeholder="Название, например MyBrand Sans" /></label><p className="fieldHelp">В рабочей CMS сюда загружаются WOFF2/WOFF. В демо название применяется, если шрифт установлен в системе.</p></section></>}
     {panel === "layout" && <><section><small>ШАПКА И МЕНЮ</small><label>Расположение меню<select value={theme.menuPosition || "center"} onChange={event => updateTheme("menuPosition", event.target.value as ThemeState["menuPosition"])}><option value="left">Слева от логотипа</option><option value="center">По центру</option><option value="right">Справа</option><option value="drawer">Кнопка-меню</option></select></label><label>Оформление шапки<select value={theme.header} onChange={event => updateTheme("header", event.target.value)}><option>Светлая</option><option>Тёмная</option><option>Прозрачная</option></select></label></section><section><small>ФИРМЕННЫЙ СТИЛЬ</small><label>Акцентный цвет<input type="color" value={theme.accent} onChange={event => updateTheme("accent", event.target.value)} /></label><label>Фон сайта<input type="color" value={theme.background} onChange={event => updateTheme("background", event.target.value)} /></label><label>Скругление <b>{theme.radius}px</b><input type="range" min="0" max="28" value={theme.radius} onChange={event => updateTheme("radius", Number(event.target.value))} /></label><label>Ширина контента <b>{theme.container}px</b><input type="range" min="1040" max="1440" step="40" value={theme.container} onChange={event => updateTheme("container", Number(event.target.value))} /></label></section></>}
-  </aside><LiveSite edition={edition} entity={null} theme={theme} settings={settings} /></div></>;
+  </aside><LiveSite entities={entities} edition={edition} entity={null} theme={theme} settings={settings} /></div></>;
 }
 
 function SeoEditorV2({ onOpenSettings, draft, siteName, domain, settingsHref, update, onChooseImage }: { draft: DemoEntity; onOpenSettings:(event:React.MouseEvent<HTMLAnchorElement>)=>void; siteName:string; domain:string; settingsHref:string; update: <K extends keyof DemoEntity>(key: K, value: DemoEntity[K]) => void; onChooseImage: () => void }) {
@@ -664,12 +667,16 @@ function SettingsPanelV2({ edition, settings, setSettings, modules, flash }: { e
   <button className="resetDemo" onClick={() => { sessionStorage.removeItem("bypcms-real-demo-v1"); window.location.reload(); }}>Сбросить данные сайта (кроме медиатеки)</button></>;
 }
 
-function PublicPreview({ entity, edition, theme, settings, closeHref, unsaved }: { entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; closeHref: string; unsaved?:boolean }) {
+function PublicPreview({ entities, siteView, entity, edition, theme, settings, closeHref, unsaved }: { entities:DemoEntity[]; siteView?:boolean; entity: DemoEntity; edition: EditionKey; theme: ThemeState; settings: SettingsState; closeHref: string; unsaved?:boolean }) {
   const [viewport, setViewport] = useState("desktop");
-  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>{unsaved?"Черновик · материал ещё не сохранён":"Изменения видны только вам"}</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div><a className="panelLinkButton" href={closeHref} onClick={event=>{if(cameFromEditor(document.referrer,closeHref,location.href)&&history.length>1){event.preventDefault();history.back();}}}>Закрыть ×</a></header><LiveSite edition={edition} entity={entity} theme={theme} settings={settings} /></div>;
+  return <div className={`publicPreview viewport-${viewport}`}><header><span><b>Предпросмотр сайта</b><small>{unsaved?"Черновик · материал ещё не сохранён":"Изменения видны только вам"}</small></span><div><button className={viewport === "desktop" ? "active" : ""} onClick={() => setViewport("desktop")}>▱ 1440</button><button className={viewport === "tablet" ? "active" : ""} onClick={() => setViewport("tablet")}>▯ 768</button><button className={viewport === "mobile" ? "active" : ""} onClick={() => setViewport("mobile")}>▯ 390</button></div><a className="panelLinkButton" href={closeHref} onClick={event=>{if(cameFromEditor(document.referrer,closeHref,location.href)&&history.length>1){event.preventDefault();history.back();}}}>Закрыть ×</a></header><LiveSite entities={entities} edition={edition} entity={siteView?null:entity} theme={theme} settings={settings} /></div>;
 }
 
-function LiveSite({ edition, entity, theme, settings }: { edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
+function LiveSite({ entities, edition, entity, theme, settings }: { entities?:DemoEntity[]; edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
+  if(edition==='content'&&theme.template.toLowerCase()==='journal')return <JournalPreview entities={entities} entity={entity} settings={settings} appearance={theme}/>;
+  return <LegacyLiveSite edition={edition} entity={entity} theme={theme} settings={settings}/>;
+}
+function LegacyLiveSite({ edition, entity, theme, settings }: { edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
   const content = entity || seedEntities.find(item => item.kind === (edition === "commerce" ? "products" : edition === "content" ? "articles" : "projects"))!;
   const bodyFont = theme.customFont?.trim() || '"Segoe UI", Arial, sans-serif';
   const [menuOpen, setMenuOpen] = useState(false);

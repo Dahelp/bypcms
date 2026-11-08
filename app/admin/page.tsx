@@ -44,6 +44,7 @@ const pageStatuses: Record<string, string> = { draft: "Черновик", publis
 export default function AdminPage() {
   const session = usePanelSession();
   const {user, csrf} = session;
+  useEffect(()=>{if(user?.content_admin&&!['license','updates'].includes(new URLSearchParams(location.search).get('section')||''))location.replace(user.content_admin);},[user]);
   const [pagesReady, setPagesReady] = useState(false);
   const [configurationReady, setConfigurationReady] = useState(false);
   const [routeError, setRouteError] = useState("");

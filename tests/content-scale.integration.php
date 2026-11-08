@@ -1,0 +1,5 @@
+<?php
+declare(strict_types=1);
+$root=realpath($argv[1]??'');if(!$root)throw new RuntimeException('Fixture required');$config=require $root.'/_storage/config.php';$d=$config['database'];if(($d['port']??0)!==3319||!preg_match('/^bypcms_journal_acceptance(?:_final)?_\d{8}$/D',$d['name']))throw new RuntimeException('Disposable Journal DB only');
+$pdo=new PDO('mysql:host=127.0.0.1;port=3319;dbname='.$d['name'],'root','BYPCMS-QA-Local-Only-2026',[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);$pdo->exec("DELETE FROM byp_media WHERE path LIKE 'themes/journal/assets/story-1.jpg?qa-scale=%'");
+if(($argv[2]??'')==='seed'){$stmt=$pdo->prepare('INSERT INTO byp_media(path,filename,mime_type,size_bytes,alt_text,metadata,created_at) VALUES(?,?,"image/jpeg",1000,?,"{}",NOW())');$pdo->beginTransaction();for($i=0;$i<1001;$i++)$stmt->execute(['themes/journal/assets/story-1.jpg?qa-scale='.$i,'catalog-'.str_pad((string)$i,4,'0',STR_PAD_LEFT).'.jpg','Scale test '.$i]);$pdo->commit();echo "1001 disposable media records prepared.\n";}else echo "Scale fixture records removed.\n";

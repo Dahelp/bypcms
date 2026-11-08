@@ -5,7 +5,7 @@ import { panelRequest, PanelRequestError } from "./panel-api";
 import { clearPanelDrafts, PanelDraftUser } from "./PanelDraftForm";
 import "./panel-session.css";
 
-export type PanelUser = { id: number; name: string; email: string; role: string; role_name: string };
+export type PanelUser = { id: number; name: string; email: string; role: string; role_name: string; content_admin?:string };
 type Session = { user: PanelUser; csrf: string };
 type Phase = "loading" | "active" | "login" | "error";
 const signalKey = "bypcms-panel-session-change";

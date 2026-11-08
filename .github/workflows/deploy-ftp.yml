@@ -40,7 +40,7 @@ jobs:
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Verify licensing and bulk policies
-        run: php tests/commerce.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php
+        run: php tests/content.test.php && php tests/commerce.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php
 
       - name: Build static website
         run: pnpm build:ftp
@@ -84,3 +84,6 @@ jobs:
 
       - name: Verify deployed commerce boundaries
         run: node scripts/verify-commerce-deployment.mjs
+
+      - name: Verify deployed Journal routes and assets
+        run: node scripts/verify-journal-deployment.mjs

@@ -1,0 +1,1 @@
+{"schema":"bypcms.theme/v1","id":"journal","version":"1.0.0","editions":["content"],"requires_core":"2.1.2","templates":["home","articles","category","author","article","page","search","404"],"settings":["site_name","tagline","accent","email","phone","menu"]}

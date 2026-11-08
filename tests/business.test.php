@@ -11,4 +11,7 @@ $pages=require __DIR__.'/../server/_core/AtelierSeed.php';$s=['site_name'=>'ATEL
 foreach(['','services','projects','services/interiors','projects/quiet-house','about','privacy','team','search','contact','no-such-page']as $path){$_GET=[];ob_start();Atelier::render($pages,$s,$path,'/atelier',['demo'=>true]);$html=ob_get_clean();$check(str_contains($html,'ATELIER_TEST')&&str_contains($html,'atelier.css'),'actual renderer '.$path);$check(!str_contains($html,'Warning:')&&!str_contains($html,'Fatal error'),'no warning '.$path);}
 $_GET=['service'=>1];ob_start();Atelier::render($pages,$s,'projects');$html=ob_get_clean();$check(str_contains($html,'Жить проще')&&!str_contains($html,'Тихий дом'),'service filter');
 $check(http_response_code()===200,'filter status');
+$_GET=[];ob_start();Atelier::render($pages,$s,'search');$html=ob_get_clean();$check(str_contains($html,'Введите запрос')&&!str_contains($html,'проектов в этом направлении'),'empty search prompts for query');
+$_GET=['q'=>'UNMATCHED_ATELIER_TEST'];ob_start();Atelier::render($pages,$s,'search');$html=ob_get_clean();$check(str_contains($html,'Ничего не найдено'),'no search results');
+$_GET=[];ob_start();Atelier::render($pages,$s,'team');$html=ob_get_clean();$check(str_contains($html,'Информация о команде появится здесь'),'empty team has its own state');
 echo 'Business / Atelier: '.$n." checks passed\n";

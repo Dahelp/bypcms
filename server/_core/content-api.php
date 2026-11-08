@@ -7,13 +7,13 @@ if(!in_array($user['role'],['owner','admin','editor'],true))Response::error('Н�
 if($method!=='GET')$auth->verifyCsrf();
 $content=new Content($db,$config,BYPCMS_ROOT);
 try {
-    if(in_array($action,['content.list','pages.list'],true))Response::ok(['pages'=>$content->records(false,true,50,(max(1,(int)($_GET['page']??1))-1)*50),'terms'=>$content->terms(),'settings'=>$content->settings()]);
+    if(in_array($action,['content.list','pages.list'],true))Response::ok(['pages'=>$content->records(false,true,50,(max(1,(int)($_GET['page']??1))-1)*50),'terms'=>$content->terms(),'settings'=>strtolower($config['app']['edition']??'')==='business'?(new \BYPCMS\Core\Business($db,$config,BYPCMS_ROOT))->settings():$content->settings()]);
     if(in_array($action,['content.save','pages.create','pages.update'],true)&&$method==='POST')Response::ok(['id'=>$content->save($input,(int)$user['id'])]);
     if($action==='content.revisions')Response::ok(['revisions'=>$db->all('SELECT id,page_id,snapshot,created_at FROM byp_page_revisions WHERE page_id=? ORDER BY id DESC LIMIT 50',[(int)($_GET['id']??0)])]);
     if($action==='content.restore'&&$method==='POST')Response::ok(['id'=>$content->restore((int)$input['id'],(int)$input['revision'],(int)$user['id'])]);
     if($action==='content.preview'&&$method==='POST') {
         if(strlen(json_encode($input))>600000)throw new RuntimeException('Материал слишком большой.');
-        $id=(int)($input['id']??0);$p=array_merge($id?($content->get($id)??[]):[],$input);$p['id']=$id?:-1;$p['title']=mb_substr(trim($p['title']??'')?:'Новый материал',0,255);$p['slug']=$p['slug']?:'new-preview';$p['kind']=$p['kind']??'article';$p['content']=Content::html($p['content']??'');$p['blocks']=is_array($p['blocks']??null)?$p['blocks']:[];$p['published_at']=$p['published_at']??gmdate('Y-m-d H:i:s');
+        $id=(int)($input['id']??0);$p=array_merge($id?($content->get($id)??[]):[],$input);$p['id']=$id?:-1;$p['title']=mb_substr(trim($p['title']??'')?:'Новый материал',0,255);$p['slug']=trim((string)($p['slug']??''),'/')?:'new-preview';$p['kind']=$p['kind']??'article';$p['content']=Content::html($p['content']??'');$p['blocks']=is_array($p['blocks']??null)?$p['blocks']:[];$p['published_at']=$p['published_at']??gmdate('Y-m-d H:i:s');
         $token=bin2hex(random_bytes(20));$_SESSION['content_previews']=array_filter($_SESSION['content_previews']??[],fn($s)=>$s['expires']>time());if(count($_SESSION['content_previews'])>=8)array_shift($_SESSION['content_previews']);
         $_SESSION['content_previews'][$token]=['page'=>$p,'expires'=>time()+1800];Response::ok(['url'=>'/?preview_token='.$token]);
     }

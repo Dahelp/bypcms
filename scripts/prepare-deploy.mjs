@@ -12,9 +12,9 @@ await cp(source, target, { recursive: true, force: true });
 // /demo directory. Keep that document root self-contained as well.
 await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });
 await cp(resolve(target, "favicon.svg"), resolve(target, "demo", "favicon.svg"));
-for(const folder of ["journal","themes/journal"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
+for(const folder of ["journal","themes/journal","atelier","themes/atelier"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
 await mkdir(resolve(target,"demo","_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Atelier.php","AtelierSeed.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
 await writeFile(resolve(target,"demo",".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 await writeFile(
   resolve(target, "_storage", "DEPLOYMENT.md"),
@@ -32,5 +32,7 @@ console.log("BYPCMS PHP runtime copied to out/");
 // Reuse the existing versioned static asset transport, including on 2.1.1 clients.
 await cp(resolve(target,"themes","journal"),resolve(target,"_next","static","journal"),{recursive:true});
 await writeFile(resolve(target,"_next","static","journal","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/journal/assets/manrope-OFL.txt"),"utf8"),cormorant:await readFile(resolve(target,"themes/journal/assets/cormorant-OFL.txt"),"utf8")}));
+await cp(resolve(target,"themes","atelier"),resolve(target,"_next","static","atelier"),{recursive:true});
+await writeFile(resolve(target,"_next","static","atelier","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/atelier/assets/manrope-OFL.txt"),"utf8")}));
 await rm(resolve(target,"_private","update-candidate.zip"),{force:true});
 execFileSync("php",["scripts/build-update.php","out","out/_private/update-candidate.php"],{stdio:"inherit"});

@@ -20,9 +20,10 @@ try {
     byp_license_route($action,$method,$input,$db,$config,null);
     if (($config['app']['installation_type'] ?? 'platform') === 'client') {
         if($method!=='GET' && (str_starts_with($action,'settings.')||str_starts_with($action,'modules.')) && !in_array($auth->requireUser()['role'],['owner','admin'],true))Response::error('Настройки доступны администратору.',403);
-        if(strtolower($config['app']['edition']??'')==='content' && (($action==='modules.toggle'&&in_array($input['module_key']??'',['content','seo'],true)&&($input['status']??'')!=='active')||($action==='panel.bulk'&&($input['collection']??'')==='modules'&&($input['status']??'')!=='active'&&array_intersect((array)($input['ids']??[]),['content','seo']))))Response::error('Content и базовый SEO обязательны для темы Journal.',422);
+        if(in_array(strtolower($config['app']['edition']??''),['content','business'],true) && (($action==='modules.toggle'&&in_array($input['module_key']??'',['content','seo'],true)&&($input['status']??'')!=='active')||($action==='panel.bulk'&&($input['collection']??'')==='modules'&&($input['status']??'')!=='active'&&array_intersect((array)($input['ids']??[]),['content','seo']))))Response::error('Контент и базовый SEO обязательны для темы сайта.',422);
         if (str_starts_with($action,'owner.') || str_starts_with($action,'concepts.') || $action==='build.download' || $action==='portfolio.public') Response::error('Раздел доступен только на платформе BYPCMS',403);
-        if (strtolower($config['app']['edition'] ?? '') === 'content' && (str_starts_with($action,'content.') || str_starts_with($action,'pages.') || str_starts_with($action,'media.'))) {
+        if(strtolower($config['app']['edition']??'')==='business'&&str_starts_with($action,'business.')){require __DIR__.'/../_core/business-api.php';}
+        if (in_array(strtolower($config['app']['edition'] ?? ''),['content','business'],true) && (str_starts_with($action,'content.') || str_starts_with($action,'pages.') || str_starts_with($action,'media.'))) {
             require __DIR__.'/../_core/content-api.php';
         }
     }
@@ -48,13 +49,13 @@ try {
             Response::error('Неверный email или пароль', 401);
         }
         byp_audit($db, $user, 'auth.login', 'user', (int)$user['id']);
-        if (($config['app']['installation_type']??'platform')==='client' && strtolower($config['app']['edition']??'')==='content') $user['content_admin']='/manage/';
+        if (($config['app']['installation_type']??'platform')==='client' && in_array(strtolower($config['app']['edition']??''),['content','business'],true)) $user['content_admin']=strtolower($config['app']['edition']??'')==='business'&&$user['role']==='manager'?'/manage/?section=leads':'/manage/';
         Response::ok(['user' => $user, 'csrf' => $_SESSION['csrf']]);
     }
 
     if ($action === 'auth.me' && $method === 'GET') {
         $user = $auth->requireUser();
-        if (($config['app']['installation_type']??'platform')==='client' && strtolower($config['app']['edition']??'')==='content') $user['content_admin']='/manage/';
+        if (($config['app']['installation_type']??'platform')==='client' && in_array(strtolower($config['app']['edition']??''),['content','business'],true)) $user['content_admin']=strtolower($config['app']['edition']??'')==='business'&&$user['role']==='manager'?'/manage/?section=leads':'/manage/';
         Response::ok(['user' => $user, 'csrf' => (string)($_SESSION['csrf'] ?? '')]);
     }
 
@@ -540,7 +541,7 @@ try {
             Response::error('Не удалось создать архив сборки', 500);
         }
         require_once __DIR__.'/../_core/Content.php';
-        $packageVersion=strtolower($edition)==='content'?\BYPCMS\Core\Content::VERSION:(string)($config['app']['version']??'2.1.0');
+        $packageVersion=in_array(strtolower($edition),['content','business'],true)?\BYPCMS\Core\Content::VERSION:(string)($config['app']['version']??'2.1.0');
         $root = realpath(BYPCMS_ROOT);
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
         foreach ($iterator as $file) {
@@ -728,12 +729,14 @@ try {
     }
 
     if ($action === 'settings.list' && $method === 'GET') {
-        Response::ok(['settings' => $db->all('SELECT setting_group, setting_key, setting_value, value_type, is_public, updated_at FROM byp_settings ORDER BY setting_group, setting_key')]);
+        Response::ok(['settings' => $db->all('SELECT setting_group, setting_key, setting_value, value_type, is_public, updated_at FROM byp_settings WHERE setting_group<>"business_private" ORDER BY setting_group, setting_key')]);
     }
 
     if ($action === 'settings.save' && $method === 'POST') {
+        if(($input['setting_group']??$input['group']??'')==='business_private')Response::error('Используйте защищённые настройки SMTP.',403);
         $group = preg_replace('/[^a-z0-9_\-]/', '', (string)($input['group'] ?? 'general'));
         $key = preg_replace('/[^a-z0-9_\-\.]/', '', (string)($input['key'] ?? ''));
+        if ($group==='business_private')Response::error('Используйте защищённые настройки SMTP.',403);
         if ($key === '') {
             Response::error('Не указан ключ настройки', 422);
         }

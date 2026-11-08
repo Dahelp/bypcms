@@ -4,6 +4,7 @@ declare(strict_types=1);
 $contentRoot = defined('BYPCMS_SITE_ROOT') ? BYPCMS_SITE_ROOT : dirname(__DIR__);
 if (is_file($contentRoot.'/_storage/config.php')) {
     $contentConfig = require $contentRoot.'/_storage/config.php';
+    if(strtolower($contentConfig['app']['edition']??'')==='business'){require __DIR__.'/business-front.php';return;}
     if (strtolower($contentConfig['app']['edition'] ?? '') === 'content') {
         $journal=true;
         if(is_file($contentRoot.'/themes/custom/page.html') && empty($_GET['preview_token']) && trim((string)parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH),'/')!=='manage'){

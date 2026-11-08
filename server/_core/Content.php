@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by the installed Journal, editor and previews. */
 final class Content {
-    public const VERSION='2.1.2';
+    public const VERSION='2.2.0';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]='/'.$v['path'].' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=$url.' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
@@ -24,7 +24,7 @@ final class Content {
     public static function e(mixed $s): string {return htmlspecialchars((string)$s,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');}
     public static function imageUrl(string $url): string {return strlen($url)<=550000&&preg_match('#^data:image/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$#D',$url)?$url:self::url($url);}
     public static function asset(string $path): string {
-        if(str_starts_with($path,'/themes/journal/')&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/journal/'.substr($path,strlen('/themes/journal/'));}return $path;
+        if(preg_match('#^/themes/(journal|atelier)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
     }
     public static function url(string $url): string {
         $url=trim($url);
@@ -66,7 +66,7 @@ final class Content {
     public function configure(array $input): void {
         if(!empty($input['activate_journal']))$input['theme']='journal';
         $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
-        if(isset($data['theme'])&&($data['theme']!=='journal'&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
+        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:['journal'],true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
         if(isset($data['site_name'])&&(trim($data['site_name'])===''||mb_strlen($data['site_name'])>100))throw new RuntimeException('Укажите название сайта до 100 символов.');
         if(isset($data['accent'])&&!preg_match('/^#[0-9a-f]{6}$/i',$data['accent']))throw new RuntimeException('Некорректный цвет.');
         if(isset($data['email'])&&$data['email']!==''&&!filter_var($data['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Проверьте email.');
@@ -80,7 +80,7 @@ final class Content {
 
         if(isset($data['logo'])&&$data['logo']!==''&&!self::url($data['logo']))throw new RuntimeException('Некорректный адрес логотипа.');
         if(isset($data['font'])&&!in_array($data['font'],['manrope','system'],true))throw new RuntimeException('Некорректный шрифт.');
-        if(isset($data['heading_font'])&&!in_array($data['heading_font'],['cormorant','georgia'],true))throw new RuntimeException('Некорректный шрифт заголовков.');
+        if(isset($data['heading_font'])&&!in_array($data['heading_font'],strtolower($this->config['app']['edition']??'')==='business'?['manrope','georgia']:['cormorant','georgia'],true))throw new RuntimeException('Некорректный шрифт заголовков.');
         $pdo=$this->db->pdo();$pdo->beginTransaction();try{foreach($data as $k=>$v)$this->db->execute('INSERT INTO byp_settings(setting_group,setting_key,setting_value,value_type,is_public,updated_at) VALUES("journal",?,?,"string",1,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()',[$k,is_array($v)?json_encode($v,JSON_UNESCAPED_UNICODE):mb_substr((string)$v,0,1000)]);$pdo->commit();}catch(Throwable $e){$pdo->rollBack();throw $e;}
     }
     public function records(bool $public=false,bool $full=true,int $limit=0,int $offset=0): array {
@@ -95,7 +95,7 @@ final class Content {
         $v['title']=trim((string)($v['title']??''));$v['slug']=trim((string)($v['slug']??''),'/ ');$v['kind']=$v['kind']??'article';
         if($v['title']===''||mb_strlen($v['title'])>255)throw new RuntimeException('Название обязательно, не более 255 символов.');
         if(!preg_match('#^[a-z0-9][a-z0-9/-]{0,189}$#D',$v['slug'])||str_contains($v['slug'],'//')||in_array(explode('/',$v['slug'])[0],['admin','manage','api','themes','uploads','_core','_storage','_private','_releases','updates','install','category','author','search','articles','preview'],true))throw new RuntimeException('Укажите уникальный адрес латиницей; служебные адреса зарезервированы.');
-        if(!in_array($v['kind'],['article','page'],true)||!in_array($v['status']??'draft',['draft','published','scheduled','archived'],true))throw new RuntimeException('Некорректный тип или статус.');
+        if(!in_array($v['kind'],strtolower($this->config['app']['edition']??'')==='business'?['service','project','person','page']:['article','page'],true)||!in_array($v['status']??'draft',['draft','published','scheduled','archived'],true))throw new RuntimeException('Некорректный тип или статус.');
         $v['status']=$v['status']??'draft';$date=trim((string)($v['published_at']??''));
         if($date!==''){ $dt=\DateTimeImmutable::createFromFormat('!Y-m-d\TH:i',$date,new \DateTimeZone('UTC'))?:\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$date,new \DateTimeZone('UTC'));if(!$dt||$dt->format(str_contains($date,'T')?'Y-m-d\\TH:i':'Y-m-d H:i:s')!==$date)throw new RuntimeException('Проверьте дату публикации (UTC).');$date=$dt->format('Y-m-d H:i:s');}
         if($v['status']==='scheduled'&&($date===''||strtotime($date.' UTC')<=time()))throw new RuntimeException('Для отложенной публикации укажите будущую дату (UTC).');
@@ -107,11 +107,17 @@ final class Content {
             for($i=0;$i<8;$i++){$term=$this->db->one('SELECT id,slug FROM byp_content_terms WHERE kind=? AND slug=?',[$key,$slug]);if($term)break;$redirect=$this->db->one('SELECT target FROM byp_content_redirects WHERE source=?',['/'.$key.'/'.$slug.'/']);if(!$redirect||!preg_match('#^/'.$key.'/([a-z0-9-]+)/$#D',$redirect['target'],$match))break;$slug=$match[1];}
             if(!$term)throw new RuntimeException('Выберите существующую рубрику и автора.');$v[$key]=$term['slug'];$v[$key.'_term_id']=(int)$term['id'];
         }
+        if(strtolower($this->config['app']['edition']??'')==='business') {
+            if(in_array($v['slug'],['services','projects','team','contact','search','privacy','request-success'],true))throw new RuntimeException('Этот адрес используется разделом Business.');
+            foreach(['price'=>190,'client'=>190,'year'=>20,'location'=>190,'role'=>190]as $key=>$length){$v[$key]=trim((string)($v[$key]??''));if(mb_strlen($v[$key])>$length)throw new RuntimeException('Сократите поле '.$key);}
+            $v['person_id']=(int)($v['person_id']??0)?:null;if($v['person_id']){$person=$this->get($v['person_id']);if(!$person||$person['kind']!=='person')throw new RuntimeException('Выберите существующего участника команды.');}
+            if(!empty($v['parent_id'])&&$v['kind']==='project'){ $parent=$this->get((int)$v['parent_id']);if(!$parent||$parent['kind']!=='service')throw new RuntimeException('Для проекта выберите существующую услугу.');}
+        }
         return $v;
     }
     public function save(array $input,int $user): int {
         $creationKey='';$payloadHash='';
-        if(empty($input['id'])&&!empty($input['create_token'])){if(!preg_match('/^[a-f0-9]{32}$/D',$input['create_token']))throw new RuntimeException('Некорректный идентификатор сохранения.');$creationKey=hash('sha256',$user.':'.$input['create_token']);$payload=array_intersect_key($input,array_flip(['kind','title','slug','excerpt','content','blocks','status','published_at','cover','cover_alt','category','author','canonical','featured','noindex']));ksort($payload);$payloadHash=hash('sha256',json_encode($payload));}
+        if(empty($input['id'])&&!empty($input['create_token'])){if(!preg_match('/^[a-f0-9]{32}$/D',$input['create_token']))throw new RuntimeException('Некорректный идентификатор сохранения.');$creationKey=hash('sha256',$user.':'.$input['create_token']);$payload=array_intersect_key($input,array_flip(['kind','title','slug','excerpt','content','blocks','status','published_at','cover','cover_alt','category','author','canonical','featured','noindex','price','client','year','location','role','person_id']));ksort($payload);$payloadHash=hash('sha256',json_encode($payload));}
         $lookup=function()use($creationKey,$payloadHash){if(!$creationKey)return null;$row=$this->db->one('SELECT page_id,data FROM byp_content_meta WHERE JSON_UNQUOTE(JSON_EXTRACT(data,\'$.create_token_hash\'))=?',[$creationKey]);if(!$row)return null;$m=json_decode($row['data'],true);if(!hash_equals($m['create_payload_hash']??'',$payloadHash))throw new RuntimeException('Материал уже создан (#'.$row['page_id'].'). Откройте его из списка; ваш новый текст остаётся в форме.');return (int)$row['page_id'];};
         if($created=$lookup())return $created;
         $pdo=$this->db->pdo();$pdo->beginTransaction();try{
@@ -124,7 +130,7 @@ final class Content {
             $params=[$parent?:null,$v['slug'],$v['title'],mb_substr((string)($v['excerpt']??''),0,3000),self::html((string)($v['content']??'')),json_encode($v['blocks'],JSON_UNESCAPED_UNICODE),$v['status'],mb_substr((string)($v['seo_title']??''),0,255),mb_substr((string)($v['seo_description']??''),0,3000),$v['published_at']];
             if($id)$this->db->execute('UPDATE byp_pages SET parent_id=?,slug=?,title=?,excerpt=?,content=?,blocks=?,status=?,seo_title=?,seo_description=?,published_at=?,updated_at=NOW() WHERE id=?',[...$params,$id]);
             else $id=$this->db->insert('INSERT INTO byp_pages(parent_id,slug,title,excerpt,content,blocks,status,seo_title,seo_description,published_at,author_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())',[...$params,$user]);
-            $meta=[];foreach(['cover','cover_alt','category','author','canonical','featured','noindex','category_term_id','author_term_id']as $k)$meta[$k]=$v[$k]??'';$meta['create_token_hash']=$old['create_token_hash']??$creationKey;$meta['create_payload_hash']=$old['create_payload_hash']??$payloadHash;
+            $meta=[];foreach(['cover','cover_alt','category','author','canonical','featured','noindex','category_term_id','author_term_id','price','client','year','location','role','person_id']as $k)$meta[$k]=$v[$k]??'';$meta['create_token_hash']=$old['create_token_hash']??$creationKey;$meta['create_payload_hash']=$old['create_payload_hash']??$payloadHash;
             $this->db->execute('INSERT INTO byp_content_meta(page_id,kind,data,revision) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE kind=VALUES(kind),data=VALUES(data),revision=VALUES(revision)',[$id,$v['kind'],json_encode($meta,JSON_UNESCAPED_UNICODE),(int)($old['revision']??0)+1]);
             $this->db->execute('INSERT INTO byp_audit_logs(user_id,action,entity_type,entity_id,created_at) VALUES(?,"content.save","page",?,NOW())',[$user,$id]);$pdo->commit();return $id;
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();if($created=$lookup())return $created;throw $e;}
@@ -135,7 +141,7 @@ final class Content {
         $id=(int)($v['id']??0);$old=$id?$this->db->one('SELECT * FROM byp_content_terms WHERE id=?',[$id]):null;
         if($id&&!$old)throw new RuntimeException('Запись не найдена.');if($old&&$old['kind']!==$v['kind'])throw new RuntimeException('Нельзя изменить тип рубрики или автора.');
         $pdo=$this->db->pdo();$pdo->beginTransaction();try{
-            if($old&&$old['slug']!==$v['slug']){foreach($this->records(false,false)as $p)if(($p[$old['kind']]??'')===$old['slug']){ $p[$old['kind']]=$v['slug'];$meta=[];foreach(['cover','cover_alt','category','author','canonical','featured','noindex','create_token_hash','create_payload_hash','category_term_id','author_term_id']as $k)$meta[$k]=$p[$k]??'';$meta[$old['kind'].'_term_id']=(int)$old['id'];$this->db->execute('UPDATE byp_content_meta SET data=?,revision=revision+1 WHERE page_id=?',[json_encode($meta,JSON_UNESCAPED_UNICODE),$p['id']]);}}
+            if($old&&$old['slug']!==$v['slug']){foreach($this->records(false,false)as $p)if(($p[$old['kind']]??'')===$old['slug']){ $p[$old['kind']]=$v['slug'];$meta=[];foreach(['cover','cover_alt','category','author','canonical','featured','noindex','create_token_hash','create_payload_hash','category_term_id','author_term_id','price','client','year','location','role','person_id']as $k)$meta[$k]=$p[$k]??'';$meta[$old['kind'].'_term_id']=(int)$old['id'];$this->db->execute('UPDATE byp_content_meta SET data=?,revision=revision+1 WHERE page_id=?',[json_encode($meta,JSON_UNESCAPED_UNICODE),$p['id']]);}}
             $params=[$v['kind'],$v['slug'],mb_substr($v['title'],0,190),mb_substr($v['description']??'',0,5000),self::url($v['image']??'')];
             if($id)$this->db->execute('UPDATE byp_content_terms SET kind=?,slug=?,title=?,description=?,image=? WHERE id=?',[...$params,$id]);else$id=$this->db->insert('INSERT INTO byp_content_terms(kind,slug,title,description,image) VALUES(?,?,?,?,?)',$params);
             if($old&&$old['slug']!==$v['slug']){$source='/'.$old['kind'].'/'.$old['slug'].'/';$target='/'.$old['kind'].'/'.$v['slug'].'/';$this->db->execute('DELETE FROM byp_content_redirects WHERE source=?',[$target]);$this->db->execute('UPDATE byp_content_redirects SET target=? WHERE target=?',[$target,$source]);$this->db->execute('INSERT INTO byp_content_redirects(source,target,code) VALUES(?,?,301) ON DUPLICATE KEY UPDATE target=VALUES(target)',[$source,$target]);}

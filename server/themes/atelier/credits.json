@@ -1,0 +1,30 @@
+{
+  "license": "https://unsplash.com/license",
+  "sources": [
+    {
+      "file": "project-1.jpg",
+      "source": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c",
+      "purpose": "Illustrative fictional Atelier starter projects"
+    },
+    {
+      "file": "project-2.jpg",
+      "source": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0",
+      "purpose": "Illustrative fictional Atelier starter projects"
+    },
+    {
+      "file": "project-3.jpg",
+      "source": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d",
+      "purpose": "Illustrative fictional Atelier starter projects"
+    },
+    {
+      "file": "project-4.jpg",
+      "source": "https://images.unsplash.com/photo-1497366811353-6870744d04b2",
+      "purpose": "Illustrative fictional Atelier starter projects"
+    }
+  ],
+  "demo_thumbnails": {
+    "files": "demo-0.webp … demo-5.webp",
+    "source": "BYPCMS public/demo/cms-media-board.png",
+    "purpose": "Exact thumbnails of existing demo media; never substituted for customer uploads"
+  }
+}

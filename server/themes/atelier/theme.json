@@ -1,0 +1,1 @@
+{"id":"atelier","name":"Atelier","version":"1.0.0","edition":"business","requires_core":"2.2.0","routes":["/","/services/","/projects/","/team/","/about/","/contact/","/search/"],"renderer":"_core/Atelier.php"}

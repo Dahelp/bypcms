@@ -15,8 +15,10 @@ await cp(join(out, "demo"), join(target, "demo"), { recursive: true, filter: sou
 await cp(join(out, "favicon.svg"), join(target, "favicon.svg"));
 await cp(join(out,"journal"),join(target,"journal"),{recursive:true});
 await cp(join(out,"themes","journal"),join(target,"themes","journal"),{recursive:true});
+await cp(join(out,"atelier"),join(target,"atelier"),{recursive:true});
+await cp(join(out,"themes","atelier"),join(target,"themes","atelier"),{recursive:true});
 await mkdir(join(target,"_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php"])await cp(join(out,"_core",file),join(target,"_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Atelier.php","AtelierSeed.php"])await cp(join(out,"_core",file),join(target,"_core",file));
 await writeFile(join(target,".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 
 console.log("Standalone demo package prepared in demo-dist/");

@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace BYPCMS\Core;
 use InvalidArgumentException;
 use RuntimeException;
-require_once __DIR__.'/UpdateRuntime.php';
+require_once (defined('BYPCMS_SITE_ROOT')?BYPCMS_SITE_ROOT.'/_core/UpdateRuntime.php':__DIR__.'/UpdateRuntime.php');
 require_once __DIR__.'/LicenseCrypto.php';
 require_once __DIR__.'/LicensePolicy.php';
 

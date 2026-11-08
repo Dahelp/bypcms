@@ -11,7 +11,7 @@ require_once __DIR__.'/LicenseCrypto.php';
 
 /** Installed store only. No platform accounts, license orders or payment settings. */
 final class Shop {
-    public const VERSION='2.3.1';
+    public const VERSION='2.3.2';
     public const TABLES=['byp_shop_groups','byp_shop_limits','byp_shop_products','byp_shop_variants','byp_shop_carts','byp_shop_orders','byp_shop_items','byp_shop_payments','byp_shop_refunds','byp_shop_mail'];
     public Content $content;
     public function __construct(public Database $db,public array $config,public string $root){$this->content=new Content($db,$config,$root);self::schema($db->pdo());}
@@ -105,7 +105,18 @@ final class Shop {
         if($total>9999999999)throw new RuntimeException('Стоимость заказа превышает допустимую.');$hash=hash('sha256',json_encode([$cart,array_map(fn($i)=>[$i['id'],$i['price']],$items),$shipping,$promo,$discount,$delivery]));
         return compact('items','subtotal','discount','delivery','total','hash','shipping','promo','issues');
     }
-    public static function contact(array $v):array {foreach(['name'=>150,'email'=>190,'phone'=>60,'address'=>1000]as $k=>$limit){$v[$k]=trim((string)($v[$k]??''));if(mb_strlen($v[$k])>$limit)throw new RuntimeException('Слишком длинное поле: '.$k);}if(!$v['name']||!filter_var($v['email'],FILTER_VALIDATE_EMAIL)||!preg_match('/^[+0-9 ()-]{7,60}$/D',$v['phone'])||empty($v['consent'])||empty($v['terms']))throw new RuntimeException('Заполните имя, email, телефон и согласия.');if(($v['shipping']??'delivery')==='delivery'&&!$v['address'])throw new RuntimeException('Укажите адрес доставки.');return array_intersect_key($v,array_flip(['name','email','phone','address']));}
+    public static function contact(array $v):array {
+        $labels=['name'=>'Имя','email'=>'Email','phone'=>'Телефон','address'=>'Адрес доставки'];
+        foreach(['name'=>150,'email'=>190,'phone'=>60,'address'=>1000]as $k=>$limit){$v[$k]=trim((string)($v[$k]??''));if(mb_strlen($v[$k])>$limit)throw new RuntimeException('Слишком длинное поле «'.$labels[$k].'».');}
+        if(!$v['name'])throw new RuntimeException('Укажите имя получателя.');
+        if(!filter_var($v['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Укажите корректный email.');
+        $digits=preg_replace('/[^0-9]/','',$v['phone']);
+        if(!preg_match('/^[+0-9 ()-]{7,60}$/D',$v['phone'])||strlen($digits)<7||strlen($digits)>15)throw new RuntimeException('Укажите корректный телефон: от 7 до 15 цифр, можно использовать +, пробелы, скобки и дефисы.');
+        if(empty($v['terms']))throw new RuntimeException('Подтвердите условия покупки, доставки и возврата.');
+        if(empty($v['consent']))throw new RuntimeException('Подтвердите согласие на обработку данных для заказа.');
+        if(($v['shipping']??'delivery')==='delivery'&&!$v['address'])throw new RuntimeException('Укажите адрес доставки.');
+        return array_intersect_key($v,array_flip(['name','email','phone','address']));
+    }
     public function checkout(string $actor,array $v):array {
         $contact=self::contact($v);if(!preg_match('/^[a-f0-9]{32}$/D',$v['token']??''))throw new RuntimeException('Обновите форму заказа.');$request=hash('sha256',$actor.$v['token']);$payload=hash('sha256',json_encode([$contact,$v['shipping']??'delivery',$v['promo']??'',$v['quote']??'']));$pdo=$this->db->pdo();$pdo->beginTransaction();try{
             $this->db->execute('INSERT IGNORE INTO byp_shop_carts(actor,data,updated_at) VALUES(?,"{}",NOW())',[$actor]);$this->db->one('SELECT actor FROM byp_shop_carts WHERE actor=? FOR UPDATE',[$actor]);$old=$this->db->one('SELECT * FROM byp_shop_orders WHERE request_key=?',[$request]);if($old){if(!hash_equals($old['payload_hash'],$payload))throw new RuntimeException('Этот заказ уже сохранён с другими данными. Откройте его или начните новый.');$pdo->commit();return $old;}

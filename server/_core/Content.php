@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by the installed Journal, editor and previews. */
 final class Content {
-    public const VERSION='2.3.1';
+    public const VERSION='2.3.2';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]='/'.$v['path'].' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=$url.' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';

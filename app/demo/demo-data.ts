@@ -48,6 +48,7 @@ export type DemoOrderItem = { id: number; title: string; sku: string; quantity: 
 
 export type DemoContentBlock = {
   id: number;
+  images?: {image:number;caption:string;alt?:string}[];
   type: "heading" | "gallery" | "button" | "form" | "code";
   title: string;
   content: string;

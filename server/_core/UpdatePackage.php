@@ -23,7 +23,7 @@ final class UpdatePackage {
     public static function path(string $path):bool {
         if(!preg_match('#^[a-zA-Z0-9_@./-]+$#D',$path)||str_starts_with($path,'/')||str_contains($path,'..')||str_contains($path,'//'))return false;
         if(preg_match('#^_core/[A-Za-z0-9_-]+\.php$#D',$path))return !str_starts_with(basename($path),'Update');
-        if(preg_match('#^themes/(?:journal|chronicle|atelier|gallery)/(?:assets/)?[a-zA-Z0-9_.-]+\.(?:css|js|json|svg|jpg|png|webp|woff2|ttf|txt)$#D',$path))return true;
+        if(preg_match('#^themes/(?:journal|chronicle|focus|atelier|gallery)/(?:assets/)?[a-zA-Z0-9_.-]+\.(?:css|js|json|svg|jpg|png|webp|woff2|ttf|txt)$#D',$path))return true;
         return $path==='api/app.php'||$path==='admin/index.html'||(str_starts_with($path,'_next/static/')&&preg_match('/\.(?:js|css|woff2?|ttf|svg|png|jpg|webp|json)$/D',$path));
     }
     public static function manifest(array $m):void {

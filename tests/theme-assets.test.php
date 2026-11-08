@@ -10,7 +10,7 @@ define('BYPCMS_SITE_ROOT',$root);
 try {
     file_put_contents($root.'/_storage/config.php','<?php return '.var_export(['updates'=>['private_dir'=>$private]],true).';');
     file_put_contents($private.'/updates/active.json',json_encode(['release'=>$release,'version'=>'2.4.0']));
-    foreach(['journal','chronicle','atelier','gallery']as $theme){
+    foreach(['journal','chronicle','focus','atelier','gallery']as $theme){
         $url='/themes/'.$theme.'/assets/cover.jpg';
         Content::$images[$url]=['width'=>1200,'variants'=>[['width'=>480,'path'=>'themes/'.$theme.'/assets/cover-480.webp']]];
         $set=Content::imageSet($url);

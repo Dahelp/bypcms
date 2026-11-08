@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by installed themes, the editor and previews. */
 final class Content {
-    public const VERSION='2.4.0';
+    public const VERSION='2.5.0';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]=self::asset('/'.$v['path']).' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=self::asset($url).' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
@@ -25,7 +25,7 @@ final class Content {
     public static function money(int $minor): string {return number_format($minor/100,$minor%100===0?0:2,',',' ').' ₽';}
     public static function imageUrl(string $url): string {return strlen($url)<=550000&&preg_match('#^data:image/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$#D',$url)?$url:self::url($url);}
     public static function asset(string $path): string {
-        if(preg_match('#^/themes/(journal|chronicle|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
+        if(preg_match('#^/themes/(journal|chronicle|focus|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
     }
     public static function url(string $url): string {
         $url=trim($url);
@@ -41,7 +41,7 @@ final class Content {
             if($node instanceof \DOMElement){$tag=strtolower($node->tagName);
                 if(!in_array($tag,$allowed,true)){ $parent->removeChild($node);continue; }
                 foreach(iterator_to_array($node->attributes)as $attr){$name=strtolower($attr->name);$value=$attr->value;
-                    $keep=in_array($name,['alt','title'],true)||($tag==='a'&&$name==='href'&&self::url($value)!=='')||($tag==='img'&&$name==='src'&&self::url($value)!=='');
+                    $keep=in_array($name,['alt','title'],true)||($tag==='a'&&$name==='href'&&self::url($value)!=='')||($tag==='img'&&$name==='src'&&self::imageUrl($value)!=='');
                     if(!$keep)$node->removeAttribute($attr->name);
                 }
                 if($tag==='img'){$node->setAttribute('loading','lazy');$node->setAttribute('decoding','async');}
@@ -51,12 +51,12 @@ final class Content {
         $root=$dom->getElementById('byp-content-root');if(!$root)return '';$clean($root);$out='';foreach($root->childNodes as $child)$out.=$dom->saveHTML($child);return $out;
     }
     public static function blocks(array $blocks): string {
-        $out='';foreach(array_slice($blocks,0,100)as $b){$type=$b['type']??'';$d=is_array($b['data']??null)?$b['data']:$b;$text=(string)($d['content']??$d['text']??$d['title']??'');
+        $out='';foreach(array_slice($blocks,0,100)as $b){if(!is_array($b))continue;$type=$b['type']??'';$d=is_array($b['data']??null)?$b['data']:$b;$text=(string)($d['content']??$d['text']??$d['title']??'');
             if(in_array($type,['heading','hero'],true))$out.='<h2>'.self::e($text).'</h2>';
             elseif(in_array($type,['text','paragraph','richtext'],true))$out.=self::html($text);
             elseif($type==='quote')$out.='<blockquote>'.self::e($text).'</blockquote>';
-            elseif($type==='image'){$src=self::url((string)($d['url']??$d['src']??''));if($src)$out.='<figure><img src="'.self::e($src).'" alt="'.self::e($d['alt']??'').'" loading="lazy"><figcaption>'.self::e($d['caption']??'').'</figcaption></figure>';}
-            elseif($type==='gallery'){ $out.='<div class="j-gallery">';foreach(array_slice((array)($d['images']??[]),0,12)as $im){$src=self::url((string)($im['url']??''));if($src)$out.='<figure><img src="'.self::e($src).'" alt="'.self::e($im['alt']??'').'" loading="lazy"></figure>';}$out.='</div>';}
+            elseif($type==='image'){$src=self::imageUrl((string)($d['url']??$d['src']??''));if($src)$out.='<figure><img src="'.self::e($src).'" alt="'.self::e($d['alt']??'').'" loading="lazy"><figcaption>'.self::e($d['caption']??$d['content']??'').'</figcaption></figure>';}
+            elseif($type==='gallery'){if($text!=='')$out.='<p>'.self::e($text).'</p>'; $out.='<div class="j-gallery">';foreach(array_slice((array)($d['images']??[]),0,12)as $im){if(!is_array($im)||!is_scalar($im['url']??''))continue;$src=self::imageUrl((string)($im['url']??''));if($src)$out.='<figure><img src="'.self::e($src).'" alt="'.self::e($im['alt']??'').'" loading="lazy"><figcaption>'.self::e($im['caption']??'').'</figcaption></figure>';}$out.='</div>';}
             elseif($type==='button'){$url=self::url((string)($d['url']??''));if($url)$out.='<p><a class="j-button" href="'.self::e($url).'">'.self::e($text).'</a></p>';}
         }return $out;
     }
@@ -66,8 +66,8 @@ final class Content {
     }
     public function configure(array $input): void {
         if(!empty($input['activate_journal']))$input['theme']='journal';
-        $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
-        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal','chronicle']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
+        $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','focus_heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
+        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal','chronicle','focus']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
         if(isset($data['site_name'])&&(trim($data['site_name'])===''||mb_strlen($data['site_name'])>100))throw new RuntimeException('Укажите название сайта до 100 символов.');
         if(isset($data['accent'])&&!preg_match('/^#[0-9a-f]{6}$/i',$data['accent']))throw new RuntimeException('Некорректный цвет.');
         if(isset($data['email'])&&$data['email']!==''&&!filter_var($data['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Проверьте email.');
@@ -80,6 +80,7 @@ final class Content {
         }
 
         if(isset($data['logo'])&&$data['logo']!==''&&!self::url($data['logo']))throw new RuntimeException('Некорректный адрес логотипа.');
+        if(isset($data['focus_heading_font'])&&!in_array($data['focus_heading_font'],['manrope','georgia'],true))throw new RuntimeException('Некорректный шрифт Focus.');
         if(isset($data['font'])&&!in_array($data['font'],['manrope','system'],true))throw new RuntimeException('Некорректный шрифт.');
         if(isset($data['heading_font'])&&!in_array($data['heading_font'],strtolower($this->config['app']['edition']??'')==='business'?['manrope','georgia']:['cormorant','georgia'],true))throw new RuntimeException('Некорректный шрифт заголовков.');
         $pdo=$this->db->pdo();$pdo->beginTransaction();try{foreach($data as $k=>$v)$this->db->execute('INSERT INTO byp_settings(setting_group,setting_key,setting_value,value_type,is_public,updated_at) VALUES("journal",?,?,"string",1,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()',[$k,is_array($v)?json_encode($v,JSON_UNESCAPED_UNICODE):mb_substr((string)$v,0,1000)]);$pdo->commit();}catch(Throwable $e){$pdo->rollBack();throw $e;}
@@ -104,6 +105,16 @@ final class Content {
         $v['published_at']=$date?:($v['status']==='published'?gmdate('Y-m-d H:i:s'):null);
         $blocks=$v['blocks']??[];if(is_string($blocks))$blocks=json_decode($blocks,true,32,JSON_THROW_ON_ERROR);if(!is_array($blocks)||count($blocks)>100)throw new RuntimeException('Допускается до 100 блоков.');$v['blocks']=$blocks;
         if(strlen((string)($v['content']??''))>500000||strlen(json_encode($blocks))>500000)throw new RuntimeException('Материал слишком большой.');
+        foreach($blocks as &$block){
+            if(!is_array($block)||!is_scalar($block['type']??''))throw new RuntimeException('Некорректный блок материала.');
+            if(array_key_exists('images_json',$block)){$block['images']=json_decode((string)$block['images_json'],true,16,JSON_THROW_ON_ERROR);unset($block['images_json']);}
+            $data=is_array($block['data']??null)?$block['data']:$block;
+            foreach(['content','text','title','url','src','alt','caption']as $key)if(isset($data[$key])&&!is_scalar($data[$key]))throw new RuntimeException('Содержание и подписи блока должны быть текстом.');
+            if(($block['type']??'')==='gallery'){
+                $images=$data['images']??[];if(!is_array($images)||count($images)>12)throw new RuntimeException('В галерее допускается до 12 фотографий.');
+                foreach($images as $image){if(!is_array($image)||!is_string($image['url']??null)||self::url($image['url'])===''||!preg_match('#^(?:/(?!/)|https?://)#i',$image['url']))throw new RuntimeException('Выберите корректные изображения галереи.');foreach(['alt','caption']as $key)if(isset($image[$key])&&(!is_string($image[$key])||mb_strlen($image[$key])>1000))throw new RuntimeException('Подпись фотографии должна быть текстом до 1000 символов.');}
+            }
+        }unset($block);$v['blocks']=$blocks;
         foreach(['cover','canonical']as $key)if(!empty($v[$key])&&!self::url((string)$v[$key]))throw new RuntimeException('Некорректный URL: '.$key);
         foreach(['category','author']as $key){$v[$key.'_term_id']=null;if(empty($v[$key]))continue;$slug=(string)$v[$key];$term=null;
             for($i=0;$i<8;$i++){$term=$this->db->one('SELECT id,slug FROM byp_content_terms WHERE kind=? AND slug=?',[$key,$slug]);if($term)break;$redirect=$this->db->one('SELECT target FROM byp_content_redirects WHERE source=?',['/'.$key.'/'.$slug.'/']);if(!$redirect||!preg_match('#^/'.$key.'/([a-z0-9-]+)/$#D',$redirect['target'],$match))break;$slug=$match[1];}

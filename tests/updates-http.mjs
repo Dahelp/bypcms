@@ -10,7 +10,8 @@ await login(f.platform);await login(f.client);
 async function content(body,action='content.list'){
  const r=await fetch(f.client.origin+'/api/index.php?action='+action,{method:body?'POST':'GET',headers:{Cookie:f.client.cookie,'X-CSRF-Token':f.client.csrf,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});assert.equal(r.status,200);return r.json();
 }
-const contentBaseline=f.theme==='chronicle'?await content():null;
+const contentTheme=['chronicle','focus'].includes(f.theme);
+const contentBaseline=contentTheme?await content():null;
 await call({origin:f.client.origin},'status',undefined,401);
 await call(f.platform,'publish',{},403,false);
 await call(f.client,'publish',{},403);
@@ -35,19 +36,19 @@ for(let i=0;i<300;i++){
 assert.equal(job.state,'completed',JSON.stringify(job));check(sawMaintenance,'snapshot was protected by maintenance');
 const status=await (await fetch(f.client.origin+'/api/index.php?action=status')).json();check(status.version===release.version,'real runtime switches to new code');
 check((await fetch(f.client.origin+'/')).status===200,'public frontend works after update');
-if(f.theme==='chronicle'){
+if(contentTheme){
  check(JSON.stringify(await content())===JSON.stringify(contentBaseline),'upgrade preserves actual Content records and settings');
- const r=await fetch(f.client.origin+'/api/index.php?action=content.configure',{method:'POST',headers:{Cookie:f.client.cookie,'X-CSRF-Token':f.client.csrf,'Content-Type':'application/json'},body:JSON.stringify({theme:'chronicle'})});check(r.status===200,'new Chronicle theme can be selected after upgrade');await r.text();
- await content({title:'CHRONICLE_UPGRADE_PROOF',slug:'chronicle-upgrade-proof',kind:'article',status:'published',featured:true,content:'<h2>New theme after upgrade</h2>',cover:'/themes/chronicle/assets/editorial-1.jpg'},'content.save');
+ const r=await fetch(f.client.origin+'/api/index.php?action=content.configure',{method:'POST',headers:{Cookie:f.client.cookie,'X-CSRF-Token':f.client.csrf,'Content-Type':'application/json'},body:JSON.stringify({theme:f.theme})});check(r.status===200,'new Content theme can be selected after upgrade');await r.text();
+ await content({title:f.theme.toUpperCase()+'_UPGRADE_PROOF',slug:f.theme+'-upgrade-proof',kind:'article',status:'published',featured:true,content:'<h2>New theme after upgrade</h2>',cover:f.theme==='focus'?'/themes/focus/assets/frame-1.jpg':'/themes/chronicle/assets/editorial-1.jpg'},'content.save');
 }
 const storefront=await (await fetch(f.client.origin+'/')).text();
-for(const path of [...storefront.matchAll(/(?:src|href)="([^"]*(?:gallery|atelier|journal|chronicle)\.(?:css|js)[^"]*)"/g)].map(m=>m[1])){check(path.includes('/_update-assets/'+job.id+'/'),'theme follows active release');check((await fetch(f.client.origin+path)).status===200,'active theme asset works');}
-if(f.theme==='chronicle'){
- check(storefront.includes('c-front')&&storefront.includes('chronicle.css'),'upgraded site uses full Chronicle renderer');
+for(const path of [...storefront.matchAll(/(?:src|href)="([^"]*(?:gallery|atelier|journal|chronicle|focus)\.(?:css|js)[^"]*)"/g)].map(m=>m[1])){check(path.includes('/_update-assets/'+job.id+'/'),'theme follows active release');check((await fetch(f.client.origin+path)).status===200,'active theme asset works');}
+if(contentTheme){
+ check(storefront.includes(f.theme==='focus'?'f-view-home':'c-front')&&storefront.includes(f.theme+'.css'),'upgraded site uses full selected Content renderer');
  const sources=[...storefront.matchAll(/srcset="([^"]+)"/g)].flatMap(m=>m[1].split(',').map(s=>s.trim().split(' ')[0]));
  check(sources.length>0&&sources.filter(p=>!p.includes('/uploads/')).every(p=>p.includes('/_update-assets/'+job.id+'/')),'responsive theme sources follow active release');
  for(const path of [...new Set(sources)]){const r=await fetch(f.client.origin+path);check(r.status===200,'upgraded responsive image available');await r.arrayBuffer();}
- const feed=await fetch(f.client.origin+'/feed.xml');check(feed.status===200&&(await feed.text()).includes('<rss'),'Chronicle RSS available after update');
+ const feed=await fetch(f.client.origin+'/feed.xml');check(feed.status===200&&(await feed.text()).includes('<rss'),'Content RSS available after update');
 }
 
 check((await fetch(f.client.origin+'/_releases/'+job.id+'/api/app.php')).status===403,'release PHP is private');
@@ -61,7 +62,7 @@ for(let i=0;i<300;i++){job=(await call(f.client,'step',{id:job.id})).job;if(['ro
 assert.equal(job.state,'rolled_back',JSON.stringify(job));
 check((await (await fetch(f.client.origin+'/api/index.php?action=status')).json()).version===baseline,'manual rollback restores previous runtime');
 check((await fetch(f.client.origin+'/')).status===200,'public site returns after rollback');
-if(f.theme==='chronicle')check(JSON.stringify(await content())===JSON.stringify(contentBaseline),'rollback restores records and theme settings exactly');
+if(contentTheme)check(JSON.stringify(await content())===JSON.stringify(contentBaseline),'rollback restores records and theme settings exactly');
 const restoredRelease=(await call(f.client,'status')).current.release;if(restoredRelease)check(await verifyUpdateAssets(f.client.origin,restoredRelease)>0,'restored admin and lazy chunks use the restored release');else check((await (await fetch(f.client.origin+'/admin/?section=updates')).text()).includes('/_next/'),'first-update rollback restores original admin assets');
 check((await (await fetch(f.client.origin+'/uploads/qa-preserve.txt')).text())==='Do not change user media','media file preserved');
 check((await (await fetch(f.client.origin+'/project/qa-preserve.txt')).text())==='Do not change user project','project file preserved');

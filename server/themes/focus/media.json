@@ -1,0 +1,194 @@
+{
+    "/themes/focus/assets/frame-1.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-1-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-1-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-2.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-2-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-2-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-3.jpg": {
+        "width": 1600,
+        "height": 1066,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-3-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-3-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-4.jpg": {
+        "width": 1600,
+        "height": 1200,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-4-480.webp",
+                "width": 480,
+                "height": 360
+            },
+            {
+                "path": "themes/focus/assets/frame-4-960.webp",
+                "width": 960,
+                "height": 720
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-5.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-5-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-5-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-6.jpg": {
+        "width": 1600,
+        "height": 953,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-6-480.webp",
+                "width": 480,
+                "height": 286
+            },
+            {
+                "path": "themes/focus/assets/frame-6-960.webp",
+                "width": 960,
+                "height": 572
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-7.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-7-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-7-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-8.jpg": {
+        "width": 1600,
+        "height": 1068,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-8-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-8-960.webp",
+                "width": 960,
+                "height": 641
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-9.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-9-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-9-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-10.jpg": {
+        "width": 1600,
+        "height": 1063,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-10-480.webp",
+                "width": 480,
+                "height": 319
+            },
+            {
+                "path": "themes/focus/assets/frame-10-960.webp",
+                "width": 960,
+                "height": 638
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-11.jpg": {
+        "width": 1600,
+        "height": 1067,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-11-480.webp",
+                "width": 480,
+                "height": 320
+            },
+            {
+                "path": "themes/focus/assets/frame-11-960.webp",
+                "width": 960,
+                "height": 640
+            }
+        ]
+    },
+    "/themes/focus/assets/frame-12.jpg": {
+        "width": 1600,
+        "height": 1200,
+        "variants": [
+            {
+                "path": "themes/focus/assets/frame-12-480.webp",
+                "width": 480,
+                "height": 360
+            },
+            {
+                "path": "themes/focus/assets/frame-12-960.webp",
+                "width": 960,
+                "height": 720
+            }
+        ]
+    }
+}

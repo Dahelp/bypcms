@@ -117,4 +117,5 @@
 - Business / Atelier: [приёмка 2.2.0](BUSINESS-ATELIER-2.2.0.md).
 - Commerce / Gallery: [ядро и тема 2.3.0](COMMERCE-GALLERY-2.3.0.md), [визуальная приёмка и исправления 2.3.2](GALLERY-ACCEPTANCE-2026-11-08.md).
 - Отмена, фильтры и лабораторные Web Vitals Gallery закрыты [приёмкой 2.3.3](GALLERY-FINAL-2.3.3.md). Реальные устройства/другие браузеры и полевые показатели остаются отдельными проверками; реальные эквайринг/SMTP проверяются после подключения продавцом.
-- Content / Chronicle: [ядро 2.4.0, газетная тема, внутренние страницы и приёмка](CONTENT-CHRONICLE-2.4.0.md). Следующий этап второй очереди — Focus.
+- Content / Chronicle: [ядро 2.4.0, газетная тема, внутренние страницы и приёмка](CONTENT-CHRONICLE-2.4.0.md).
+- Content / Focus: [ядро 2.5.0, фотоистории, управляемые галереи и приёмка](CONTENT-FOCUS-2.5.0.md). Следующий этап — Corporate для Business, затем Mono, Market и Luxe.

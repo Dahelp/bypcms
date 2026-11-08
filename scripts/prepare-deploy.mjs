@@ -12,9 +12,9 @@ await cp(source, target, { recursive: true, force: true });
 // /demo directory. Keep that document root self-contained as well.
 await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });
 await cp(resolve(target, "favicon.svg"), resolve(target, "demo", "favicon.svg"));
-for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","atelier","themes/atelier","gallery","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
+for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","focus","themes/focus","atelier","themes/atelier","gallery","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
 await mkdir(resolve(target,"demo","_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Atelier.php","AtelierSeed.php","Gallery.php","GallerySeed.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Gallery.php","GallerySeed.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
 await writeFile(resolve(target,"demo",".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 await writeFile(
   resolve(target, "_storage", "DEPLOYMENT.md"),
@@ -38,5 +38,7 @@ await cp(resolve(target,"themes","gallery"),resolve(target,"_next","static","gal
 await writeFile(resolve(target,"_next","static","gallery","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/gallery/assets/manrope-OFL.txt"),"utf8"),cormorant:await readFile(resolve(target,"themes/gallery/assets/cormorant-OFL.txt"),"utf8")}));
 await cp(resolve(target,"themes","chronicle"),resolve(target,"_next","static","chronicle"),{recursive:true});
 await writeFile(resolve(target,"_next","static","chronicle","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/chronicle/assets/manrope-OFL.txt"),"utf8"),cormorant:await readFile(resolve(target,"themes/chronicle/assets/cormorant-OFL.txt"),"utf8")}));
+await cp(resolve(target,"themes","focus"),resolve(target,"_next","static","focus"),{recursive:true});
+await writeFile(resolve(target,"_next","static","focus","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/focus/assets/manrope-OFL.txt"),"utf8")}));
 await rm(resolve(target,"_private","update-candidate.zip"),{force:true});
 execFileSync("php",["scripts/build-update.php","out","out/_private/update-candidate.php"],{stdio:"inherit"});

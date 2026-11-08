@@ -1,0 +1,33 @@
+{
+  "schema": "bypcms.theme/v1",
+  "id": "chronicle",
+  "version": "1.0.0",
+  "editions": [
+    "content"
+  ],
+  "requires_core": "2.4.0",
+  "templates": [
+    "home",
+    "articles",
+    "archive",
+    "category",
+    "author",
+    "article",
+    "page",
+    "search",
+    "feed",
+    "404"
+  ],
+  "settings": [
+    "site_name",
+    "tagline",
+    "accent",
+    "logo",
+    "font",
+    "heading_font",
+    "email",
+    "phone",
+    "menu",
+    "footer_menu"
+  ]
+}

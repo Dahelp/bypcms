@@ -6,12 +6,12 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
-/** Content data contract shared by the installed Journal, editor and previews. */
+/** Content data contract shared by installed themes, the editor and previews. */
 final class Content {
-    public const VERSION='2.3.3';
+    public const VERSION='2.4.0';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
-        $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]='/'.$v['path'].' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=$url.' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
+        $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]=self::asset('/'.$v['path']).' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=self::asset($url).' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
     }
     public function __construct(public Database $db, public array $config, public string $root) { self::schema($db->pdo()); }
     public static function schema(PDO $pdo): void {
@@ -25,7 +25,7 @@ final class Content {
     public static function money(int $minor): string {return number_format($minor/100,$minor%100===0?0:2,',',' ').' ₽';}
     public static function imageUrl(string $url): string {return strlen($url)<=550000&&preg_match('#^data:image/(?:jpeg|png|webp);base64,[a-zA-Z0-9+/=]+$#D',$url)?$url:self::url($url);}
     public static function asset(string $path): string {
-        if(preg_match('#^/themes/(journal|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
+        if(preg_match('#^/themes/(journal|chronicle|atelier|gallery)/#',$path,$theme)&&defined('BYPCMS_SITE_ROOT')&&class_exists(UpdateRuntime::class)){$p=UpdateRuntime::pointer(BYPCMS_SITE_ROOT);if($p)return '/_update-assets/'.$p['release'].'/_next/static/'.$theme[1].'/'.substr($path,strlen('/themes/'.$theme[1].'/'));}return $path;
     }
     public static function url(string $url): string {
         $url=trim($url);
@@ -67,7 +67,7 @@ final class Content {
     public function configure(array $input): void {
         if(!empty($input['activate_journal']))$input['theme']='journal';
         $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
-        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
+        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal','chronicle']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
         if(isset($data['site_name'])&&(trim($data['site_name'])===''||mb_strlen($data['site_name'])>100))throw new RuntimeException('Укажите название сайта до 100 символов.');
         if(isset($data['accent'])&&!preg_match('/^#[0-9a-f]{6}$/i',$data['accent']))throw new RuntimeException('Некорректный цвет.');
         if(isset($data['email'])&&$data['email']!==''&&!filter_var($data['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Проверьте email.');

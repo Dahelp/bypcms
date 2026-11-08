@@ -9,7 +9,7 @@ if (is_file($contentRoot.'/_storage/config.php')) {
     if (strtolower($contentConfig['app']['edition'] ?? '') === 'content') {
         $journal=true;
         if(is_file($contentRoot.'/themes/custom/page.html') && empty($_GET['preview_token']) && trim((string)parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH),'/')!=='manage'){
-            require_once __DIR__.'/Database.php';$legacyDb=new \BYPCMS\Core\Database($contentConfig);$chosen=$legacyDb->one('SELECT setting_value FROM byp_settings WHERE setting_group=\'journal\' AND setting_key=\'theme\'');$journal=($chosen['setting_value']??'')==='journal';
+            require_once __DIR__.'/Database.php';$legacyDb=new \BYPCMS\Core\Database($contentConfig);$chosen=$legacyDb->one('SELECT setting_value FROM byp_settings WHERE setting_group=\'journal\' AND setting_key=\'theme\'');$journal=in_array($chosen['setting_value']??'',['journal','chronicle'],true);
         }
         if($journal){require __DIR__.'/journal-front.php';return;}
     }

@@ -1,0 +1,46 @@
+{
+  "license": "https://unsplash.com/license",
+  "purpose": "Illustrative editorial starter content; not photographs of reported events",
+  "sources": [
+    {
+      "file": "editorial-1.jpg",
+      "source": "https://unsplash.com/photos/ZN4kAJEDx48",
+      "image": "https://images.unsplash.com/photo-1422023430054-ae6150477ae9"
+    },
+    {
+      "file": "editorial-2.jpg",
+      "source": "https://unsplash.com/photos/9z1s2UTm_ac",
+      "image": "https://images.unsplash.com/photo-1774801890584-c7b57f62d22d"
+    },
+    {
+      "file": "editorial-3.jpg",
+      "source": "https://images.unsplash.com/photo-1497366811353-6870744d04b2",
+      "image": "https://images.unsplash.com/photo-1497366811353-6870744d04b2"
+    },
+    {
+      "file": "editorial-4.jpg",
+      "source": "https://unsplash.com/photos/MJ9PDR913hE",
+      "image": "https://images.unsplash.com/photo-1769283994739-1a909b7f1310"
+    },
+    {
+      "file": "editorial-5.jpg",
+      "source": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0",
+      "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0"
+    },
+    {
+      "file": "editorial-6.jpg",
+      "source": "https://unsplash.com/photos/03xSG7_vYUk",
+      "image": "https://images.unsplash.com/photo-1759516081022-f5f4e505a835"
+    },
+    {
+      "file": "editorial-7.jpg",
+      "source": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d",
+      "image": "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d"
+    },
+    {
+      "file": "editorial-8.jpg",
+      "source": "https://unsplash.com/photos/bhoCN0EltN4",
+      "image": "https://images.unsplash.com/photo-1769284068731-1266d6fb2890"
+    }
+  ]
+}

@@ -58,3 +58,8 @@ test('Admin renders only neutral loading until the URL is resolved',()=>{
  const html=renderBeforeRoute('app/admin/page.tsx');
  assert.match(html,/Загрузка выбранного раздела/);assert.doesNotMatch(html,/<h1|Здоровье системы|cmsSidebar/);
 });
+
+test('mail templates and message routes stay neutral until URL is parsed',()=>{
+ const imports=name=>{if(name==='react'||name==='react/jsx-runtime')return require(name);return {__esModule:true,default:()=>null};};
+ const Mail=compile('app/components/CommerceMailPanel.tsx',imports).default;const html=renderToStaticMarkup(React.createElement(Mail,{data:{},request:async()=>({}),refresh:async()=>{}}));assert.match(html,/Загрузка выбранного раздела уведомлений/);assert.doesNotMatch(html,/Очередь уведомлений|Шаблоны сервисных писем/);
+});

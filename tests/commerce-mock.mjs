@@ -48,13 +48,13 @@ tls.createServer({key:readFileSync(directory+'/smtp-key.pem'),cert:readFileSync(
  socket.setEncoding('utf8');socket.write('220 qa.local ESMTP\r\n');let buffer='',data=false,body='',login=0;
  socket.on('error',()=>{});
  socket.on('data',chunk=>{buffer+=chunk;let split;while((split=buffer.indexOf('\r\n'))>=0){const line=buffer.slice(0,split);buffer=buffer.slice(split+2);
-  if(data){if(line!=='.'){body+=line+'\r\n';continue;}data=false;messages.push(body);body='';if(mailMode==='drop'){socket.destroy();return;}socket.write('250 2.0.0 queued\r\n');continue;}
+  if(data){if(line!=='.'){body+=line+'\r\n';continue;}data=false;messages.push(body);body='';if(mailMode==='drop'){socket.destroy();return;}if(mailMode==='delay')setTimeout(()=>socket.write('250 2.0.0 queued\r\n'),300);else socket.write('250 2.0.0 queued\r\n');continue;}
   if(login){if(login===1){login=2;socket.write('334 UGFzc3dvcmQ6\r\n');}else{login=0;socket.write('235 authenticated\r\n');}continue;}
   if(/^EHLO/.test(line))socket.write('250-qa.local\r\n250 AUTH PLAIN LOGIN\r\n');
-  else if(/^AUTH PLAIN/.test(line)){if(line==='AUTH PLAIN'){login=3;socket.write('334 \r\n');}else socket.write('235 authenticated\r\n');}
+  else if(/^AUTH PLAIN/.test(line)){if(mailMode==='auth'){socket.write('535 authentication failed\r\n');continue;}if(line==='AUTH PLAIN'){login=3;socket.write('334 \r\n');}else socket.write('235 authenticated\r\n');}
   else if(/^AUTH LOGIN/.test(line)){login=1;socket.write('334 VXNlcm5hbWU6\r\n');}
   else if(/^MAIL FROM/.test(line))socket.write('250 sender ok\r\n');
-  else if(/^RCPT TO/.test(line))socket.write(mailMode==='reject'?'550 rejected\r\n':'250 recipient ok\r\n');
+  else if(/^RCPT TO/.test(line))socket.write(mailMode==='reject'?'550 rejected\r\n':(mailMode==='temporary'?'451 temporarily unavailable\r\n':'250 recipient ok\r\n'));
   else if(line==='DATA'){data=true;socket.write('354 send data\r\n');}
   else if(line==='QUIT'){socket.end('221 bye\r\n');}
   else socket.write('250 ok\r\n');

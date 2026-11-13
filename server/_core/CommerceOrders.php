@@ -82,7 +82,7 @@ final class CommerceOrders {
         $result['purchase_url']=$r['kind']==='purchase'&&$r['fulfillment_state']==='ready'&&!CommerceAccess::orderDenied($this->db->pdo(),$id)?'/account/purchase.php?id='.$id:null;
         $result['invoice']=$this->invoices->view($id);$result['manual_payment']=$this->db->one('SELECT source,amount_minor,paid_on,created_at FROM byp_commerce_manual_payments WHERE order_id=?',[$id]);
         $result['legal_accepted']=CommerceLegal::accepted($this->db,$id);$result['legal']=CommerceLegal::info();$result['refunds']=(new CommerceRefunds($this->db,$this->config,$this))->summary($id);$result['receipt']=$this->db->one('SELECT sale_state,sale_url,refund_state,refund_note FROM byp_commerce_receipts WHERE order_id=?',[$id]);
-        $result['notifications']=$this->db->all('SELECT state,created_at,accepted_at FROM byp_notification_outbox WHERE order_id=? AND event_key LIKE "%:customer" ORDER BY id',[$id]);return $result;
+        $result['notifications']=$this->db->all('SELECT o.state,o.subject,o.created_at,o.accepted_at FROM byp_notification_outbox o LEFT JOIN byp_mail_metadata m ON m.mail_id=o.id WHERE o.order_id=? AND (m.audience="customer" OR (m.mail_id IS NULL AND o.event_key LIKE "%:customer")) ORDER BY o.id',[$id]);return $result;
     }
     private function payload(array $order,array $s,string $attempt):array {
         $customer=$this->db->one('SELECT email FROM byp_customer_accounts WHERE id=?',[$order['customer_id']]);
@@ -158,6 +158,6 @@ final class CommerceOrders {
         $result=['fulfilled'=>0,'errors'=>0];
         foreach($this->db->all('SELECT order_id FROM byp_payment_attempts WHERE provider_id IS NOT NULL AND state IN ("pending","waiting_for_capture","uncertain") AND (checked_at IS NULL OR checked_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE)) ORDER BY created_at LIMIT 2')as $row){try{$this->sync((int)$row['order_id']);}catch(Throwable $e){$result['errors']++;}}
         foreach($this->db->all('SELECT order_id FROM byp_commerce_orders WHERE payment_state="paid" AND (fulfillment_state="pending" OR (fulfillment_state="failed" AND updated_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE))) ORDER BY updated_at,order_id LIMIT 2')as $row){try{$this->fulfill((int)$row['order_id']);$result['fulfilled']++;}catch(Throwable $e){$result['errors']++;}}
-        $result['refunds']=(new CommerceRefunds($this->db,$this->config,$this))->work();$result['mail']=$this->notifications->process(3);$this->settings->workerReport($result);return $result;
+        $result['expired_invoices']=$this->invoices->notifyExpired();$result['refunds']=(new CommerceRefunds($this->db,$this->config,$this))->work();$result['mail']=$this->notifications->process(3);$this->settings->workerReport($result);return $result;
     }
 }

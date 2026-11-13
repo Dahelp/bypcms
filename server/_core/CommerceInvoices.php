@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+namespace BYPCMS\Core;
+use InvalidArgumentException;
+use RuntimeException;
+use Throwable;
+require_once __DIR__.'/CommerceBankSettings.php';
+
+final class CommerceInvoices {
+    public CommerceBankSettings $bank;
+    public function __construct(private Database $db,private array $config,private CommerceOrders $orders,string $root){
+        $this->bank=new CommerceBankSettings($root,$config);
+        // Additive, restart-safe migration; no alteration or rewriting of existing payments.
+        $db->execute('CREATE TABLE IF NOT EXISTS byp_commerce_invoices (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,order_id BIGINT UNSIGNED NOT NULL,operation_id CHAR(32) NOT NULL UNIQUE,request_hash CHAR(64) NOT NULL,number VARCHAR(50) NOT NULL UNIQUE,state VARCHAR(16) NOT NULL,amount_minor BIGINT NOT NULL,license_minor BIGINT NOT NULL,items_json LONGTEXT NOT NULL,scope TEXT NOT NULL,seller_cipher LONGTEXT NOT NULL,yookassa_url VARCHAR(2048) NOT NULL DEFAULT "",legal_version VARCHAR(30) NOT NULL,accepted_at DATETIME NULL,accepted_by BIGINT UNSIGNED NULL,expires_on DATE NOT NULL,created_by BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL,canceled_reason TEXT NULL,INDEX(order_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $db->execute('CREATE TABLE IF NOT EXISTS byp_commerce_manual_payments (id CHAR(32) PRIMARY KEY,order_id BIGINT UNSIGNED NOT NULL UNIQUE,invoice_id BIGINT UNSIGNED NOT NULL UNIQUE,source VARCHAR(24) NOT NULL,amount_minor BIGINT NOT NULL,paid_on DATE NOT NULL,reference VARCHAR(190) NOT NULL,reference_hash CHAR(64) NOT NULL UNIQUE,confirmed_by BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+        $db->execute('CREATE TABLE IF NOT EXISTS byp_commerce_manual_refunds (id CHAR(32) PRIMARY KEY,order_id BIGINT UNSIGNED NOT NULL,reference_hash CHAR(64) NOT NULL UNIQUE,request_hash CHAR(64) NOT NULL,reference VARCHAR(190) NOT NULL,paid_on DATE NOT NULL,created_by BIGINT UNSIGNED NOT NULL,created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+    }
+    public function latest(int $id):?array{return $this->db->one('SELECT * FROM byp_commerce_invoices WHERE order_id=? ORDER BY id DESC LIMIT 1',[$id]);}
+    public function view(int $id):?array{$r=$this->latest($id);if(!$r)return null;$r['items']=json_decode($r['items_json'],true);unset($r['seller_cipher'],$r['items_json'],$r['request_hash'],$r['operation_id']);$r['expired']=$r['expires_on']<gmdate('Y-m-d');$r['print_url']='/account/invoice.php?id='.$r['id'];return $r;}
+    public function automatic(int $id):void {
+        $o=$this->orders->row($id);if($o['kind']==='inquiry'||$o['payment_state']==='paid'||$o['active_attempt_id']||$this->latest($id)||!$this->bank->get()['enabled'])return;
+        $this->issue($id,0,['operation_id'=>substr(hash('sha256','invoice:'.$o['public_id']),0,32),'scope'=>'Предоставление лицензии и выбранных модулей для домена '.$o['domain'].'. Архив и ключ — после подтверждения поступления оплаты; при задержке выдачи продавец завершает её в течение одного рабочего дня.']);
+    }
+    public function issue(int $id,int $owner,array $input):array {
+        $op=LicensePolicy::installation((string)($input['operation_id']??''));$scope=trim((string)($input['scope']??''));if(mb_strlen($scope)<20||mb_strlen($scope)>6000)throw new InvalidArgumentException('Опишите состав, результат, срок и порядок приёмки работ (20–6000 символов).');
+        $expires=(string)($input['expires_on']??gmdate('Y-m-d',time()+14*86400));if(!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$expires)||!strtotime($expires.' UTC')||gmdate('Y-m-d',strtotime($expires.' UTC'))!==$expires||$expires<gmdate('Y-m-d')||$expires>gmdate('Y-m-d',time()+90*86400))throw new InvalidArgumentException('Срок оплаты: от сегодня до 90 дней.');
+        $url=trim((string)($input['yookassa_url']??''));if($url!==''&&(!filter_var($url,FILTER_VALIDATE_URL)||!preg_match('~^https://(?:yookassa\.ru|yoomoney\.ru)/[^\s]*$~D',$url)))throw new InvalidArgumentException('Допустима только HTTPS-ссылка на выставленный счёт ЮKassa/ЮMoney.');
+        $hash=hash('sha256',json_encode([$id,$scope,$expires,$url,$input['service_prices']??[],$input['domain']??''],JSON_THROW_ON_ERROR));
+        $pdo=$this->db->pdo();$pdo->beginTransaction();try{
+            $o=$this->orders->row($id,null,true);$old=$this->db->one('SELECT * FROM byp_commerce_invoices WHERE operation_id=?',[$op]);if($old){if($old['request_hash']!==$hash)throw new RuntimeException('Операция уже использована с другим составом счёта.');$pdo->commit();return $this->view($id);}
+            if($o['payment_state']==='paid'||$o['active_attempt_id'])throw new RuntimeException('Сначала сверьте прежний платёж. Оплаченный заказ изменять нельзя.');
+            $previous=$this->latest($id);if($previous&&$previous['state']==='issued')throw new RuntimeException('Сначала отмените прежний счёт и согласуйте с покупателем прекращение оплаты по нему.');
+            $bank=$this->bank->get();if(!$bank['enabled'])throw new RuntimeException('В Owner → Настройки → Оплата заполните и включите банковские реквизиты.');CommerceBankSettings::validate($bank);
+            $content=json_decode($o['items_json'],true);$items=array_values(array_filter($content['items'],fn($i)=>empty($i['service'])));$license=array_sum(array_column($items,'minor'));
+            foreach($content['services']as $key){$price=PaymentGateway::minor((string)($input['service_prices'][$key]??''));if($price<100)throw new InvalidArgumentException('Укажите точную согласуемую цену каждой услуги, не менее 1 ₽.');$items[]=['name'=>CommerceOrders::SERVICES[$key][0],'minor'=>$price,'service'=>$key];}
+            if($license>0){$domain=LicensePolicy::domain((string)($input['domain']??$o['domain']));$this->db->execute('UPDATE byp_customer_orders SET domain=? WHERE id=?',[$domain,$id]);}$amount=array_sum(array_column($items,'minor'));if($amount<100||$amount>100000000)throw new InvalidArgumentException('Сумма счёта должна быть от 1 до 1 000 000 ₽.');
+            $bank['order_domain']=$domain??$o['domain'];$buyer=$this->db->one('SELECT name,email FROM byp_customer_accounts WHERE id=?',[$o['customer_id']]);$bank['buyer_name']=$buyer['name'];$bank['buyer_email']=$buyer['email'];$bank['buyer_company']=json_decode($o['contact_json'],true)['company']??'';
+            $number='BYP-'.$id.'-'.($previous?(int)substr($previous['number'],strrpos($previous['number'],'-')+1)+1:1);
+            $auto=$owner===0&&!$content['services']&&(int)$this->db->one('SELECT COUNT(DISTINCT document_key) n FROM byp_commerce_consents WHERE order_id=? AND version=? AND document_key IN ("offer","consent")',[$id,CommerceLegal::VERSION])['n']===2;
+            $this->db->execute('INSERT INTO byp_commerce_invoices(order_id,operation_id,request_hash,number,state,amount_minor,license_minor,items_json,scope,seller_cipher,yookassa_url,legal_version,accepted_at,accepted_by,expires_on,created_by,created_at) VALUES(?,?,?,?,"issued",?,?,?,?,?,?,?,IF(?,NOW(),NULL),?,?,?,NOW())',[$id,$op,$hash,$number,$amount,$license,json_encode($items,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$scope,LicenseCrypto::encrypt(json_encode($bank,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),$this->config['app']['key']),$url,CommerceLegal::VERSION,$auto?1:0,$auto?$o['customer_id']:null,$expires,$owner]);
+            $this->db->execute('UPDATE byp_commerce_orders SET amount_minor=?,items_json=?,kind=IF(kind="renewal","renewal",?),fulfillment_state=?,updated_at=NOW() WHERE order_id=?',[$amount,json_encode(['billing'=>'invoice','items'=>$items,'services'=>$content['services']],JSON_UNESCAPED_UNICODE),$license>0?'purchase':'service',$license>0?'pending':'not_needed',$id]);
+            $this->orders->notifications->event($this->orders->row($id),'invoice:'.$number);$pdo->commit();return $this->view($id);
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+    public function cancel(int $id,int $invoice,string $reason):void {
+        if(mb_strlen(trim($reason))<5||mb_strlen($reason)>2000)throw new InvalidArgumentException('Укажите причину отмены (5–2000 символов).');$pdo=$this->db->pdo();$pdo->beginTransaction();try{$o=$this->orders->row($id,null,true);$r=$this->latest($id);if(!$r||(int)$r['id']!==$invoice||$o['payment_state']==='paid')throw new RuntimeException('Счёт изменился или уже оплачен.');if($r['state']==='issued'){$this->db->execute('UPDATE byp_commerce_invoices SET state="canceled",canceled_reason=? WHERE id=?',[$reason,$invoice]);$this->orders->notifications->event($o,'invoice_canceled:'.$invoice);}$pdo->commit();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+    public function accept(int $id,int $customer,array $input):void {
+        CommerceLegal::validate($input);$pdo=$this->db->pdo();$pdo->beginTransaction();try{$this->orders->row($id,$customer,true);$r=$this->latest($id);if(!$r||(int)$r['id']!==(int)($input['invoice_id']??0)||$r['state']!=='issued'||$r['expires_on']<gmdate('Y-m-d'))throw new RuntimeException('Счёт отменён, изменён или просрочен. Обновите заказ.');if($r['legal_version']!==CommerceLegal::VERSION)throw new RuntimeException('Нужен новый счёт с действующими условиями.');CommerceLegal::record($this->db,$customer,$id);$this->db->execute('UPDATE byp_commerce_invoices SET accepted_at=COALESCE(accepted_at,NOW()),accepted_by=? WHERE id=?',[$customer,$r['id']]);$pdo->commit();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+    public function confirm(int $id,int $owner,array $input):array {
+        $op=LicensePolicy::installation((string)($input['operation_id']??''));$amount=PaymentGateway::minor((string)($input['amount']??''));$source=(string)($input['source']??'bank');$reference=trim((string)($input['reference']??''));$date=(string)($input['paid_on']??'');
+        if($owner<1||empty($input['confirmed'])||!in_array($source,['bank','yookassa_invoice'],true)||mb_strlen($reference)<3||mb_strlen($reference)>190||preg_match('/[\x00-\x1f]/',$reference)||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$date)||!strtotime($date.' UTC')||gmdate('Y-m-d',strtotime($date.' UTC'))!==$date||$date>gmdate('Y-m-d')||$date<'2020-01-01')throw new InvalidArgumentException('Подтвердите фактическое поступление: источник, номер операции и прошедшая дата обязательны.');
+        $hash=hash('sha256',$source.':'.mb_strtolower(preg_replace('/\s+/u','',$reference)));$pdo=$this->db->pdo();$pdo->beginTransaction();try{
+            $o=$this->orders->row($id,null,true);$old=$this->db->one('SELECT * FROM byp_commerce_manual_payments WHERE order_id=? OR id=?',[$id,$op]);if($old){if((int)$old['order_id']!==$id||(int)$old['invoice_id']!==(int)($input['invoice_id']??0)||(int)$old['amount_minor']!==$amount||$old['reference_hash']!==$hash||$old['paid_on']!==$date)throw new RuntimeException('Подтверждение уже записано с другими данными.');$pdo->commit();$this->orders->fulfill($id);return $this->orders->view($id);}
+            $r=$this->latest($id);if(!$r||(int)$r['id']!==(int)($input['invoice_id']??0)||$r['state']!=='issued'||!$r['accepted_at']||($r['expires_on']<gmdate('Y-m-d')&&$date>$r['expires_on'])||$o['active_attempt_id']||$o['payment_state']==='paid')throw new RuntimeException('Нужен актуальный, принятый покупателем счёт без другого платежа. Для просроченного счёта дата фактического поступления должна быть в пределах срока оплаты.');
+            if($date<substr($r['created_at'],0,10)||$amount!==(int)$r['amount_minor']||$amount!==(int)$o['amount_minor'])throw new InvalidArgumentException('Дата и точная полная сумма должны соответствовать счёту. Частичный или избыточный платёж требует отдельной сверки.');
+            if($this->db->one('SELECT id FROM byp_commerce_manual_payments WHERE reference_hash=?',[$hash]))throw new RuntimeException('Эта банковская операция уже зачтена в другом заказе.');
+            $this->db->execute('INSERT INTO byp_commerce_manual_payments(id,order_id,invoice_id,source,amount_minor,paid_on,reference,reference_hash,confirmed_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,NOW())',[$op,$id,$r['id'],$source,$amount,$date,$reference,$hash,$owner]);
+            $this->db->execute('UPDATE byp_commerce_invoices SET state="paid" WHERE id=?',[$r['id']]);$this->db->execute('UPDATE byp_commerce_orders SET payment_state="paid",mode="live",paid_at=NOW(),updated_at=NOW() WHERE order_id=?',[$id]);$this->db->execute('UPDATE byp_customer_orders SET status="paid" WHERE id=?',[$id]);$this->db->execute('INSERT IGNORE INTO byp_commerce_receipts(order_id,sale_state,updated_at) VALUES(?,"required",NOW())',[$id]);$this->orders->notifications->event($o,'paid');$pdo->commit();
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+        $this->orders->fulfill($id);return $this->orders->view($id);
+    }
+}

@@ -12,7 +12,7 @@ final class CommerceRefunds {
     public function summary(int $id):array {
         $rows=$this->db->all('SELECT id,provider_id,amount_minor,state,license_action,reason,last_error,created_at FROM byp_commerce_refunds WHERE order_id=? ORDER BY created_at,id',[$id]);$total=0;$pending=false;
         foreach($rows as $r){if($r['state']==='succeeded')$total+=(int)$r['amount_minor'];if(in_array($r['state'],['approved','creating','uncertain','pending'],true))$pending=true;}
-        return ['amount_minor'=>$total,'pending'=>$pending,'rows'=>$rows,'requests'=>$this->db->all('SELECT id,reason,state,decision,created_at FROM byp_refund_requests WHERE order_id=? ORDER BY id DESC LIMIT 30',[$id]),'license_effect'=>$this->db->one('SELECT state,reason FROM byp_commerce_license_blocks WHERE order_id=? AND state<>"cleared"',[$id]),'access_blocked'=>CommerceAccess::orderDenied($this->db->pdo(),$id)];
+        return ['amount_minor'=>$total,'pending'=>$pending,'rows'=>$rows,'requests'=>$this->db->all('SELECT id,reason,state,decision,created_at FROM byp_refund_requests WHERE order_id=? ORDER BY id DESC LIMIT 30',[$id]),'license_effect'=>$this->db->one('SELECT state,reason FROM byp_commerce_license_blocks WHERE order_id=? AND state<>"cleared"',[$id]),'access_blocked'=>($total>0||$pending)&&CommerceAccess::orderDenied($this->db->pdo(),$id)];
     }
     public function request(int $id,int $customer,string $reason):array {
         $reason=$this->text($reason);$pdo=$this->db->pdo();$pdo->beginTransaction();try{
@@ -93,6 +93,21 @@ final class CommerceRefunds {
             }elseif(in_array($value['status'],['canceled'],true)&&$current['state']!==$value['status']){
                 $this->db->execute('UPDATE byp_refund_requests SET state="requested",updated_at=NOW() WHERE id=? AND state="processing"',[$r['request_id']??0]);$this->orders->notifications->event($order,'refund_failed:'.$r['id']);
             }$pdo->commit();
+        }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+    }
+    /** Records an already completed bank/dashboard transfer; never sends money. */
+    public function recordManual(int $id,int $owner,array $input):array {
+        $op=LicensePolicy::installation((string)($input['operation_id']??''));$reason=$this->text((string)($input['reason']??''));$minor=PaymentGateway::minor((string)($input['amount']??''));$action=(string)($input['license_action']??'');$reference=trim((string)($input['reference']??''));$date=(string)($input['paid_on']??'');
+        if(empty($input['confirmed'])||!in_array($action,['keep','revoke'],true)||mb_strlen($reference)<3||mb_strlen($reference)>190||preg_match('/[\x00-\x1f]/',$reference)||!preg_match('/^\d{4}-\d{2}-\d{2}$/D',$date)||!strtotime($date.' UTC')||gmdate('Y-m-d',strtotime($date.' UTC'))!==$date||$date>gmdate('Y-m-d'))throw new InvalidArgumentException('Подтвердите выполненный возврат, его дату, номер операции и действие с правами.');
+        $hash=hash('sha256',json_encode([$id,$minor,$action,$reference,$date,$reason],JSON_THROW_ON_ERROR));$refHash=hash('sha256',mb_strtolower(preg_replace('/\s+/u','',$reference)));
+        $pdo=$this->db->pdo();$pdo->beginTransaction();try{
+            $o=$this->orders->row($id,null,true);$m=$this->db->one('SELECT * FROM byp_commerce_manual_payments WHERE order_id=?',[$id]);if(!$m||$o['payment_state']!=='paid')throw new RuntimeException('Ручная запись возврата доступна для подтверждённой оплаты по счёту.');
+            $old=$this->db->one('SELECT * FROM byp_commerce_manual_refunds WHERE id=?',[$op]);if($old){if($old['request_hash']!==$hash)throw new RuntimeException('Операция использована с другими данными.');$pdo->commit();return $this->summary($id);}
+            $summary=$this->summary($id);if($summary['pending']||$minor<100||$minor>(int)$o['amount_minor']-$summary['amount_minor']||($minor===(int)$o['amount_minor']-$summary['amount_minor']&&$action!=='revoke')||$date<$m['paid_on'])throw new InvalidArgumentException('Проверьте остаток суммы, дату и права: полный возврат прекращает оплаченные права.');
+            if($this->db->one('SELECT id FROM byp_commerce_manual_refunds WHERE reference_hash=?',[$refHash]))throw new RuntimeException('Этот возврат уже учтён.');
+            $this->db->execute('INSERT INTO byp_commerce_manual_refunds(id,order_id,reference_hash,request_hash,reference,paid_on,created_by,created_at) VALUES(?,?,?,?,?,?,?,NOW())',[$op,$id,$refHash,$hash,$reference,$date,$owner]);
+            $this->db->execute('INSERT INTO byp_commerce_refunds(id,order_id,attempt_id,shop_id,mode,amount_minor,license_action,state,payload,reason,approved_by,created_at,checked_at,finalized_at) VALUES(?,?,?,"manual","live",?,?,"succeeded","{}",?,?,NOW(),NOW(),NOW())',[$op,$id,$m['id'],$minor,$action,$reason,$owner]);
+            $this->rights($o);$this->db->execute('UPDATE byp_commerce_receipts SET refund_state="required",updated_at=NOW() WHERE order_id=?',[$id]);$this->db->execute('UPDATE byp_refund_requests SET state="completed",decision=?,decided_by=?,updated_at=NOW() WHERE order_id=? AND state IN ("requested","processing")',[$reason,$owner,$id]);$this->orders->notifications->event($o,'refund_succeeded:'.$op);$pdo->commit();return $this->summary($id);
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
     /** Called under the order lock. Pending approval freezes server rights; only confirmed success terminates them. */

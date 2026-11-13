@@ -40,7 +40,7 @@ jobs:
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Verify licensing and bulk policies
-        run: php tests/shop.test.php && php tests/gallery-filters.test.php && php tests/business.test.php && php tests/content.test.php && php tests/chronicle.test.php && php tests/focus.test.php && php tests/theme-assets.test.php && php tests/commerce.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php
+        run: php tests/shop.test.php && php tests/gallery-filters.test.php && php tests/business.test.php && php tests/content.test.php && php tests/chronicle.test.php && php tests/focus.test.php && php tests/theme-assets.test.php && php tests/commerce.test.php && php tests/invoices.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php
 
       - name: Build static website
         run: pnpm build:ftp

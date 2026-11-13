@@ -15,7 +15,7 @@ final class CommerceNotifications {
     public function event(array $order,string $type):void {
         $key='order:'.$order['id'].':'.$type;
         if(!$this->db->execute('INSERT IGNORE INTO byp_commerce_events(event_key,order_id,event_type,created_at) VALUES(?,?,?,NOW())',[$key,$order['id'],explode(':',$type)[0]]))return;
-        $titles=['created'=>'Заказ BYPCMS создан','paid'=>'Оплата BYPCMS подтверждена','ready'=>'Покупка BYPCMS готова','fulfillment_error'=>'Нужна повторная выдача покупки','canceled'=>'Платёж BYPCMS отменён'];$base=explode(':',$type)[0];$titles+=['refund_request'=>'Запрос возврата получен','refund_approved'=>'Владелец подтвердил возврат','refund_succeeded'=>'Возврат подтверждён ЮKassa','refund_declined'=>'Ответ на запрос возврата','refund_failed'=>'Возврат не выполнен','receipt'=>'Чек покупки BYPCMS доступен'];$title=$titles[$base]??$titles[$type]??'Событие заказа BYPCMS';
+        $titles=['created'=>'Заказ BYPCMS создан','paid'=>'Оплата BYPCMS подтверждена','ready'=>'Покупка BYPCMS готова','fulfillment_error'=>'Нужна повторная выдача покупки','canceled'=>'Платёж BYPCMS отменён'];$base=explode(':',$type)[0];$titles+=['refund_request'=>'Запрос возврата получен','refund_approved'=>'Владелец подтвердил возврат','refund_succeeded'=>'Выполнение возврата подтверждено','invoice'=>'Счёт BYPCMS выставлен','invoice_canceled'=>'Счёт BYPCMS отменён','refund_declined'=>'Ответ на запрос возврата','refund_failed'=>'Возврат не выполнен','receipt'=>'Чек покупки BYPCMS доступен'];$title=$titles[$base]??$titles[$type]??'Событие заказа BYPCMS';
         $link=rtrim($this->config['app']['url'],'/').'/account/order.php?id='.$order['id'];
         $amount=isset($order['amount_minor'])?number_format($order['amount_minor']/100,2,',',' ').' RUB':'';
         $message=$title.'. Заказ №'.$order['id'].'. '.$order['edition'].' · '.$order['domain'].($amount?' · сумма заказа '.$amount:'').'.';
@@ -25,7 +25,7 @@ final class CommerceNotifications {
         if($owner!=='')$this->enqueue($key.':owner',(int)$order['id'],$owner,$title,$message."\n".rtrim($this->config['app']['url'],'/').'/owner/?section=payments&order='.$order['id']);
         if($type!=='fulfillment_error'){
             $customer=$this->db->one('SELECT email FROM byp_customer_accounts WHERE id=?',[$order['customer_id']]);
-            $extra=$type==='paid'?"\nОплата подтверждена платёжной системой. Выдача доступна в кабинете; если она ещё готовится, повторите проверку статуса.":($type==='ready'?"\nПокупка или продление доступны в личном кабинете. Ключи и пароли по почте не отправляются.":'');
+            $extra=$type==='paid'&&$order['kind']==='service'?"\nОплачены согласованные работы; результат и приёмка — по условиям счёта. Лицензия в этот заказ не входит.":($type==='paid'?"\nПоступление оплаты подтверждено. Выдача доступна в кабинете; если она ещё готовится, повторите проверку статуса.":($type==='ready'?"\nПокупка или продление доступны в личном кабинете. Ключи и пароли по почте не отправляются.":''));
             $this->enqueue($key.':customer',(int)$order['id'],$customer['email'],$title,$message.$extra."\n".$link);
         }
     }

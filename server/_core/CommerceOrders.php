@@ -11,13 +11,15 @@ require_once __DIR__.'/PaymentGateway.php';
 require_once __DIR__.'/LicensePolicy.php';
 require_once __DIR__.'/CommerceRefunds.php';
 require_once __DIR__.'/CommerceLegal.php';
+require_once __DIR__.'/CommerceInvoices.php';
 
 final class CommerceOrders {
     public CommerceSettings $settings;
+    public CommerceInvoices $invoices;
     public CommerceNotifications $notifications;
     public const EDITIONS=['content'=>['name'=>'Content','annual'=>790000,'lifetime'=>1990000],'business'=>['name'=>'Business','annual'=>990000,'lifetime'=>2490000],'commerce'=>['name'=>'Commerce','annual'=>1990000,'lifetime'=>4990000]];
     public const SERVICES=['ux-ui'=>['UX/UI-дизайн',6500000],'frontend'=>['Frontend-разработка',8500000],'launch'=>['Запуск и настройка',2500000],'migration'=>['Перенос данных',1800000],'support'=>['Сопровождение',1200000]];
-    public function __construct(private Database $db,private array $config,private string $root){CommerceSchema::ensure($db,$config,$root);$this->settings=new CommerceSettings($root,$config);$this->notifications=new CommerceNotifications($db,$this->settings,$config);}
+    public function __construct(private Database $db,private array $config,private string $root){CommerceSchema::ensure($db,$config,$root);$this->settings=new CommerceSettings($root,$config);$this->notifications=new CommerceNotifications($db,$this->settings,$config);$this->invoices=new CommerceInvoices($db,$config,$this,$root);}
     public function available(bool $allowTest=false):bool {
         $s=$this->settings->get();return $s['payments_enabled']&&($s['mode']==='live'||$allowTest)&&($this->settings->workerStatus()['at']??0)>time()-900;
     }
@@ -33,6 +35,7 @@ final class CommerceOrders {
     }
     private static function strings(mixed $values):array{if(!is_array($values)||count($values)>20)throw new InvalidArgumentException('Некорректный состав заказа.');$values=array_values(array_unique(array_map('strval',$values)));sort($values);return $values;}
     public function quote(array $input):array {
+        if(!empty($input['services_only'])){$services=self::strings($input['services']??[]);if(!$services)throw new InvalidArgumentException('Выберите хотя бы одну услугу.');foreach($services as $key)if(!isset(self::SERVICES[$key]))throw new InvalidArgumentException('Услуга не найдена.');return ['edition'=>'services','term'=>'annual','modules'=>[],'services'=>$services,'items'=>[],'amount_minor'=>0,'kind'=>'inquiry'];}
         $edition=strtolower((string)($input['edition']??'content'));$term=(string)($input['term']??'annual');if(!isset(self::EDITIONS[$edition])||!in_array($term,['annual','lifetime'],true))throw new InvalidArgumentException('Выберите редакцию и срок лицензии.');
         $extra=self::strings($input['modules']??[]);$services=self::strings($input['services']??[]);$catalog=$this->catalog();$access=[];foreach($catalog['availability']as $row)if(strtolower($row['edition'])===$edition)$access[$row['module_key']]=$row['availability'];
         $included=array_keys(array_filter($access,fn($value)=>$value==='included'));if(!in_array('content',$included,true))throw new RuntimeException('Комплектация редакции не настроена.');
@@ -51,10 +54,10 @@ final class CommerceOrders {
     public function create(int $customer,array $input):array {
         $operation=LicensePolicy::installation((string)($input['operation_id']??''));$contact=[];foreach(['company'=>190,'phone'=>60,'comment'=>2000]as $key=>$limit){$contact[$key]=trim((string)($input[$key]??''));if(mb_strlen($contact[$key])>$limit||str_contains($contact[$key],"\0"))throw new InvalidArgumentException('Слишком длинные контактные данные.');}
         $renew=(int)($input['renewal_license_id']??0);
-        $raw=['edition'=>strtolower((string)($input['edition']??'content')),'term'=>(string)($input['term']??'annual'),'modules'=>self::strings($input['modules']??[]),'services'=>self::strings($input['services']??[]),'domain'=>strtolower(rtrim(trim((string)($input['domain']??'')),'.')),'renewal'=>$renew,'contact'=>$contact];
+        $raw=['edition'=>strtolower((string)($input['edition']??'content')),'term'=>(string)($input['term']??'annual'),'modules'=>self::strings($input['modules']??[]),'services'=>self::strings($input['services']??[]),'domain'=>strtolower(rtrim(trim((string)($input['domain']??'')),'.')),'renewal'=>$renew,'services_only'=>!empty($input['services_only']),'contact'=>$contact];
         $hash=hash('sha256',json_encode($raw,JSON_THROW_ON_ERROR));
         $existing=$this->db->one('SELECT order_id,request_hash FROM byp_commerce_orders WHERE customer_id=? AND operation_id=?',[$customer,$operation]);
-        if($existing){if(!hash_equals($existing['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');return $this->view((int)$existing['order_id'],$customer);}
+        if($existing){if(!hash_equals($existing['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');$this->invoices->automatic((int)$existing['order_id']);return $this->view((int)$existing['order_id'],$customer);}
         CommerceLegal::validate($input);
         $quote=$renew?$this->renewal($customer,$renew):$this->quote($input);
         $domain=trim((string)($quote['domain']??$input['domain']??''));$domain=$quote['kind']==='inquiry'&&$domain===''?'Домен не указан':LicensePolicy::domain($domain);
@@ -64,10 +67,10 @@ final class CommerceOrders {
             // Lock the customer to serialize two tabs using the same operation token.
             if(!$this->db->one('SELECT id FROM byp_customer_accounts WHERE id=? FOR UPDATE',[$customer]))throw new RuntimeException('Требуется вход в кабинет.');
             $old=$this->db->one('SELECT order_id,request_hash FROM byp_commerce_orders WHERE customer_id=? AND operation_id=?',[$customer,$operation]);
-            if($old){if(!hash_equals($old['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');$pdo->commit();return $this->view((int)$old['order_id'],$customer);}
+            if($old){if(!hash_equals($old['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');$pdo->commit();$this->invoices->automatic((int)$old['order_id']);return $this->view((int)$old['order_id'],$customer);}
             $id=$this->db->insert('INSERT INTO byp_customer_orders(customer_id,edition,modules,domain,license_term,status,created_at) VALUES(?,?,?,?,?,"pending",NOW())',[$customer,$quote['edition'],json_encode($quote['modules']),$domain,$quote['term']]);
-            $this->db->execute('INSERT INTO byp_commerce_orders(order_id,public_id,customer_id,operation_id,request_hash,kind,amount_minor,items_json,contact_json,renewal_license_id,fulfillment_state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())',[$id,bin2hex(random_bytes(16)),$customer,$operation,$hash,$quote['kind'],$quote['amount_minor'],json_encode(['items'=>$quote['items'],'services'=>$quote['services']],JSON_UNESCAPED_UNICODE),json_encode($contact,JSON_UNESCAPED_UNICODE),$renew?:null,$quote['kind']==='inquiry'?'not_needed':'pending']);
-            CommerceLegal::record($this->db,$customer,$id);$order=$this->row($id);$this->notifications->event($order,'created');$pdo->commit();return $this->view($id,$customer);
+            $this->db->execute('INSERT INTO byp_commerce_orders(order_id,public_id,customer_id,operation_id,request_hash,kind,amount_minor,items_json,contact_json,renewal_license_id,fulfillment_state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())',[$id,bin2hex(random_bytes(16)),$customer,$operation,$hash,$quote['kind'],$quote['amount_minor'],json_encode(['billing'=>'invoice','items'=>$quote['items'],'services'=>$quote['services']],JSON_UNESCAPED_UNICODE),json_encode($contact,JSON_UNESCAPED_UNICODE),$renew?:null,$quote['kind']==='inquiry'?'not_needed':'pending']);
+            CommerceLegal::record($this->db,$customer,$id);$order=$this->row($id);$this->notifications->event($order,'created');$pdo->commit();$this->invoices->automatic($id);return $this->view($id,$customer);
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
     public function row(int $id,?int $customer=null,bool $lock=false):array {
@@ -77,6 +80,7 @@ final class CommerceOrders {
         $r=$this->row($id,$customer);$result=array_intersect_key($r,array_flip(['id','edition','domain','license_term','kind','amount_minor','currency','payment_state','fulfillment_state','fulfillment_error','paid_at','fulfilled_at','created_at','mode','renewed_until','renewal_license_id']));$result['items']=json_decode($r['items_json'],true);$result['modules']=json_decode($r['modules'],true);
         $result['attempt']=$r['active_attempt_id']?$this->db->one('SELECT id,provider_id,state,confirmation_url,last_error,created_at FROM byp_payment_attempts WHERE id=?',[$r['active_attempt_id']]):null;
         $result['purchase_url']=$r['kind']==='purchase'&&$r['fulfillment_state']==='ready'&&!CommerceAccess::orderDenied($this->db->pdo(),$id)?'/account/purchase.php?id='.$id:null;
+        $result['invoice']=$this->invoices->view($id);$result['manual_payment']=$this->db->one('SELECT source,amount_minor,paid_on,created_at FROM byp_commerce_manual_payments WHERE order_id=?',[$id]);
         $result['legal_accepted']=CommerceLegal::accepted($this->db,$id);$result['legal']=CommerceLegal::info();$result['refunds']=(new CommerceRefunds($this->db,$this->config,$this))->summary($id);$result['receipt']=$this->db->one('SELECT sale_state,sale_url,refund_state,refund_note FROM byp_commerce_receipts WHERE order_id=?',[$id]);
         $result['notifications']=$this->db->all('SELECT state,created_at,accepted_at FROM byp_notification_outbox WHERE order_id=? AND event_key LIKE "%:customer" ORDER BY id',[$id]);return $result;
     }
@@ -89,6 +93,7 @@ final class CommerceOrders {
         }return $data;
     }
     public function pay(int $id,int $customer,bool $allowTest):array {
+        if($this->invoices->latest($id)||(json_decode($this->row($id,$customer)['items_json'],true)['billing']??'')==='invoice')throw new RuntimeException('Заказ оплачивается по выставленному счёту. ЮKassa доступна по дополнительной ссылке в нём.');
         $s=$this->settings->get();if(!$s['payments_enabled'])throw new RuntimeException('Онлайн-оплата пока не подключена. Заказ сохранён в кабинете.');if(!$this->available($allowTest)&&$s['mode']!=='test')throw new RuntimeException('Оплата временно недоступна: фоновая обработка остановлена. Заказ сохранён, повторите позже.');if($s['mode']==='test'&&!$allowTest)throw new RuntimeException('Магазин проходит тестирование. Онлайн-оплата покупателям пока недоступна.');
         $pdo=$this->db->pdo();$pdo->beginTransaction();
         try {
@@ -139,7 +144,7 @@ final class CommerceOrders {
         $this->sync((int)$attempt['order_id'],null,$provider);
     }
     public function fulfill(int $id):void {
-        $order=$this->row($id);if(CommerceAccess::orderDenied($this->db->pdo(),$id)){$this->db->execute('UPDATE byp_commerce_orders SET updated_at=NOW() WHERE order_id=?',[$id]);return;}if($order['payment_state']!=='paid'||$order['fulfillment_state']==='ready'||$order['kind']==='inquiry')return;
+        $order=$this->row($id);if(CommerceAccess::orderDenied($this->db->pdo(),$id)){$this->db->execute('UPDATE byp_commerce_orders SET updated_at=NOW() WHERE order_id=?',[$id]);return;}if($order['payment_state']!=='paid'||$order['fulfillment_state']==='ready'||in_array($order['kind'],['inquiry','service'],true))return;
         try {
             if($order['kind']==='renewal'){
                 $pdo=$this->db->pdo();$pdo->beginTransaction();try{$order=$this->row($id,null,true);if($order['fulfillment_state']==='ready'){$pdo->commit();return;}if($order['mode']==='test')throw new RuntimeException('Тестовая оплата не продлевает лицензию.');$license=$this->db->one('SELECT * FROM byp_license_registry WHERE id=? FOR UPDATE',[$order['renewal_license_id']]);if(!$license||CommerceAccess::blocked($this->db->pdo(),(int)$license['id'])||$license['license_term']!=='annual')throw new RuntimeException('Условия лицензии изменились. Нужна проверка владельца.');$granted=time();$until=LicensePolicy::renew($license['valid_until'],$granted);$this->db->execute('INSERT IGNORE INTO byp_commerce_renewals(order_id,license_id,before_until,after_until,granted_at) VALUES(?,?,?,?,?)',[$id,$license['id'],$license['valid_until'],$until,$granted]);$status=$license['status']==='suspended'?'suspended':'active';$this->db->execute('UPDATE byp_license_registry SET valid_until=?,status=?,updated_at=NOW() WHERE id=?',[$until,$status,$license['id']]);$this->db->execute('UPDATE byp_commerce_orders SET renewed_until=?,fulfillment_state="ready",fulfilled_at=NOW(),fulfillment_error=NULL,updated_at=NOW() WHERE order_id=?',[$until,$id]);$this->notifications->event($order,'ready');$pdo->commit();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}

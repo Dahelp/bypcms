@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace BYPCMS\Core;
 use InvalidArgumentException;
 final class CommerceLegal {
-    public const VERSION='2026-11-07.1';
+    public const VERSION='2026-11-13.1';
     public static function documents():array{return json_decode((string)file_get_contents(__DIR__.'/../legal/documents/'.self::VERSION.'.json'),true,32,JSON_THROW_ON_ERROR);}
     public static function info():array{return ['version'=>self::VERSION,'offer'=>'/legal/offer/','privacy'=>'/legal/privacy/','consent'=>'/legal/consent/','refunds'=>'/legal/refunds/','archive'=>'/legal/documents/'.self::VERSION.'.json'];}
     public static function validate(array $input,bool $offer=true):void {

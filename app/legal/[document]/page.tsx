@@ -1,6 +1,6 @@
 import {notFound} from "next/navigation";
 import {PublicHeader,PublicFooter,Breadcrumbs} from "../../components/PublicChrome";
-import data from "../../../server/legal/documents/2026-11-07.1.json";
+import data from "../../../server/legal/documents/2026-11-13.1.json";
 import "../legal.css";
 type Key=keyof typeof data.documents;
 export function generateStaticParams(){return Object.keys(data.documents).map(document=>({document}));}

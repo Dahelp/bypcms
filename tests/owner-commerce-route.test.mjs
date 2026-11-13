@@ -63,3 +63,8 @@ test('mail templates and message routes stay neutral until URL is parsed',()=>{
  const imports=name=>{if(name==='react'||name==='react/jsx-runtime')return require(name);return {__esModule:true,default:()=>null};};
  const Mail=compile('app/components/CommerceMailPanel.tsx',imports).default;const html=renderToStaticMarkup(React.createElement(Mail,{data:{},request:async()=>({}),refresh:async()=>{}}));assert.match(html,/Загрузка выбранного раздела уведомлений/);assert.doesNotMatch(html,/Очередь уведомлений|Шаблоны сервисных писем/);
 });
+
+test('mail preview disables navigation while leaving original email links intact',()=>{
+ const imports=name=>{if(name==='react'||name==='react/jsx-runtime')return require(name);return {__esModule:true,default:()=>null};};const {mailPreviewDocument}=compile('app/components/CommerceMailPanel.tsx',imports);
+ for(const html of ['<!doctype html><html><head></head><body><a href="/account/order.php?id=1">Open</a></body></html>',"<a HREF='/owner/?section=payments'>Open</a>"]){const preview=mailPreviewDocument(html);assert.doesNotMatch(preview,/<a\b[^>]*\shref\s*=/i);assert.match(preview,/data-preview-href=/);assert.match(preview,/Content-Security-Policy/);assert.match(html,/href=/i);}
+});

@@ -1,0 +1,38 @@
+.designStudio.designEditorV2{grid-template-columns:minmax(280px,320px) minmax(0,1fr);gap:24px;align-items:start}
+.designStudio>aside{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;min-width:0}
+.designStudio>aside>section{margin:0;padding:20px;gap:16px;border-color:#dfe4df;box-shadow:0 3px 12px #253a2b04;min-width:0}
+.designStudio .designSectionHeading{display:grid;gap:5px}
+.designStudio .designSectionHeading>small{font-size:10px;letter-spacing:.08em;color:#78857e}
+.designStudio .designSectionHeading h2{font-size:18px;line-height:1.3;margin:0}
+.designStudio .designSectionHeading p{font-size:12px;line-height:1.5;color:#718078;margin:0}
+.designStudio>aside label{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;font-size:13px;font-weight:500;min-width:0}
+.designStudio>aside :is(input,select){width:100%;min-width:0;max-width:100%;min-height:44px;font:inherit;margin:0;border-color:#d5ddd6;border-radius:8px}
+.designStudio>aside .templateChooser>button{grid-template-columns:48px minmax(0,1fr) 18px;gap:12px;padding:12px;border:1px solid #dfe4df;min-height:78px}
+.designStudio>aside .templateChooser>button.active{border-color:var(--demo-accent);background:#f1f5f2;box-shadow:inset 0 0 0 1px var(--demo-accent)}
+.designStudio .templateChooser>button>span{gap:5px;min-width:0}
+.designStudio .templateChooser b{font-size:14px}
+.designStudio .templateChooser button small{font-size:12px;line-height:1.45;color:#718078;white-space:normal;overflow-wrap:anywhere}
+.designStudio .templateChooser .miniTemplate{width:48px;height:44px}
+.designStudio .templateChooser .panelIcon{color:#52685d}
+.designStudio .designLogoControl{display:grid;gap:12px;padding-top:4px}
+.designLogoPreview{display:flex;align-items:center;gap:12px;min-width:0}
+.designLogoPreview>img,.designLogoPreview>.panelIcon{width:48px;height:48px;object-fit:contain;padding:8px;border:1px solid #e0e5e0;border-radius:10px;background:#f5f7f4;color:#718078}
+.designLogoPreview>span{display:grid;gap:4px;font-size:13px}
+.designLogoPreview small{font-size:12px;color:#718078}
+.designLogoActions{display:flex;align-items:center;gap:8px}
+.designStudio>aside .designLogoUpload{position:relative;display:flex;align-items:center;justify-content:center;min-height:44px;flex:1;padding:10px 12px;background:#f5f7f4;border:1px solid #d5ddd6;border-radius:8px;cursor:pointer;text-align:center}
+.designLogoUpload input{position:absolute;width:1px!important;height:1px;min-height:0!important;padding:0!important;overflow:hidden;clip-path:inset(50%)}
+.designLogoActions>button{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;padding:0;border:1px solid #d5ddd6;border-radius:8px;background:#fff;color:#9e4339}
+.designStudio .designAccent{display:flex;align-items:center;gap:12px;padding:6px 10px;border:1px solid #d5ddd6;border-radius:8px;background:#fff}
+.designStudio>aside .designAccent>input{width:36px;min-height:32px;height:32px;padding:0;border:0;background:transparent;cursor:pointer}
+.designAccent code{font-size:12px;color:#52685d}
+.designStudio :is(button,input,select):focus-visible,.designLogoUpload:focus-within{outline:2px solid var(--demo-accent);outline-offset:3px}
+.designStudio .designPreview{min-width:0;border:1px solid #dfe4df;border-radius:12px;background:#fff;overflow:hidden}
+.designPreviewHeading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:16px 20px;border-bottom:1px solid #e4e8e3}
+.designPreviewHeading>span{display:flex;align-items:center;gap:9px;font-size:13px}
+.designPreviewHeading>small,.designPreviewNote{font-size:12px;line-height:1.5;color:#718078}
+.designPreviewNote{margin:0;padding:14px 20px;border-top:1px solid #e4e8e3}
+.designStudio .journalSitePreview{border:0;border-radius:0}
+@media(max-width:1200px){.designStudio.designEditorV2{grid-template-columns:minmax(0,1fr)}.designStudio>aside{grid-template-columns:repeat(3,minmax(0,1fr));align-items:start}.designStudio>aside>section{padding:16px}}
+@media(max-width:900px){.designStudio>aside{grid-template-columns:repeat(2,minmax(0,1fr))}.designStudio>aside>.templateChooser{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}.designStudio .templateChooser>.designSectionHeading{grid-column:1/-1}.designStudio>aside .templateChooser>button{grid-template-columns:minmax(0,1fr) 18px;align-self:stretch}.designStudio .templateChooser .miniTemplate{display:none}}
+@media(max-width:600px){.designStudio>aside{grid-template-columns:minmax(0,1fr)}.designStudio>aside>.templateChooser{grid-template-columns:minmax(0,1fr)}.designStudio>aside .templateChooser>button{grid-template-columns:48px minmax(0,1fr) 18px}.designStudio .templateChooser .miniTemplate{display:block}.designPreviewHeading{padding:14px 16px}.designStudio.designEditorV2{gap:16px}.designPreviewNote{padding:14px 16px}}

@@ -8,3 +8,6 @@
 .a-preview-banner{padding:12px 5vw;background:#d9fd75;color:#242522;font-size:12px;display:flex;justify-content:space-between;gap:20px}.a-preview-banner a{text-decoration:underline}
 
 .a-contact form button:hover,.a-button:hover{background:var(--a-accent);color:#242522}
+
+/* Keep the case/service label separate from its contextual action at every width. */
+.a-body-layout aside{display:flex;flex-direction:column;align-items:flex-start;gap:18px}

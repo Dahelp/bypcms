@@ -1,4 +1,8 @@
-/* Links remain ordinary HTTP routes. JS only improves menu and form feedback. */
-(()=>{'use strict';const toggle=document.querySelector('.a-menu-toggle'),nav=document.querySelector('#atelier-nav');toggle?.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));nav.classList.toggle('a-open',open);});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&toggle?.getAttribute('aria-expanded')==='true'){toggle.click();toggle.focus();}});
-const form=document.querySelector('#business-request');if(!form)return;let pending=false;form.addEventListener('submit',async e=>{e.preventDefault();if(pending)return;if(!form.reportValidity())return;pending=true;const button=form.querySelector('button[type=submit]'),feedback=form.querySelector('[role=alert]');button.disabled=true;feedback.hidden=true;try{const r=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)});let d;try{d=await r.json();}catch{throw Error('Не удалось получить ответ. Ваш ввод сохранён. Повторите отправку — повтор не создаёт вторую заявку.');}if(!r.ok||!d.url)throw Error(d.error||'Заявка не сохранена. Повторите отправку.');location.assign(d.url);}catch(error){feedback.textContent=error.message;feedback.hidden=false;feedback.scrollIntoView({block:'center'});}finally{pending=false;button.disabled=false;}});
+/* Ordinary HTTP links; the shared Business handler owns enquiries and history. */
+(()=>{'use strict';
+const toggle=document.querySelector('.a-menu-toggle'),nav=document.querySelector('#atelier-nav');
+const closeMenu=()=>{toggle?.setAttribute('aria-expanded','false');nav?.classList.remove('a-open')};
+toggle?.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));nav?.classList.toggle('a-open',open)});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&toggle?.getAttribute('aria-expanded')==='true'){closeMenu();toggle.focus()}});
+window.addEventListener('pageshow',closeMenu);
 })();

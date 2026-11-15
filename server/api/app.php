@@ -525,7 +525,12 @@ try {
         if (!class_exists('ZipArchive')) {
             Response::error('На сервере не включено расширение PHP ZipArchive', 501);
         }
-        $edition = preg_replace('/[^a-zA-Z0-9_-]/', '', (string)($_GET['edition'] ?? 'Business'));
+        $editionNames = ['content'=>'Content','business'=>'Business','commerce'=>'Commerce'];
+        $requestedEdition = $_GET['edition'] ?? 'Business';
+        if (!is_string($requestedEdition) || !isset($editionNames[strtolower($requestedEdition)])) Response::error('Выберите редакцию Content, Business или Commerce.', 422);
+        $edition = $editionNames[strtolower($requestedEdition)];
+        if (isset($_GET['modules']) && !is_string($_GET['modules'])) Response::error('Некорректный список модулей сборки.', 422);
+        if (isset($_GET['term']) && (!is_string($_GET['term']) || !in_array($_GET['term'], ['annual','lifetime'], true))) Response::error('Выберите годовую или бессрочную лицензию.', 422);
         $licenseTerm = (string)($_GET['term'] ?? '') === 'lifetime' ? 'lifetime' : 'annual';
         $requested = array_values(array_filter(explode(',', (string)($_GET['modules'] ?? 'content'))));
         $editionRows = $db->all(
@@ -535,7 +540,7 @@ try {
         $allowed = array_column($editionRows, 'module_key');
         $included = array_column(array_values(array_filter($editionRows, fn(array $row): bool => $row['availability'] === 'included')), 'module_key');
         $selected = array_values(array_unique(array_merge($included, array_intersect($requested, $allowed))));
-        $buildId = 'bypcms-' . strtolower($edition) . '-' . date('Ymd-His');
+        $buildId = 'bypcms-' . strtolower($edition) . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(6));
         $archivePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $buildId . '.zip';
         $zip = new ZipArchive();
         if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
@@ -543,19 +548,8 @@ try {
         }
         require_once __DIR__.'/../_core/Content.php';
         $packageVersion=in_array(strtolower($edition),['content','business','commerce'],true)?\BYPCMS\Core\Content::VERSION:(string)($config['app']['version']??'2.1.0');
-        $root = realpath(BYPCMS_ROOT);
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
-        foreach ($iterator as $file) {
-            if (!$file->isFile() || $file->isLink()) continue;
-            $full = $file->getRealPath();
-            if ($full === false || !str_starts_with($full, $root . DIRECTORY_SEPARATOR)) continue;
-            $relative = str_replace('\\', '/', substr($full, strlen($root) + 1));
-            if (in_array($relative, ['index.html', 'index.php', '.htaccess', 'build-manifest.json'], true)) continue;
-            $topDirectory = explode('/', $relative)[0];
-            if (!in_array($topDirectory, ['_core','api','install','admin','_next','themes','updates','_releases'], true)) continue;
-            if (str_starts_with($relative, '_storage/') || str_starts_with($relative, '_private/') || str_starts_with($relative, '.git/') || str_starts_with($relative, '.env') || str_ends_with($relative, '.log')) continue;
-            $zip->addFile($full, 'site/' . $relative);
-        }
+        require_once __DIR__.'/../_core/ClientPackage.php';
+        \BYPCMS\Core\ClientPackage::addFiles($zip,BYPCMS_ROOT);
         $zip->addFromString('site/_core/license-trust.json',json_encode(byp_license_authority($db,$config,$user)->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
         $zip->addFromString('site/index.php', "<?php\nrequire_once __DIR__ . '/_core/UpdateRuntime.php';\n\\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__, '_core/client-front.php');\n");

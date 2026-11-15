@@ -3,7 +3,7 @@ import {execFileSync} from 'node:child_process';
 import {readFile,writeFile} from 'node:fs/promises';
 const origin=process.env.BYPCMS_SHOP_TEST_ORIGIN||'http://127.0.0.1:8059';
 assert.match(origin,/^http:\/\/127\.0\.0\.1:\d+$/);
-const fixture=JSON.parse(await readFile('outputs/gallery-acceptance/final-fixture.json','utf8'));
+const fixture=JSON.parse(await readFile(process.env.BYPCMS_SHOP_CANCEL_FIXTURE||'outputs/gallery-acceptance/final-fixture.json','utf8'));
 const product=fixture.products[0],php=process.env.BYPCMS_TEST_PHP||'C:/xampp82/php/php.exe';
 let checks=0;const check=(ok,message)=>{assert.ok(ok,message);checks++};
 const inspect=ref=>JSON.parse(execFileSync(php,['tests/gallery-final-fixture.php',fixture.root,'inspect',ref,String(product.variant)],{encoding:'utf8'}));
@@ -41,5 +41,5 @@ const d=await prepare();await Promise.all([d.buyer.request('/order/',{action:'pa
 let raced=inspect(d.ref);check(Number(raced.payments.n)<=1&&raced.variant.stock===(raced.order.state==='canceled'?initial-2:initial-4),'pay/cancel race keeps reservation consistent');
 if(raced.order.state==='pending'){const all=await (await fetch('http://127.0.0.1:8049/control')).json();const remote=all.payments.find(x=>x.metadata.shop_order===d.ref);check(Boolean(remote),'racing payment recoverable');await control({id:remote.id,patch:{status:'canceled',paid:false}});await d.buyer.request(d.url);}
 check(inspect(d.ref).variant.stock===initial-2,'race releases reservation once after confirmed cancellation');
-await writeFile('outputs/gallery-acceptance/cancel-http-result.json',JSON.stringify({checks,origin,initial,finalStock:state.variant.stock,canceled:[a.ref,b.ref],paid:c.ref},null,2));
+await writeFile(process.env.BYPCMS_SHOP_CANCEL_RESULT||'outputs/gallery-acceptance/cancel-http-result.json',JSON.stringify({checks,origin,initial,finalStock:state.variant.stock,canceled:[a.ref,b.ref],paid:c.ref},null,2));
 console.log('Gallery cancellation HTTP: '+checks+' checks passed');

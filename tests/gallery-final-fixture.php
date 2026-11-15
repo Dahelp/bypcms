@@ -4,9 +4,9 @@ require_once __DIR__.'/../server/_core/Shop.php';
 require_once __DIR__.'/../server/_core/Database.php';
 use BYPCMS\Core\{Shop,Database};
 $root=realpath($argv[1]??'');
-if(!$root||!str_contains(str_replace('\\','/',$root),'/outputs/gallery-acceptance/'))throw new RuntimeException('Disposable Gallery fixture required');
+if(!$root||!preg_match('#/outputs/(?:gallery-acceptance|final-acceptance-[0-9]+)/#',str_replace('\\','/',$root)))throw new RuntimeException('Disposable Gallery fixture required');
 $config=require $root.'/_storage/config.php';
-if($config['database']['host']!=='127.0.0.1'||(int)$config['database']['port']!==3319||!str_starts_with($config['database']['name'],'bypcms_gallery_'))throw new RuntimeException('QA DB only');
+if($config['database']['host']!=='127.0.0.1'||(int)$config['database']['port']!==3319||!preg_match('/^bypcms_(?:gallery_|final_)/D',$config['database']['name']))throw new RuntimeException('QA DB only');
 $db=new Database($config);$shop=new Shop($db,$config,$root);
 if(($argv[2]??'')==='inspect'){
     $variant=$db->one('SELECT id,stock FROM byp_shop_variants WHERE id=?',[(int)($argv[4]??0)]);

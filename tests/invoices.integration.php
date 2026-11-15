@@ -3,7 +3,7 @@ declare(strict_types=1);
 // Explicit disposable fixture only. No remote bank, SMTP or provider operations.
 $root=realpath($argv[1]??'');if(!$root)throw new RuntimeException('Provide disposable platform root');
 $config=require $root.'/_storage/config.php';
-if(($config['database']['port']??0)!==3319||($config['app']['url']??'')!=='http://127.0.0.1:8019'||empty($config['app']['debug']))throw new RuntimeException('Only isolated QA fixture allowed');
+if(($config['database']['port']??0)!==3319||($config['app']['url']??'')!==(getenv('BYPCMS_QA_PLATFORM_ORIGIN')?:'http://127.0.0.1:8019')||!preg_match('#^http://127\.0\.0\.1:\d+$#D',$config['app']['url']??'')||empty($config['app']['debug']))throw new RuntimeException('Only isolated QA fixture allowed');
 define('BYPCMS_ROOT',$root);define('BYPCMS_STORAGE',$root.'/_storage');
 require_once __DIR__.'/../server/_core/Database.php';require_once __DIR__.'/../server/_core/CommerceOrders.php';
 use BYPCMS\Core\{Database,CommerceOrders,CommerceRefunds,CommerceLegal,CommerceBankSettings};

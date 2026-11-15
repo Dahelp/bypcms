@@ -11,7 +11,8 @@ require_once __DIR__.'/LicenseCrypto.php';
 
 /** Installed store only. No platform accounts, license orders or payment settings. */
 final class Shop {
-    public const VERSION='2.7.0';
+    public const VERSION='2.7.1';
+    public const CHECKOUT_DOCUMENTS=['terms'=>'Условия покупки','delivery'=>'Доставка и оплата','returns'=>'Возврат','privacy'=>'Обработка данных'];
     public const TABLES=['byp_shop_groups','byp_shop_limits','byp_shop_products','byp_shop_variants','byp_shop_carts','byp_shop_orders','byp_shop_items','byp_shop_payments','byp_shop_refunds','byp_shop_mail'];
     public Content $content;
     public function __construct(public Database $db,public array $config,public string $root){$this->content=new Content($db,$config,$root);self::schema($db->pdo());}
@@ -33,6 +34,10 @@ final class Shop {
         $pdo->exec('INSERT IGNORE INTO byp_migrations(migration,batch,applied_at) VALUES("2026_11_08_gallery_v1",4,NOW())');
     }
     public static function money(int $minor):string{return Content::money($minor);}
+    public function missingCheckoutDocuments():array {
+        $published=array_column($this->db->all('SELECT slug FROM byp_pages WHERE slug IN ("terms","delivery","returns","privacy") AND status="published" AND (published_at IS NULL OR published_at<=UTC_TIMESTAMP())'),'slug');
+        return array_diff_key(self::CHECKOUT_DOCUMENTS,array_flip($published));
+    }
     public static function uuid():string{$h=bin2hex(random_bytes(16));return substr($h,0,8).'-'.substr($h,8,4).'-4'.substr($h,13,3).'-a'.substr($h,17,3).'-'.substr($h,20);}
     public function actor(string $token):string{return hash_hmac('sha256',$token,$this->config['app']['key']);}
     public function settings(bool $secret=false):array {
@@ -123,7 +128,7 @@ final class Shop {
             if((int)$this->db->one('SELECT COUNT(*) n FROM byp_shop_orders WHERE actor=? AND state="pending"',[$actor])['n']>=5)throw new RuntimeException('Сначала оплатите или отмените предыдущие заказы.');
             $bucket=hash_hmac('sha256',($_SERVER['REMOTE_ADDR']??'cli').'|'.gmdate('Y-m-d-H'),$this->config['app']['key']);$this->db->execute('INSERT INTO byp_shop_limits(bucket,hits,created_at) VALUES(?,1,NOW()) ON DUPLICATE KEY UPDATE hits=hits+1',[$bucket]);if((int)$this->db->one('SELECT hits FROM byp_shop_limits WHERE bucket=?',[$bucket])['hits']>20)throw new RuntimeException('Слишком много заказов. Попробуйте позже или свяжитесь с магазином.');
             $q=$this->quote($actor,$v['shipping']??'delivery',$v['promo']??'',true);if(!$q['items'])throw new RuntimeException('Корзина пуста.');if($q['issues'])throw new RuntimeException(implode(' ',$q['issues']));if(!hash_equals($q['hash'],(string)($v['quote']??'')))throw new RuntimeException('Цена или условия изменились. Проверьте обновлённый итог и подтвердите заказ ещё раз.');
-            $documents=[];foreach(['privacy','terms','delivery','returns']as $slug){$document=$this->db->one('SELECT id,updated_at FROM byp_pages WHERE slug=? AND status="published" AND (published_at IS NULL OR published_at<=UTC_TIMESTAMP())',[$slug]);if(!$document)throw new RuntimeException('Магазин ещё не опубликовал условия покупки. Обратитесь к продавцу.');$documents[]=$slug.':'.$document['id'].'@'.$document['updated_at'];}$contact['consent_documents']=implode('; ',$documents);
+            $documents=[];foreach(array_keys(self::CHECKOUT_DOCUMENTS)as $slug){$document=$this->db->one('SELECT id,updated_at FROM byp_pages WHERE slug=? AND status="published" AND (published_at IS NULL OR published_at<=UTC_TIMESTAMP())',[$slug]);if(!$document)throw new RuntimeException('Магазин ещё не опубликовал условия покупки. Обратитесь к продавцу.');$documents[]=$slug.':'.$document['id'].'@'.$document['updated_at'];}$contact['consent_documents']=implode('; ',$documents);
             $reference=strtoupper(bin2hex(random_bytes(12)));$id=$this->db->insert('INSERT INTO byp_shop_orders(reference,actor,request_key,payload_hash,contact,shipping,promo,subtotal,discount,delivery,total,consent_at,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW(),NOW())',[$reference,$actor,$request,$payload,json_encode($contact,JSON_UNESCAPED_UNICODE),$q['shipping'],$q['promo'],$q['subtotal'],$q['discount'],$q['delivery'],$q['total']]);
             foreach($q['items']as $i){if(!$this->db->execute('UPDATE byp_shop_variants SET stock=stock-? WHERE id=? AND stock>=?',[$i['quantity'],$i['id'],$i['quantity']]))throw new RuntimeException('Товар только что закончился. Обновите корзину.');$this->db->execute('INSERT INTO byp_shop_items(order_id,variant_id,title,sku,price,quantity) VALUES(?,?,?,?,?,?)',[$id,$i['id'],$i['product_title'].' / '.$i['title'],$i['sku'],$i['price'],$i['quantity']]);}
             $this->db->execute('UPDATE byp_shop_carts SET data="{}",updated_at=NOW() WHERE actor=?',[$actor]);$this->queueMail($id,'created');$pdo->commit();return $this->order($reference,$actor);

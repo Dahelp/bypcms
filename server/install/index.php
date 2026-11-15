@@ -17,6 +17,9 @@ $success = false;
 $manifest = is_file(ROOT_PATH . '/build-manifest.json')
     ? json_decode((string)file_get_contents(ROOT_PATH . '/build-manifest.json'), true) : null;
 $edition = strtolower((string)($manifest['edition'] ?? 'business'));
+require_once ROOT_PATH . '/_core/Content.php';
+$coreVersion = (string)($manifest['core_version'] ?? \BYPCMS\Core\Content::VERSION);
+if (!preg_match('/^\d+\.\d+\.\d+$/D', $coreVersion)) $errors[] = 'Некорректная версия ядра в manifest сборки.';
 if(in_array($edition,['content','business','commerce'],true)){foreach(['dom','fileinfo','gd']as $extension)if(!extension_loaded($extension))$errors[]='Для Content включите расширение PHP: '.$extension;if(extension_loaded('gd')&&(!function_exists('imagewebp')||!(imagetypes()&IMG_WEBP)))$errors[]='Для Content требуется поддержка WebP в PHP GD.';}
 if (!in_array($edition, ['content', 'business', 'commerce'], true)) {
     $errors[] = 'Некорректная редакция в manifest сборки.';
@@ -140,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 ['general', 'site_name', $siteName, 1],
                 ['general', 'site_url', $siteUrl, 1],
                 ['general', 'locale', 'ru', 1],
-                ['system', 'core_version', '2.0.0', 0],
+                ['system', 'core_version', $coreVersion, 0],
                 ['system', 'installed_at', date('c'), 0],
             ] as [$group, $key, $value, $public]) {
                 $settingStatement->execute([
@@ -218,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
                 'app' => [
                     'name' => $siteName,
                     'url' => $siteUrl,
-                    'version' => (string)($manifest['core_version'] ?? '2.1.0'),
+                    'version' => $coreVersion,
                     'debug' => false,
                     'key' => bin2hex(random_bytes(32)),
                     'edition' => $edition,
@@ -284,14 +287,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$installed) {
     label{display:grid;gap:6px;font-size:10px;font-weight:700}input{width:100%;height:42px;border:1px solid #deded8;border-radius:6px;padding:0 11px;font:inherit;font-size:12px;background:#fafaf8}input:focus{outline:2px solid #cfc7ff;border-color:var(--violet)}
     button,.button{width:100%;height:45px;border:0;border-radius:6px;background:var(--violet);color:#fff;font-weight:800;margin-top:23px;cursor:pointer;display:grid;place-items:center;text-decoration:none;font-size:12px}
     .errors{background:#fff0ef;color:#a3322e;padding:13px;border-radius:6px;margin-bottom:18px;font-size:12px}.errors p{margin:4px}.done{text-align:center;padding:45px 10px}.done i{display:grid;place-items:center;width:70px;height:70px;border-radius:50%;background:var(--acid);font-size:30px;font-style:normal;margin:0 auto 20px}.done p{color:#77756e;line-height:1.6}
-    @media(max-width:760px){.wrap{grid-template-columns:1fr}aside{padding:28px}aside h1{margin:25px 0 10px}aside small{display:none}main{padding:28px}.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+    @media(max-width:760px){body{padding:16px}.wrap{grid-template-columns:1fr;min-width:0}aside{padding:24px}aside h1{margin:25px 0 10px}aside small{display:none}main{padding:24px;min-width:0}.grid{grid-template-columns:1fr;min-width:0}.full{grid-column:auto}label{font-size:13px}input{font-size:16px;min-width:0;height:46px}button,.button{font-size:15px;min-height:46px}.errors{overflow-wrap:anywhere}}
   </style>
 </head>
 <body>
 <div class="wrap">
   <aside>
     <span class="logo">B</span>
-    <h1>BYPCMS<br>2.0</h1>
+    <h1>BYPCMS<br><?=htmlspecialchars($coreVersion, ENT_QUOTES, 'UTF-8')?></h1>
     <p>Стабильное ядро, независимые модули и безопасные обновления.</p>
     <small>Системные требования: PHP 8.2+ · MySQL 5.7+ / MariaDB 10.3+</small>
   </aside>

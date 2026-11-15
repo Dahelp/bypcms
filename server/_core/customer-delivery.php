@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/LicenseAuthority.php';
 require_once __DIR__.'/Content.php';
+require_once __DIR__.'/ClientPackage.php';
 require_once __DIR__.'/UpdateRuntime.php';
 require_once __DIR__.'/PaymentGateway.php';
 require_once __DIR__.'/CommerceAccess.php';
@@ -43,11 +44,14 @@ function customer_package_trust($db,array $config,string $path): void {
     try {
         $trust=(new \BYPCMS\Core\LicenseAuthority($db->pdo(),BYPCMS_STORAGE,$config))->trust();
         $current=new ZipArchive();
-        $bootstrap=false;if($current->open($path)===true){$existing=json_decode((string)$current->getFromName('site/_core/license-trust.json'),true);$bootstrap=$current->locateName('site/_core/UpdateRuntime.php')!==false;$current->close();if($existing===$trust&&$bootstrap)return;}
+        $bootstrap=false;if($current->open($path)===true){$existing=json_decode((string)$current->getFromName('site/_core/license-trust.json'),true);$bootstrap=$current->locateName('site/_core/UpdateRuntime.php')!==false;
+            foreach(['Journal'=>'journal','Chronicle'=>'chronicle','Focus'=>'focus','Atelier'=>'atelier','Corporate'=>'corporate','Mono'=>'mono','Gallery'=>'gallery']as $renderer=>$theme)if($current->locateName('site/_core/'.$renderer.'.php')!==false&&$current->locateName('site/themes/'.$theme.'/'.$theme.'.css')===false)$bootstrap=false;
+            $current->close();if($existing===$trust&&$bootstrap)return;}
         if(!copy($path,$temporary))throw new RuntimeException('Не удалось подготовить архив');
         $zip=new ZipArchive();if($zip->open($temporary)!==true)throw new RuntimeException('Архив недоступен');
         if(!$bootstrap){
-            foreach(['_core','api','install','admin','_next','updates','_releases']as $directory){$source=BYPCMS_ROOT.'/'.$directory;if(!is_dir($source))continue;foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source,FilesystemIterator::SKIP_DOTS))as $file){if(!$file->isFile()||$file->isLink())continue;$relative=str_replace('\\','/',substr($file->getPathname(),strlen(BYPCMS_ROOT)+1));if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;$zip->addFile($file->getPathname(),'site/'.$relative);}}
+            \BYPCMS\Core\ClientPackage::addFiles($zip,BYPCMS_ROOT);
+            foreach(['site/build-manifest.json','build-manifest.json']as $manifestPath){$raw=$zip->getFromName($manifestPath);if($raw!==false){$manifest=json_decode($raw,true);if(is_array($manifest)){$manifest['core_version']=\BYPCMS\Core\Content::VERSION;$zip->addFromString($manifestPath,json_encode($manifest,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));}}}
             $zip->addFromString('site/index.php',"<?php require_once __DIR__.'/_core/UpdateRuntime.php'; \\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__,'_core/client-front.php');");
             $zip->addFile(BYPCMS_ROOT.'/uploads/.htaccess','site/uploads/.htaccess');
         $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");
@@ -70,8 +74,7 @@ function customer_fulfill($db,array $config,int $id,int $owner,bool $paid=false)
         if($order['status']!==($paid?'paid':'pending'))throw new RuntimeException('Статус не позволяет подтверждение');
         $directory=\BYPCMS\Core\UpdateRuntime::storage(BYPCMS_ROOT,true).'/customer-packages';if(!is_dir($directory)&&!@mkdir($directory,0750,true))throw new RuntimeException('Нет каталога пакетов');
         $archive=$directory.'/'.bin2hex(random_bytes(20)).'.zip';$zip=new ZipArchive();if($zip->open($archive,ZipArchive::CREATE)!==true)throw new RuntimeException('Архив не создан');
-        $root=realpath(BYPCMS_ROOT);
-        foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root,FilesystemIterator::SKIP_DOTS)) as $file){if(!$file->isFile()||$file->isLink())continue;$relative=str_replace('\\','/',substr($file->getPathname(),strlen($root)+1));$first=explode('/',$relative)[0];if(!in_array($first,['_core','api','install','admin','_next','themes','updates','_releases'],true))continue;if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;$zip->addFile($file->getPathname(),'site/'.$relative);}
+        \BYPCMS\Core\ClientPackage::addFiles($zip,BYPCMS_ROOT);
         $zip->addFromString('site/index.php',"<?php require_once __DIR__.'/_core/UpdateRuntime.php'; \\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__,'_core/client-front.php');");
         $zip->addFile(BYPCMS_ROOT.'/uploads/.htaccess','site/uploads/.htaccess');
         $zip->addFromString('site/.htaccess',"DirectoryIndex index.php index.html\nOptions -Indexes\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private|_releases)(?:/|$) - [F,L]\nRewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteRule ^ index.php [L,QSA]\n");

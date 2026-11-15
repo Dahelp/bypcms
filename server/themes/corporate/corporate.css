@@ -19,3 +19,6 @@
 @media(min-width:901px){.co-detail-person{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1fr);gap:0 70px}.co-detail-person>.co-breadcrumb,.co-detail-person>.co-detail-heading{grid-column:1/-1}.co-detail-person .co-detail-cover{width:100%;margin:0}.co-detail-person .co-detail-layout{grid-template-columns:minmax(0,1fr);align-content:start;gap:32px}.co-detail-person .co-prose h2:first-child{margin-top:0}}
 
 .co-home-content{max-width:900px}
+
+/* Relation labels remain readable above the linked service or team member. */
+.co-detail-aside small{display:block;margin-bottom:8px}

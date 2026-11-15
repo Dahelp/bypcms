@@ -3,14 +3,14 @@ import { mediaItems } from "./demo-data";
 export type DemoMedia = {
   id: number; name: string; alt: string; caption: string; type: "image" | "document";
   mime: string; size?: number; width?: number; height?: number; createdAt?: number;
-  source: "seed" | "upload"; trashedAt?: number;
+  url?: string; source: "seed" | "upload"; trashedAt?: number;
 };
 export type MediaSort = "newest" | "oldest" | "name" | "largest";
 export type MediaFilters = { query: string; sort: MediaSort; type: "all" | "image" | "document"; period: "all" | "7" | "30"; origin: "all" | "upload"; page: number; trashed?: boolean };
 export const MEDIA_PAGE_SIZE = 24;
 export const MAX_MEDIA_BYTES = 15 * 1024 * 1024;
 export const IMAGE_ACCEPT = ".jpg,.jpeg,.png,.webp,.gif,.avif";
-export const seedMedia: DemoMedia[] = mediaItems.map(item => ({ ...item, caption: "", type: "image", mime: "image/jpeg", width: 512, height: 512, source: "seed" }));
+export const seedMedia: DemoMedia[] = mediaItems.map(item => ({ ...item, caption: "", type: "image", mime: item.url?"image/webp":"image/jpeg", width: item.url?1254:512, height: item.url?1254:512, source: "seed" }));
 
 export function queryMedia(items: DemoMedia[], filters: MediaFilters, now = Date.now()) {
   const terms = filters.query.toLocaleLowerCase("ru").trim().split(/\s+/).filter(Boolean);
@@ -70,7 +70,7 @@ export async function readMedia(): Promise<DemoMedia[]> {
   const db = await openMediaDatabase();
   return new Promise((resolve,reject)=>{
     const request=db.transaction("metadata","readonly").objectStore("metadata").getAll();
-    request.onsuccess=()=>resolve(request.result); request.onerror=()=>reject(request.error);
+    request.onsuccess=()=>{const records=request.result as DemoMedia[];resolve([...records,...seedMedia.filter(seed=>!records.some(record=>record.id===seed.id))]);}; request.onerror=()=>reject(request.error);
   });
 }
 

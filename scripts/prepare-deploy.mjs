@@ -12,9 +12,9 @@ await cp(source, target, { recursive: true, force: true });
 // /demo directory. Keep that document root self-contained as well.
 await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });
 await cp(resolve(target, "favicon.svg"), resolve(target, "demo", "favicon.svg"));
-for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","focus","themes/focus","atelier","themes/atelier","gallery","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
+for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","focus","themes/focus","atelier","themes/atelier","gallery","market","luxe","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
 await mkdir(resolve(target,"demo","_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Gallery.php","GallerySeed.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Gallery.php","GallerySeed.php","DemoStore.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
 await writeFile(resolve(target,"demo",".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 await writeFile(
   resolve(target, "_storage", "DEPLOYMENT.md"),

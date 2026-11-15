@@ -192,6 +192,12 @@ export const seedEntities: DemoEntity[] = [
   entity(100, "products", "Кресло Forma 01", "/catalog/forma-01", 2, { price: 42900, oldPrice: 46900, stock: 12, sku: "FRM-001", brand: "Forma", category: "Мебель", featured: true, variants: [{ id: 1, name: "Светло-серый", sku: "FRM-001-GR", price: 42900, stock: 7 }, { id: 2, name: "Терракотовый", sku: "FRM-001-TR", price: 44900, stock: 5 }], specifications: [{ id: 1, name: "Материал", value: "Шерсть, массив дуба" }, { id: 2, name: "Размер", value: "78 × 82 × 76 см" }, { id: 3, name: "Гарантия", value: "24 месяца" }] }),
   entity(101, "products", "Стол Line 140", "/catalog/line-140", 5, { price: 36500, stock: 7, sku: "LIN-140", brand: "Nord", category: "Мебель", variants: [{ id: 1, name: "Дуб натуральный", sku: "LIN-140-OAK", price: 36500, stock: 4 }, { id: 2, name: "Орех", sku: "LIN-140-WAL", price: 38900, stock: 3 }], specifications: [{ id: 1, name: "Материал", value: "Массив дуба, сталь" }, { id: 2, name: "Размер", value: "140 × 75 × 74 см" }] }),
   entity(102, "products", "Светильник Arc", "/catalog/arc", 5, { price: 12900, stock: 0, sku: "ARC-220", brand: "Lumo", category: "Освещение", status: "Скрыт", specifications: [{ id: 1, name: "Мощность", value: "18 Вт" }, { id: 2, name: "Температура", value: "3000 K" }] }),
+  entity(160, "products", "Диван Linea", "/catalog/sofa-linea", 1000001, {price:89900,stock:6,sku:"DEMO-SOFA-LINEA",brand:"Linea Home",category:"Мягкая мебель",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
+  entity(161, "products", "Стол Orbit", "/catalog/table-orbit", 1000002, {price:42900,stock:8,sku:"DEMO-TABLE-ORBIT",brand:"Forma",category:"Столы",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
+  entity(162, "products", "Ваза Terra", "/catalog/vase-terra", 1000003, {price:6900,stock:18,sku:"DEMO-VASE-TERRA",brand:"Terra Studio",category:"Декор",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
+  entity(163, "products", "Светильник Dome", "/catalog/pendant-dome", 1000004, {price:15900,stock:9,sku:"DEMO-PENDANT-DOME",brand:"Lumo",category:"Освещение",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
+  entity(164, "products", "Зеркало Oval", "/catalog/mirror-oval", 1000005, {price:11900,stock:5,sku:"DEMO-MIRROR-OVAL",brand:"Forma",category:"Декор",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
+  entity(165, "products", "Ковёр Soft", "/catalog/rug-soft", 1000006, {price:24900,stock:7,sku:"DEMO-RUG-SOFT",brand:"Linea Home",category:"Текстиль",body:"<p>Демонстрационный товар. Изображение создано с помощью ИИ, характеристики и цена иллюстративные.</p>"}),
   entity(110, "brands", "Forma", "/brands/forma", 2, { extra: "12 товаров · Италия" }),
   entity(111, "brands", "Nord", "/brands/nord", 5, { extra: "8 товаров · Россия" }),
   entity(112, "brands", "Lumo", "/brands/lumo", 4, { extra: "16 товаров · Дания" }),
@@ -206,13 +212,21 @@ export const seedEntities: DemoEntity[] = [
   entity(151, "payments", "Платёж #PAY-3017", "PAY-3017", 5, { status: "Оплачен", value: 92400, extra: "СБП · Заказ #1050" }),
 ];
 
-export const mediaItems = [
+export const mediaItems: {id:number;name:string;alt:string;url?:string}[] = [
   { id: 0, name: "studio-interior.jpg", alt: "Современная студия" },
   { id: 1, name: "editorial-book.jpg", alt: "Журнал о дизайне" },
   { id: 2, name: "forma-chair.jpg", alt: "Кресло Forma" },
   { id: 3, name: "creative-team.jpg", alt: "Команда студии" },
   { id: 4, name: "architecture-light.jpg", alt: "Архитектурная композиция" },
   { id: 5, name: "oak-table-lamp.jpg", alt: "Стол и светильник" },
+  {id:1000001,name:"sofa.webp",alt:"Диван Linea",url:"/themes/gallery/assets/store-sofa.webp"},
+  {id:1000002,name:"table.webp",alt:"Стол Orbit",url:"/themes/gallery/assets/store-table.webp"},
+  {id:1000003,name:"vase.webp",alt:"Ваза Terra",url:"/themes/gallery/assets/store-vase.webp"},
+  {id:1000004,name:"pendant.webp",alt:"Светильник Dome",url:"/themes/gallery/assets/store-pendant.webp"},
+  {id:1000005,name:"mirror.webp",alt:"Зеркало Oval",url:"/themes/gallery/assets/store-mirror.webp"},
+  {id:1000006,name:"rug.webp",alt:"Ковёр Soft",url:"/themes/gallery/assets/store-rug.webp"},
+  {id:1000007,name:"headphones.webp",alt:"Наушники Sound",url:"/themes/gallery/assets/store-headphones.webp"},
+  {id:1000008,name:"coffee.webp",alt:"Кофемашина Morning",url:"/themes/gallery/assets/store-coffee.webp"},
 ];
 
 export const entityTitles: Record<EntityKind, { title: string; singular: string; description: string }> = {

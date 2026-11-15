@@ -1,0 +1,16 @@
+{
+  "source": "OpenAI imagegen",
+  "purpose": "Illustrative sample products; not actual merchandise or verified specifications",
+  "assets": [
+    "store-sofa.webp",
+    "store-table.webp",
+    "store-vase.webp",
+    "store-pendant.webp",
+    "store-mirror.webp",
+    "store-rug.webp",
+    "store-headphones.webp",
+    "store-coffee.webp",
+    "hero-gallery.webp",
+    "hero-luxe.webp"
+  ]
+}

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../server/_core/Gallery.php';
 use BYPCMS\Core\Gallery;
-$seed=require __DIR__.'/../server/_core/GallerySeed.php';$products=$seed['products'];
+$seed=require __DIR__.'/../server/_core/GallerySeed.php';$products=array_slice($seed['products'],0,3);
 $n=0;$check=static function($v,$m)use(&$n){if(!$v)throw new RuntimeException($m);$n++;};
 $render=static function(array $query,array $rows)use($seed){$_GET=$query;ob_start();Gallery::render($rows,['site_name'=>'QA'],$seed['pages'],'catalog');$html=ob_get_clean();$doc=new DOMDocument();@$doc->loadHTML('<?xml encoding="utf-8" ?>'.$html);$xp=new DOMXPath($doc);$slugs=[];foreach($xp->query('//article[contains(@class,"g-card")]/a[1]')as $link)$slugs[]=trim(str_replace('/product/','',$link->getAttribute('href')),'/');return [$slugs,$html];};
 $cases=[

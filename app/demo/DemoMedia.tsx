@@ -74,6 +74,7 @@ export function MediaThumb({ index, large = false, thumbnail = false }: { index:
   const className=`mediaThumb ${large?"large":""}`;
   if(!item || item.type!=="image")return <span className={`${className} emptyMediaThumb`}><span>{index>=0 && media.loading ? "Загрузка изображения…" : "Изображение не выбрано"}</span></span>;
   if(item.source==="upload")return <span className={`${className} storedMediaThumb`}>{preview?.id===index && preview.url ? <img src={preview.url} alt={item.alt || item.name} loading="lazy" decoding="async"/> : <span role={preview?.error?"alert":undefined}>{preview?.id===index && preview.error ? "Не удалось открыть файл" : "Загрузка изображения…"}</span>}</span>;
+  if(item.url)return <span className={`${className} storedMediaThumb`}><img src={item.url} alt={item.alt||item.name} loading="lazy" decoding="async"/></span>;
   return <span className={className} role="img" aria-label={item.alt || item.name}><svg viewBox={`${index%3*512} ${Math.floor(index/3)*512} 512 512`} preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><image href="https://bypcms.ru/demo/cms-media-board.png" width="1536" height="1024"/></svg></span>;
 }
 

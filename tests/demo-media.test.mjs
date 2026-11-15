@@ -27,7 +27,7 @@ test('date and source filters distinguish actual uploads from seed files and exc
   assert.equal(queryMedia(mixed,{...filters,period:'7'},now).total,169);
   assert.equal(queryMedia(mixed,{...filters,origin:'upload'},now).total,1031);
   assert.equal(queryMedia(mixed,{...filters,type:'document'},now).total,1);
-  assert.equal(queryMedia(mixed,{...filters,type:'all'},now).total,1038);
+  assert.equal(queryMedia(mixed,{...filters,type:'all'},now).total,1032+seedMedia.length);
   assert.equal(queryMedia(mixed,{...filters,trashed:true},now).total,1);
   assert.equal(queryMedia(mixed,{...filters,trashed:true},now).items[0].id,5000);
   assert.ok(seedMedia.every(item=>item.createdAt===undefined && item.size===undefined));

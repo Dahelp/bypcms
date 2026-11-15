@@ -4,6 +4,7 @@ require_once __DIR__.'/../server/_core/Chronicle.php';
 use BYPCMS\Core\{Chronicle,Content};
 $seed=require __DIR__.'/../server/_core/ChronicleSeed.php';$settings=['site_name'=>'Chronicle QA','site_url'=>'https://example.test','tagline'=>'Independent reading','accent'=>'#a82b24'];
 $n=0;$check=static function($v,$m)use(&$n){if(!$v)throw new RuntimeException($m);$n++;};
+foreach($seed['pages'] as $fixture)$check(($fixture['status']??'')!=='published'||strtotime($fixture['published_at'].' UTC')<=time(),'published sample is not in the future');
 set_error_handler(static function($level,$message){if(error_reporting()&$level)throw new RuntimeException($message);return false;});
 $render=static function(string $path,array $query=[],?array $pages=null,bool $preview=false,string $snapshot='')use($seed,$settings){$_GET=$query;ob_start();Chronicle::render($pages??$seed['pages'],$seed['terms'],$settings,$path,'/chronicle',$preview,$snapshot);return [ob_get_clean(),http_response_code()];};
 foreach(['','articles','category/city','category/letters','author/editors','author/guest','walkable-city','about','contacts','search']as $path){[$html,$status]=$render($path);$check($status===200&&str_contains($html,'chronicle.css')&&str_contains($html,'c-footer'),'route '.$path);$check(!str_contains($html,'Warning:')&&!str_contains($html,'j-site'),'independent safe renderer '.$path);}

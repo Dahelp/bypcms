@@ -30,7 +30,7 @@ type SettingsState = { siteName: string; slogan?: string; logo?: string; domain:
 const templateCatalog: Record<EditionKey, { id: string; name: string; note: string }[]> = {
   content: [{ id: "journal", name: "Journal", note: "Журнальная сетка и крупные истории" }, { id: "chronicle", name: "Chronicle", note: "Газетное издание и длинное чтение" }, { id: "focus", name: "Focus", note: "Фотоистории и визуальные серии" }],
   business: [{ id: "atelier", name: "Atelier", note: "Имиджевый сайт студии" }, { id: "corporate", name: "Corporate", note: "Услуги, цифры и доверие" }, { id: "mono", name: "Mono", note: "Минималистичная презентация" }],
-  commerce: [{ id: "gallery", name: "Gallery", note: "Каталог как дизайн-галерея" }, { id: "market", name: "Market", note: "Конверсионный интернет-магазин" }, { id: "luxe", name: "Luxe", note: "Премиальная товарная витрина" }],
+  commerce: [{ id: "gallery", name: "Gallery", note: "Мебель, свет и интерьер" }, { id: "market", name: "Market", note: "Универсальный магазин" }, { id: "luxe", name: "Luxe", note: "Премиальный магазин для дома" }],
 };
 const initialTheme: ThemeState = { template: "atelier", editionTemplates: { content: "journal", business: "atelier", commerce: "gallery" }, accent: "#557a25", background: "#f3f3ef", font: "Inter", headingFont: "Manrope", customFont: "", radius: 12, header: "Светлая", container: 1280, menuPosition: "center", customTemplateName: "", customTemplateSource: "" };
 const initialSettings: SettingsState = { siteName: "Northline Studio", slogan: "Дизайн и цифровые продукты для бизнеса", logo: "", domain: "demo.bypcms.ru", email: "hello@northline.demo", phone: "+7 495 100-20-30", address: "Москва, ул. Тверская, 12", language: "Русский", timezone: "Europe/Moscow", notifications: true, maintenance: false, currency: "RUB", taxRate: 20, minOrder: 1500, inventoryTracking: true };
@@ -591,7 +591,11 @@ const fontChoices = ["Inter", "Manrope", "Roboto", "Montserrat", "Open Sans", "P
 function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSettings, flash }: { entities:DemoEntity[]; edition: EditionKey; theme: ThemeState; setTheme: React.Dispatch<React.SetStateAction<ThemeState>>; settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; flash: (message: string) => void }) {
   const [panel, setPanel] = useState<"templates" | "brand" | "layout" | "code">("templates");
   const updateTheme = <K extends keyof ThemeState>(key: K, value: ThemeState[K]) => setTheme(old => ({ ...old, [key]: value }));
-  const chooseTemplate = (template: string) => setTheme(old => ({ ...old, template, editionTemplates: { ...old.editionTemplates, [edition]: template } }));
+  const chooseTemplate = (template: string) => {
+    const presets:Record<string,{name:string;slogan:string;accent:string}>={gallery:{name:"Gallery",slogan:"Мебель для жизни. Детали для уюта.",accent:"#3e594c"},market:{name:"Market",slogan:"Всё нужное. В одном месте.",accent:"#2558d9"},luxe:{name:"Luxe",slogan:"Искусство жить красиво.",accent:"#6d283a"}};
+    setTheme(old=>({...old,template,editionTemplates:{...old.editionTemplates,[edition]:template},...(edition==='commerce'&&presets[template]&&['#557a25','#3e594c','#2558d9','#6d283a'].includes(old.accent)?{accent:presets[template].accent}:{})}));
+    if(edition==='commerce'&&presets[template]&&['Gallery','Market','Luxe'].includes(settings.siteName))setSettings(old=>({...old,siteName:presets[template].name,slogan:presets[template].slogan}));
+  };
   const updateSettings = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => setSettings(old => ({ ...old, [key]: value }));
   function loadLogo(file?: File) {
     if (!file) return;
@@ -606,8 +610,8 @@ function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSetti
     reader.readAsText(file);
     flash("Шаблон загружен в безопасный редактор предпросмотра");
   }
-  const premium = edition === "commerce" && theme.template === "gallery"
-    ? {name:"Gallery", title:"магазин предметов", description:"Каталог, варианты, корзина и заказ", brand:"Бренд магазина"}
+  const premium = edition === "commerce" && ["gallery","market","luxe"].includes(theme.template)
+    ? {name:theme.template==="market"?"Market":theme.template==="luxe"?"Luxe":"Gallery", title:theme.template==="market"?"универсальный магазин":theme.template==="luxe"?"премиальный магазин для дома":"мебель и интерьер", description:"Каталог, поиск, фильтры, корзина и оформление заказа", brand:"Бренд магазина"}
     : edition === "business" && theme.template === "atelier"
       ? {name:"Atelier", title:"архитектурная студия", description:"Услуги, проекты, команда и заявка", brand:"Бренд студии"}
       : edition === "content" && ["journal","chronicle","focus"].includes(theme.template)
@@ -634,13 +638,13 @@ function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSetti
           <div className="designSectionHeading"><small>ОФОРМЛЕНИЕ</small><h2 id="design-type-title">Цвет и шрифты</h2></div>
           <label>Акцентный цвет<span className="designAccent"><input type="color" value={theme.accent} onChange={e=>updateTheme("accent",e.target.value)}/><code aria-hidden="true">{theme.accent.toUpperCase()}</code></span></label>
           <label>Шрифт интерфейса<select value={theme.font==="system"?"system":"manrope"} onChange={e=>updateTheme("font",e.target.value)}><option value="manrope">Manrope</option><option value="system">Системный</option></select></label>
-          <label>Шрифт заголовков<select value={theme.template==="focus"?(theme.focusHeadingFont||"manrope"):(theme.headingFont==="georgia"?"georgia":edition==="business"?"manrope":"cormorant")} onChange={e=>updateTheme(theme.template==="focus"?"focusHeadingFont":"headingFont",e.target.value)}>{theme.template==="focus"||edition==="business"?<option value="manrope">Manrope</option>:<option value="cormorant">Cormorant Garamond</option>}<option value="georgia">Georgia</option></select></label>
+          <label>Шрифт заголовков<select value={theme.template==="focus"?(theme.focusHeadingFont||"manrope"):(theme.headingFont==="georgia"?"georgia":edition==="business"||(edition==="commerce"&&theme.template!=="luxe")?"manrope":"cormorant")} onChange={e=>updateTheme(theme.template==="focus"?"focusHeadingFont":"headingFont",e.target.value)}>{theme.template==="focus"||edition==="business"||(edition==="commerce"&&theme.template!=="luxe")?<option value="manrope">Manrope</option>:<option value="cormorant">Cormorant Garamond</option>}<option value="georgia">Georgia</option></select></label>
         </section>
       </aside>
       <div className="designPreview">
         <header className="designPreviewHeading"><span><PanelIcon name="desktop"/><b>Живой предпросмотр</b></span><small>Изменения видны сразу</small></header>
         <LiveSite entities={entities} edition={edition} entity={null} theme={theme} settings={settings}/>
-        <p className="designPreviewNote">Изменения сохраняются только в вашей демо-сессии.</p>
+        <p className="designPreviewNote">{edition==="commerce"?<>Здесь показаны товары вашей демо-сессии. <a href={`/${theme.template}/`} target="_blank" rel="noopener">Открыть полный пример магазина ↗</a></>:"Изменения сохраняются только в вашей демо-сессии."}</p>
       </div>
     </div>
   </>;
@@ -712,7 +716,7 @@ function PublicPreview({ entities, siteView, entity, edition, theme, settings, c
 }
 
 function LiveSite({ entities, edition, entity, theme, settings }: { entities?:DemoEntity[]; edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
-  if(edition==='commerce'&&theme.template.toLowerCase()==='gallery')return <JournalPreview renderer="gallery" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
+  if(edition==='commerce'&&['gallery','market','luxe'].includes(theme.template.toLowerCase()))return <JournalPreview key={theme.template} renderer="gallery" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   if(edition==='business'&&theme.template.toLowerCase()==='atelier')return <JournalPreview renderer="atelier" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   if(edition==='content'&&['journal','chronicle','focus'].includes(theme.template.toLowerCase()))return <JournalPreview renderer={theme.template==='focus'?'focus':theme.template==='chronicle'?'chronicle':'journal'} entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   return <LegacyLiveSite edition={edition} entity={entity} theme={theme} settings={settings}/>;

@@ -19,3 +19,7 @@ window.addEventListener('pageshow',()=>{
   });
   document.querySelectorAll('button[disabled]').forEach(button=>{if(button.dataset.busy)button.disabled=false});
 });
+
+const filterPanel=document.querySelector('.g-filter-panel');if(filterPanel){const compact=matchMedia('(max-width:760px)');if(compact.matches)filterPanel.open=false;compact.addEventListener('change',event=>{filterPanel.open=!event.matches})}
+
+document.querySelector(".g-sort-select")?.addEventListener("change",event=>event.currentTarget.form?.requestSubmit());

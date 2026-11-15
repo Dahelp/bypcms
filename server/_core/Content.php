@@ -67,7 +67,7 @@ final class Content {
     public function configure(array $input): void {
         if(!empty($input['activate_journal']))$input['theme']='journal';
         $data=[];foreach(['site_name','tagline','email','phone','accent','logo','font','heading_font','focus_heading_font','menu','footer_menu','theme']as $key)if(isset($input[$key]))$data[$key]=$input[$key];
-        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery']:['journal','chronicle','focus']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
+        if(isset($data['theme'])&&(!in_array($data['theme'],strtolower($this->config['app']['edition']??'')==='business'?['atelier']:(strtolower($this->config['app']['edition']??'')==='commerce'?['gallery','market','luxe']:['journal','chronicle','focus']),true)&&($data['theme']!=='custom'||!is_file($this->root.'/themes/custom/page.html'))))throw new RuntimeException('Тема не установлена.');
         if(isset($data['site_name'])&&(trim($data['site_name'])===''||mb_strlen($data['site_name'])>100))throw new RuntimeException('Укажите название сайта до 100 символов.');
         if(isset($data['accent'])&&!preg_match('/^#[0-9a-f]{6}$/i',$data['accent']))throw new RuntimeException('Некорректный цвет.');
         if(isset($data['email'])&&$data['email']!==''&&!filter_var($data['email'],FILTER_VALIDATE_EMAIL))throw new RuntimeException('Проверьте email.');
@@ -82,7 +82,7 @@ final class Content {
         if(isset($data['logo'])&&$data['logo']!==''&&!self::url($data['logo']))throw new RuntimeException('Некорректный адрес логотипа.');
         if(isset($data['focus_heading_font'])&&!in_array($data['focus_heading_font'],['manrope','georgia'],true))throw new RuntimeException('Некорректный шрифт Focus.');
         if(isset($data['font'])&&!in_array($data['font'],['manrope','system'],true))throw new RuntimeException('Некорректный шрифт.');
-        if(isset($data['heading_font'])&&!in_array($data['heading_font'],strtolower($this->config['app']['edition']??'')==='business'?['manrope','georgia']:['cormorant','georgia'],true))throw new RuntimeException('Некорректный шрифт заголовков.');
+        if(isset($data['heading_font'])&&!in_array($data['heading_font'],strtolower($this->config['app']['edition']??'')==='business'?['manrope','georgia']:(strtolower($this->config['app']['edition']??'')==='commerce'?['manrope','cormorant','georgia']:['cormorant','georgia']),true))throw new RuntimeException('Некорректный шрифт заголовков.');
         $pdo=$this->db->pdo();$pdo->beginTransaction();try{foreach($data as $k=>$v)$this->db->execute('INSERT INTO byp_settings(setting_group,setting_key,setting_value,value_type,is_public,updated_at) VALUES("journal",?,?,"string",1,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()',[$k,is_array($v)?json_encode($v,JSON_UNESCAPED_UNICODE):mb_substr((string)$v,0,1000)]);$pdo->commit();}catch(Throwable $e){$pdo->rollBack();throw $e;}
     }
     public function records(bool $public=false,bool $full=true,int $limit=0,int $offset=0): array {

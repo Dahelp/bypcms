@@ -215,6 +215,7 @@ try {
         }
 
         if ($action === 'owner.bootstrap' && $method === 'GET') {
+            require_once __DIR__.'/../_core/Content.php';
             if ((int)($db->one('SELECT COUNT(*) AS total FROM byp_module_catalog')['total'] ?? 0) === 0) {
                 $catalog = [
                     ['content', 'Контент', 'Базовый', 'Страницы, блоки, меню, медиа и версии', '2.1.0', 0],
@@ -297,6 +298,7 @@ try {
             $notifications = $db->all('SELECT * FROM byp_owner_notifications ORDER BY is_read, created_at DESC LIMIT 100');
             Response::ok([
                 'user'=>$user,
+                'build_version'=>\BYPCMS\Core\Content::VERSION,
                 'clients'=>$clients,
                 'licenses'=>$licenses,
                 'tasks'=>$tasks,
@@ -541,8 +543,10 @@ try {
         $included = array_column(array_values(array_filter($editionRows, fn(array $row): bool => $row['availability'] === 'included')), 'module_key');
         $selected = array_values(array_unique(array_merge($included, array_intersect($requested, $allowed))));
         $buildId = 'bypcms-' . strtolower($edition) . '-' . date('Ymd-His') . '-' . bin2hex(random_bytes(6));
-        $archivePath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $buildId . '.zip';
+        require_once __DIR__.'/../_core/ClientPackage.php';
+        $archivePath = \BYPCMS\Core\ClientPackage::temporaryArchive(BYPCMS_ROOT);
         $zip = new ZipArchive();
+        register_shutdown_function(static function()use($zip,$archivePath):void{try{$zip->close();}catch(\Throwable $error){}if(is_file($archivePath))@unlink($archivePath);});
         if ($zip->open($archivePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             Response::error('Не удалось создать архив сборки', 500);
         }
@@ -571,7 +575,7 @@ try {
             'core_version' => $packageVersion,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
         $zip->addFromString('README.txt', "BYPCMS {$edition}\n\n1. Загрузите содержимое папки site на сервер.\n2. Откройте /install/.\n3. Укажите параметры MySQL и создайте владельца.\n");
-        $zip->close();
+        if(!$zip->close())Response::error('Не удалось завершить архив сборки. Повторите скачивание.',500);
         $moduleRows = $selected ? $db->all(
             'SELECT module_key, price FROM byp_module_catalog WHERE module_key IN (' . implode(',', array_fill(0,count($selected),'?')) . ')',
             $selected

@@ -29,6 +29,7 @@ export type DemoEntity = {
   sku?: string;
   brand?: string;
   featured?: boolean;
+  isHome?: boolean;
   parentId?: number;
   personId?: number;
   email?: string;

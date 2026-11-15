@@ -1,0 +1,27 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../server/_core/Mono.php';
+use BYPCMS\Core\Mono;
+$checks=0;function check(bool $ok,string $why):void {global $checks;if(!$ok)throw new RuntimeException($why);$checks++;}
+set_error_handler(static function($level,$message){throw new RuntimeException($message);});
+$pages=require __DIR__.'/../server/_core/MonoSeed.php';$settings=['site_name'=>'MONO_PROOF','site_url'=>'https://example.test','tagline'=>'MONO_TAGLINE','menu'=>[]];
+function render(string $path,array $query=[],?array $records=null,array $options=[]):string {global $pages,$settings;$_GET=$query;ob_start();Mono::render($records??$pages,$settings,$path,'/mono',$options+['demo'=>true]);return ob_get_clean();}
+foreach(['','services','projects','team','about','privacy','contact','search',...array_column($pages,'slug')] as $path){$html=render($path);check(http_response_code()===200,'route '.$path);check(str_contains($html,'mono.css')&&str_contains($html,'MONO_PROOF'),'real theme '.$path);check(substr_count($html,'<h1')===1,'single main heading '.$path);}
+$html=render('projects',['service'=>102]);check(str_contains($html,'projects/forma')&&str_contains($html,'projects/object')&&!str_contains($html,'projects/interface'),'real project filter');
+$html=render('services/identity');check(str_contains($html,'projects/forma')&&str_contains($html,'service=102'),'service related projects and form');
+$html=render('projects/forma');check(str_contains($html,'service=102')&&str_contains($html,'project=201')&&str_contains($html,'team/art-director'),'case context and specialist');
+$html=render('team/art-director');check(str_contains($html,'projects/forma')&&str_contains($html,'projects/object'),'specialist related projects');
+check(str_contains(render('services'),'<details>')&&str_contains(render('services'),'<summary>'),'native service disclosures');
+check(str_contains(render('search'),'Что будем искать?'),'initial search');check(str_contains(render('search',['q'=>'NO_MATCH_PROOF']),'Ничего не найдено'),'empty search');check(str_contains(render('search',['q'=>'интеграции']),'services/digital'),'search includes actual content');
+render('projects',['q'=>['array']]);check(http_response_code()===400,'query array rejected');render('projects',['order'=>'bad']);check(http_response_code()===400,'sort enum');render('projects',['service'=>'1x']);check(http_response_code()===400,'invalid ID');render('projects',['service'=>'9007199254740992']);check(http_response_code()===400,'unsafe integer rejected');
+render('missing');check(http_response_code()===404,'real missing page');render('request-success');check(http_response_code()===404,'private receipt');check(str_contains(render('request-success',[],null,['receipt'=>'TEST_REF']),'TEST_REF'),'owned receipt');
+$private=$pages;foreach([['status'=>'draft'],['status'=>'scheduled','published_at'=>'2099-01-01 00:00:00']] as $state){$private[]=$state+['id'=>999,'kind'=>'project','slug'=>'secret','title'=>'PRIVATE_MARKER'];check(!str_contains(render('projects',[],$private),'PRIVATE_MARKER'),'unpublished record hidden');}
+for($i=0;$i<12;$i++)$private[]=['id'=>700+$i,'kind'=>'project','slug'=>'case-'.$i,'title'=>'PAGER_PROOF '.$i,'excerpt'=>'Filter proof','parent_id'=>102,'status'=>'published'];
+$html=render('projects',['q'=>'PROOF','service'=>102,'order'=>'name'], $private,['snapshot'=>'private-token']);check(str_contains($html,'page=2')&&str_contains($html,'service=102')&&str_contains($html,'q=PROOF')&&str_contains($html,'order=name')&&str_contains($html,'snapshot=private-token'),'all pagination conditions retained');
+check(str_contains(render('projects',[],[]),'Материалы пока не опубликованы'),'empty projects');check(str_contains(render('team',[],[]),'Материалы пока не опубликованы'),'empty team');check(!str_contains(render('',[],[]),'href="/mono/about/"'),'missing about has no dead navigation');
+$html=render('search',['q'=>'<script>alert(1)</script>']);check(!str_contains($html,'<script>alert(1)</script>')&&str_contains($html,'&lt;script&gt;'),'input escaped');
+$editable=$pages;foreach($editable as &$p)if($p['slug']==='home'){$p['content']='<h2>ACTUAL_HOME_BODY</h2>';$p['blocks']=[['type'=>'quote','content'=>'HOME_BLOCK']];$p['seo_title']='HOME_SEO';$p['cover']='/custom-home.jpg';}unset($p);$html=render('',[],$editable);check(str_contains($html,'ACTUAL_HOME_BODY')&&str_contains($html,'HOME_BLOCK')&&str_contains($html,'<title>HOME_SEO'),'editable home and SEO');preg_match('#<figure class="mo-hero-image">(.*?)</figure>#s',$html,$heroMarkup);check(!str_contains($heroMarkup[1]??'','aria-label="Открыть кейс:'),'custom home cover cannot pretend to be featured case');check(str_contains(render('home',[],$editable),'mo-view-home'),'editor home preview is full home');
+$html=render('projects/forma');check(str_contains($html,'target="_blank" rel="noopener" aria-label="Открыть изображение'),'original photo is an ordinary safe link');check(str_contains($html,'identity-480.webp')&&str_contains($html,'identity-960.webp'),'responsive images');
+$html=render('team');check(str_contains($html,'aria-label="Открыть профиль: Анна Соколова"'),'monogram profile link has accessible name');
+foreach(['#111111'=>'#ffffff','#eeeeee'=>'#151515'] as $color=>$ink){$settings['accent']=$color;check(str_contains(render(''),'--mo-on-accent:'.$ink),'contrast adapts to brand color');}
+restore_error_handler();echo "Mono: $checks checks passed\n";

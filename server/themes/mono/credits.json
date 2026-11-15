@@ -1,0 +1,29 @@
+{
+  "generator": "OpenAI built-in imagegen",
+  "notice": "Fictional illustrative projects and studio; no real client or portfolio claims.",
+  "assets": {
+    "identity": {
+      "file": "assets/identity.webp",
+      "prompt": "Use case: product-mockup. Asset: landscape portfolio photograph for the premium Mono design studio website. Create a high-end editorial photograph of a fictional minimalist brand identity: one large matte black square packaging box, crisp ivory stationery sheets with abstract black geometric marks, a slim silver pen, one small lime-green paper insert. Art directed still life on warm off-white concrete, strong directional afternoon light and sophisticated long shadows, real paper grain, restrained architectural composition. Wide 3:2 landscape, all edges clean, black/ivory with very small lime accent. No readable words, no logos of real brands, no watermark, no interface, no people.",
+      "source": "AI generated"
+    },
+    "digital": {
+      "file": "assets/digital.webp",
+      "prompt": "Use case: product-mockup. Asset: landscape portfolio photograph for a premium digital product design case. High-end studio photograph of a thin black laptop partly open and a black smartphone on a pale architectural pedestal, screen surfaces show only a precise abstract monochrome grid of large geometric rectangles and one small lime accent, no readable text or fake app branding. Sculptural side perspective, warm grey gallery background, soft directional light, realistic anodized metal and glass, generous clear composition, premium editorial art direction. Wide 3:2 landscape. No words, no real brand logos, no people, no watermark.",
+      "source": "AI generated"
+    },
+    "object": {
+      "file": "assets/object.webp",
+      "prompt": "Use case: product-mockup. Asset: landscape art direction case image for an independent design studio. Museum-quality editorial still life: a brushed steel folded ribbon sculpture on a deep charcoal block, an ivory sphere and one saturated citrus-lime translucent acrylic plane, against warm off-white seamless background. Strong sculptural shadows, tactile materials, calm asymmetry, sophisticated Swiss graphic design aesthetic, real physical product photography rather than illustration. Wide 3:2 landscape. No text, no logos, no watermark, no people.",
+      "source": "AI generated"
+    },
+    "studio": {
+      "file": "assets/studio.webp",
+      "prompt": "Use case: photorealistic-natural. Asset: landscape about page photograph for a boutique design studio. A candid editorial view of three fictional adult creative professionals reviewing abstract paper layouts and physical material samples at a long black studio table, natural gestures, contemporary understated black/ivory clothing, daylight loft with textured white walls, metal shelving and a single small lime object. Refined warm monochrome photography, believable anatomy, faces not prominent, unposed. Wide 3:2 landscape. No readable text, no real company branding, no logos, no watermark.",
+      "source": "AI generated"
+    }
+  },
+  "fonts": {
+    "Manrope": "SIL Open Font License 1.1; assets/manrope-OFL.txt"
+  }
+}

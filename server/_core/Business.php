@@ -12,7 +12,7 @@ require_once __DIR__.'/SmtpTransport.php';
 
 /** Business uses the same transactional content/media contract as Content. */
 final class Business {
-    public const VERSION = '2.6.0';
+    public const VERSION = '2.7.0';
     public const STATES = ['new'=>'Новая','processing'=>'В работе','done'=>'Завершена','spam'=>'Спам'];
     public Content $content;
 

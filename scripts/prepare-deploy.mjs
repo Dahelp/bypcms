@@ -12,9 +12,9 @@ await cp(source, target, { recursive: true, force: true });
 // /demo directory. Keep that document root self-contained as well.
 await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });
 await cp(resolve(target, "favicon.svg"), resolve(target, "demo", "favicon.svg"));
-for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","focus","themes/focus","atelier","themes/atelier","corporate","themes/corporate","gallery","market","luxe","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
+for(const folder of ["journal","themes/journal","chronicle","themes/chronicle","focus","themes/focus","atelier","themes/atelier","corporate","themes/corporate","mono","themes/mono","gallery","market","luxe","themes/gallery"])await cp(resolve(target,folder),resolve(target,"demo",folder),{recursive:true});
 await mkdir(resolve(target,"demo","_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Corporate.php","CorporateSeed.php","BusinessLead.php","BusinessDemoForm.php","Gallery.php","GallerySeed.php","DemoStore.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Corporate.php","CorporateSeed.php","Mono.php","MonoSeed.php","BusinessView.php","BusinessThemeDemo.php","BusinessLead.php","BusinessDemoForm.php","Gallery.php","GallerySeed.php","DemoStore.php"])await cp(resolve(target,"_core",file),resolve(target,"demo","_core",file));
 await writeFile(resolve(target,"demo",".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 await writeFile(
   resolve(target, "_storage", "DEPLOYMENT.md"),
@@ -34,6 +34,8 @@ await cp(resolve(target,"themes","journal"),resolve(target,"_next","static","jou
 await writeFile(resolve(target,"_next","static","journal","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/journal/assets/manrope-OFL.txt"),"utf8"),cormorant:await readFile(resolve(target,"themes/journal/assets/cormorant-OFL.txt"),"utf8")}));
 await cp(resolve(target,"themes","atelier"),resolve(target,"_next","static","atelier"),{recursive:true});
 await writeFile(resolve(target,"_next","static","atelier","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/atelier/assets/manrope-OFL.txt"),"utf8")}));
+await cp(resolve(target,"themes","mono"),resolve(target,"_next","static","mono"),{recursive:true});
+await writeFile(resolve(target,"_next","static","mono","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/mono/assets/manrope-OFL.txt"),"utf8")}));
 await cp(resolve(target,"themes","corporate"),resolve(target,"_next","static","corporate"),{recursive:true});
 await writeFile(resolve(target,"_next","static","corporate","font-licenses.json"),JSON.stringify({manrope:await readFile(resolve(target,"themes/corporate/assets/manrope-OFL.txt"),"utf8")}));
 await cp(resolve(target,"themes","gallery"),resolve(target,"_next","static","gallery"),{recursive:true});

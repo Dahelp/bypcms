@@ -29,7 +29,7 @@ type SettingsState = { siteName: string; slogan?: string; logo?: string; domain:
 
 const templateCatalog: Record<EditionKey, { id: string; name: string; note: string }[]> = {
   content: [{ id: "journal", name: "Journal", note: "Журнальная сетка и крупные истории" }, { id: "chronicle", name: "Chronicle", note: "Газетное издание и длинное чтение" }, { id: "focus", name: "Focus", note: "Фотоистории и визуальные серии" }],
-  business: [{ id: "atelier", name: "Atelier", note: "Имиджевый сайт студии" }, { id: "corporate", name: "Corporate", note: "Полноценный B2B-сайт компании" }, { id: "mono", name: "Mono", note: "Минималистичная презентация" }],
+  business: [{ id: "atelier", name: "Atelier", note: "Имиджевый сайт студии" }, { id: "corporate", name: "Corporate", note: "Полноценный B2B-сайт компании" }, { id: "mono", name: "Mono", note: "Премиальное портфолио студии" }],
   commerce: [{ id: "gallery", name: "Gallery", note: "Мебель, свет и интерьер" }, { id: "market", name: "Market", note: "Универсальный магазин" }, { id: "luxe", name: "Luxe", note: "Премиальный магазин для дома" }],
 };
 const initialTheme: ThemeState = { template: "atelier", editionTemplates: { content: "journal", business: "atelier", commerce: "gallery" }, accent: "#557a25", background: "#f3f3ef", font: "Inter", headingFont: "Manrope", customFont: "", radius: 12, header: "Светлая", container: 1280, menuPosition: "center", customTemplateName: "", customTemplateSource: "" };
@@ -100,7 +100,7 @@ function DemoWorkspace() {
       const navigation=performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
       const snapshot=readNewEditorSession(sessionStorage,{edition:nextEdition,kind:item.kind},route.get("draft"),navigation?.type || "navigate");
       const restored=snapshot && !records.some(record=>record.id===snapshot.draft.id)?snapshot:null;
-      setEditing(restored?.draft || createEntity(item.kind));setEditorTab(restored?.tab || "content");
+      const fresh=createEntity(item.kind);if(!restored&&nextEdition==="business"&&item.kind==="pages"&&route.get("homepage")==="1"){fresh.title="Главная";fresh.slug="/";fresh.isHome=true;}setEditing(restored?.draft || fresh);setEditorTab(restored?.tab || "content");
       if(route.has("previewDraft")){
         if(restored && String(restored.draft.id)===route.get("previewDraft"))setPreview({...restored.draft,title:restored.draft.title || (item.kind==="articles"?"Новый материал":"Новая запись")});
         else setRouteError("Черновик предпросмотра недоступен в этой вкладке. Вернитесь в редактор и откройте предпросмотр снова.");
@@ -387,7 +387,7 @@ function EntityEditor({ entity, siteName, domain, seoSettingsHref, edition, isSa
     const title = draft.title.trim();
     const rawSlug = draft.slug.trim();
     if (!title) { setTab("content"); flash("Укажите название записи — пустой материал сохранить нельзя"); return; }
-    if (!rawSlug || (rawSlug === "/" && !isSaved)) { setTab("content"); flash("Укажите уникальный адрес страницы"); return; }
+    if (!rawSlug || (rawSlug === "/" && !isSaved && !draft.isHome)) { setTab("content"); flash("Укажите уникальный адрес страницы"); return; }
     const slug = rawSlug.startsWith("/") ? rawSlug : `/${rawSlug}`;
     if(onSave(prepareEntitySave({ ...draft, title, slug }))) committed.current=true;
   };
@@ -592,9 +592,9 @@ function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSetti
   const [panel, setPanel] = useState<"templates" | "brand" | "layout" | "code">("templates");
   const updateTheme = <K extends keyof ThemeState>(key: K, value: ThemeState[K]) => setTheme(old => ({ ...old, [key]: value }));
   const chooseTemplate = (template: string) => {
-    const presets:Record<string,{name:string;slogan:string;accent:string}>={corporate:{name:"Corporate",slogan:"Решения, на которые можно опереться.",accent:"#2454d5"},atelier:{name:"Atelier",slogan:"Пространства для жизни и работы.",accent:"#557a25"},gallery:{name:"Gallery",slogan:"Мебель для жизни. Детали для уюта.",accent:"#3e594c"},market:{name:"Market",slogan:"Всё нужное. В одном месте.",accent:"#2558d9"},luxe:{name:"Luxe",slogan:"Искусство жить красиво.",accent:"#6d283a"}};
-    setTheme(old=>({...old,template,editionTemplates:{...old.editionTemplates,[edition]:template},...(['commerce','business'].includes(edition)&&presets[template]&&['#557a25','#3e594c','#2558d9','#6d283a','#2454d5'].includes(old.accent)?{accent:presets[template].accent}:{})}));
-    if(['commerce','business'].includes(edition)&&presets[template]&&['Gallery','Market','Luxe','Atelier','Corporate'].includes(settings.siteName))setSettings(old=>({...old,siteName:presets[template].name,slogan:presets[template].slogan}));
+    const presets:Record<string,{name:string;slogan:string;accent:string}>={mono:{name:"Mono",slogan:"Меньше шума. Больше смысла.",accent:"#d5ef62"},corporate:{name:"Corporate",slogan:"Решения, на которые можно опереться.",accent:"#2454d5"},atelier:{name:"Atelier",slogan:"Пространства для жизни и работы.",accent:"#557a25"},gallery:{name:"Gallery",slogan:"Мебель для жизни. Детали для уюта.",accent:"#3e594c"},market:{name:"Market",slogan:"Всё нужное. В одном месте.",accent:"#2558d9"},luxe:{name:"Luxe",slogan:"Искусство жить красиво.",accent:"#6d283a"}};
+    setTheme(old=>({...old,template,editionTemplates:{...old.editionTemplates,[edition]:template},...(['commerce','business'].includes(edition)&&presets[template]&&['#557a25','#3e594c','#2558d9','#6d283a','#2454d5','#d5ef62'].includes(old.accent)?{accent:presets[template].accent}:{})}));
+    if(['commerce','business'].includes(edition)&&presets[template]&&['Gallery','Market','Luxe','Atelier','Corporate','Mono'].includes(settings.siteName))setSettings(old=>({...old,siteName:presets[template].name,slogan:presets[template].slogan}));
   };
   const updateSettings = <K extends keyof SettingsState>(key: K, value: SettingsState[K]) => setSettings(old => ({ ...old, [key]: value }));
   function loadLogo(file?: File) {
@@ -612,13 +612,14 @@ function DesignStudioV2({ entities, edition, theme, setTheme, settings, setSetti
   }
   const premium = edition === "commerce" && ["gallery","market","luxe"].includes(theme.template)
     ? {name:theme.template==="market"?"Market":theme.template==="luxe"?"Luxe":"Gallery", title:theme.template==="market"?"универсальный магазин":theme.template==="luxe"?"премиальный магазин для дома":"мебель и интерьер", description:"Каталог, поиск, фильтры, корзина и оформление заказа", brand:"Бренд магазина"}
-    : edition === "business" && ["atelier","corporate"].includes(theme.template)
-      ? {name:theme.template==="corporate"?"Corporate":"Atelier", title:theme.template==="corporate"?"B2B-компания":"архитектурная студия", description:"Услуги, проекты, команда и заявка", brand:"Бренд компании"}
+    : edition === "business" && ["atelier","corporate","mono"].includes(theme.template)
+      ? {name:theme.template==="mono"?"Mono":theme.template==="corporate"?"Corporate":"Atelier", title:theme.template==="mono"?"независимая дизайн-студия":theme.template==="corporate"?"B2B-компания":"архитектурная студия", description:"Услуги, проекты, команда и заявка", brand:"Бренд компании"}
       : edition === "content" && ["journal","chronicle","focus"].includes(theme.template)
         ? {name:theme.template === "focus" ? "Focus" : theme.template === "chronicle" ? "Chronicle" : "Journal", title:theme.template === "focus" ? "визуальное издание" : theme.template === "chronicle" ? "аналитическое издание" : "редакционный журнал", description:"Истории, рубрики, авторы и поиск", brand:"Бренд издания"}
         : null;
+  const homePage=entities.find(item=>item.kind==="pages"&&["/","home","/home"].includes(item.slug));
   if (premium) return <>
-    <PageHeading eyebrow="ДИЗАЙН САЙТА" title={`${premium.name} · ${premium.title}`} description={premium.description} actions={<><a className="panelLinkButton" href={`/${theme.template}/`} target="_blank" rel="noopener">Открыть {premium.name} <PanelIcon name="external" /></a><button onClick={()=>flash("Дизайн сохранён в вашей демо-сессии")}>Сохранить дизайн</button></>} />
+    <PageHeading eyebrow="ДИЗАЙН САЙТА" title={`${premium.name} · ${premium.title}`} description={premium.description} actions={<>{edition==="business"&&["mono","corporate"].includes(theme.template)&&<a className="panelLinkButton" href={`?edition=business&section=pages&${homePage?`record=${homePage.id}`:"editor=new&homepage=1"}`}>Редактировать главную</a>}<a className="panelLinkButton" href={`/${theme.template}/`} target="_blank" rel="noopener">Открыть {premium.name} <PanelIcon name="external" /></a><button onClick={()=>flash("Дизайн сохранён в вашей демо-сессии")}>Сохранить дизайн</button></>} />
     <div className="designEditor designEditorV2 designStudio">
       <aside aria-label="Настройки дизайна">
         <section className="templateChooser" aria-labelledby="design-themes-title">
@@ -717,6 +718,7 @@ function PublicPreview({ entities, siteView, entity, edition, theme, settings, c
 
 function LiveSite({ entities, edition, entity, theme, settings }: { entities?:DemoEntity[]; edition: EditionKey; entity: DemoEntity | null; theme: ThemeState; settings: SettingsState }) {
   if(edition==='commerce'&&['gallery','market','luxe'].includes(theme.template.toLowerCase()))return <JournalPreview key={theme.template} renderer="gallery" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
+  if(edition==='business'&&theme.template.toLowerCase()==='mono')return <JournalPreview renderer="mono" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   if(edition==='business'&&theme.template.toLowerCase()==='corporate')return <JournalPreview renderer="corporate" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   if(edition==='business'&&theme.template.toLowerCase()==='atelier')return <JournalPreview renderer="atelier" entities={entities} entity={entity} settings={settings} appearance={theme}/>;
   if(edition==='content'&&['journal','chronicle','focus'].includes(theme.template.toLowerCase()))return <JournalPreview renderer={theme.template==='focus'?'focus':theme.template==='chronicle'?'chronicle':'journal'} entities={entities} entity={entity} settings={settings} appearance={theme}/>;

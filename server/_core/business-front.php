@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-use BYPCMS\Core\{Business,Content,Atelier,Corporate,Response};
-require_once __DIR__.'/bootstrap.php';require_once __DIR__.'/Business.php';require_once __DIR__.'/Atelier.php';require_once __DIR__.'/Corporate.php';
+use BYPCMS\Core\{Business,Content,Atelier,Corporate,Mono,Response};
+require_once __DIR__.'/bootstrap.php';require_once __DIR__.'/Business.php';require_once __DIR__.'/Atelier.php';require_once __DIR__.'/Corporate.php';require_once __DIR__.'/Mono.php';
 $business=new Business($db,$config,BYPCMS_ROOT);$content=$business->content;$settings=$business->settings();
 $path=trim(rawurldecode((string)parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)),'/');
 if($path==='manage'){require __DIR__.'/content-admin.php';return;}
@@ -53,4 +53,4 @@ if($path==='contact'){
 if($path==='request-success'){$ref=(string)($_GET['ref']??'');if(($_SESSION['business_receipts'][$ref]??0)>time()-86400)$options['receipt']=$ref;}
 $paths=[];foreach($pages as $p)if(str_starts_with($p['cover']??'','/uploads/content/'))$paths[]=ltrim($p['cover'],'/');
 foreach(array_chunk(array_unique($paths),200)as $chunk)foreach($db->all('SELECT path,width,metadata FROM byp_media WHERE path IN ('.implode(',',array_fill(0,count($chunk),'?')).')',$chunk)as $im){$m=json_decode($im['metadata']??'{}',true);Content::$images['/'.$im['path']]=['width'=>(int)$im['width'],'variants'=>$m['variants']??[]];}
-($settings['theme']==='corporate'?Corporate::class:Atelier::class)::render($pages,$settings,$path,'',$options);
+$renderer=['corporate'=>Corporate::class,'mono'=>Mono::class][$settings['theme']]??Atelier::class;$renderer::render($pages,$settings,$path,'',$options);

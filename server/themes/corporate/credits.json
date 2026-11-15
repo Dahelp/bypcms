@@ -1,0 +1,18 @@
+{
+  "images": {
+    "source": "OpenAI imagegen",
+    "purpose": "Illustrative fictional company, cases and employees. Not real staff or client references.",
+    "files": [
+      "headquarters",
+      "workspace",
+      "team",
+      "person-1",
+      "person-2",
+      "person-3"
+    ],
+    "formats": "WebP with 480/960/full variants"
+  },
+  "fonts": {
+    "Manrope": "assets/manrope-OFL.txt"
+  }
+}

@@ -29,6 +29,8 @@ export type DemoEntity = {
   sku?: string;
   brand?: string;
   featured?: boolean;
+  parentId?: number;
+  personId?: number;
   email?: string;
   phone?: string;
   value?: number;
@@ -180,8 +182,8 @@ export const seedEntities: DemoEntity[] = [
   entity(40, "services", "UX/UI-дизайн", "/services/ux-ui", 1, { price: 65000, extra: "от 20 рабочих дней" }),
   entity(41, "services", "Разработка сайта", "/services/development", 0, { price: 85000, extra: "от 30 рабочих дней" }),
   entity(42, "services", "Аудит продукта", "/services/audit", 4, { price: 35000, extra: "10 рабочих дней" }),
-  entity(50, "projects", "Цифровая платформа Meridian", "/projects/meridian", 0, { category: "Разработка", featured: true }),
-  entity(51, "projects", "Айдентика Forma", "/projects/forma", 1, { category: "Дизайн" }),
+  entity(50, "projects", "Цифровая платформа Meridian", "/projects/meridian", 0, { category: "Разработка", featured: true, parentId: 41, personId: 61 }),
+  entity(51, "projects", "Айдентика Forma", "/projects/forma", 1, { category: "Дизайн", parentId: 40, personId: 60 }),
   entity(60, "team", "Мария Белова", "/team/maria", 3, { extra: "Арт-директор", email: "maria@northline.demo" }),
   entity(61, "team", "Алексей Ветров", "/team/alexey", 0, { extra: "Технический директор", email: "alexey@northline.demo" }),
   entity(70, "leads", "Анна Смирнова", "lead-1048", 3, { status: "Новая", value: 149000, phone: "+7 999 123-45-67", email: "anna@example.ru", extra: "Расчёт проекта" }),

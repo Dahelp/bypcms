@@ -7,11 +7,12 @@ use RuntimeException;
 use Throwable;
 
 require_once __DIR__.'/Content.php';
+require_once __DIR__.'/BusinessLead.php';
 require_once __DIR__.'/SmtpTransport.php';
 
 /** Business uses the same transactional content/media contract as Content. */
 final class Business {
-    public const VERSION = '2.2.0';
+    public const VERSION = '2.6.0';
     public const STATES = ['new'=>'Новая','processing'=>'В работе','done'=>'Завершена','spam'=>'Спам'];
     public Content $content;
 
@@ -59,23 +60,7 @@ final class Business {
         return $s;
     }
 
-    public static function leadInput(array $v): array {
-        $out=[];
-        foreach(['name'=>150,'email'=>190,'phone'=>60,'message'=>5000] as $k=>$limit) {
-            $out[$k]=trim((string)($v[$k]??''));
-            if(mb_strlen($out[$k])>$limit || preg_match('/[\x00-\x08\x0b\x0c\x0e-\x1f]/',$out[$k])) throw new RuntimeException('Проверьте длину полей заявки.');
-        }
-        if($out['name']==='' || $out['message']==='') throw new RuntimeException('Укажите имя и расскажите о задаче.');
-        if($out['email']==='' && $out['phone']==='') throw new RuntimeException('Оставьте email или телефон для ответа.');
-        if($out['email']!=='' && !filter_var($out['email'],FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Проверьте email.');
-        if($out['phone']!=='' && !preg_match('/^[+()0-9 .-]{7,60}$/D',$out['phone'])) throw new RuntimeException('Проверьте телефон.');
-        if(($v['consent']??'')!=='1') throw new RuntimeException('Для отправки необходимо согласие на обработку данных.');
-        if(!empty($v['website'])) throw new RuntimeException('Заявка отклонена антиспам-проверкой.');
-        if(!preg_match('/^[a-f0-9]{32}$/D',(string)($v['request_token']??''))) throw new RuntimeException('Обновите форму и повторите отправку.');
-        $out['service_id']=(int)($v['service_id']??0)?:null;
-        $out['project_id']=(int)($v['project_id']??0)?:null;
-        return $out;
-    }
+    public static function leadInput(array $v): array {return BusinessLead::input($v);}
 
     /** Submission and notification commit together; mail failure never loses the lead. */
     public function submit(array $input,string $session,string $ip): array {

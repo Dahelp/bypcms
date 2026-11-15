@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
-use BYPCMS\Core\{Business,Content,Atelier,Response};
-require_once __DIR__.'/bootstrap.php';require_once __DIR__.'/Business.php';require_once __DIR__.'/Atelier.php';
+use BYPCMS\Core\{Business,Content,Atelier,Corporate,Response};
+require_once __DIR__.'/bootstrap.php';require_once __DIR__.'/Business.php';require_once __DIR__.'/Atelier.php';require_once __DIR__.'/Corporate.php';
 $business=new Business($db,$config,BYPCMS_ROOT);$content=$business->content;$settings=$business->settings();
 $path=trim(rawurldecode((string)parse_url($_SERVER['REQUEST_URI'],PHP_URL_PATH)),'/');
 if($path==='manage'){require __DIR__.'/content-admin.php';return;}
@@ -20,10 +20,10 @@ if(!$previewToken&&$path==='sitemap.xml'){
     header('Content-Type: application/xml; charset=utf-8');$urls=['/','/services/','/projects/','/contact/','/team/'];foreach($pages as $p)if(empty($p['noindex'])&&$p['slug']!=='home')$urls[]='/'.$p['slug'].'/';echo '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';foreach(array_unique($urls)as $url)echo '<url><loc>'.Content::e(rtrim($settings['site_url'],'/').$url).'</loc></url>';echo '</urlset>';return;
 }
 if(!$previewToken&&$r=$db->one('SELECT target,code FROM byp_content_redirects WHERE source=?',['/'.$path.'/'])){header('Location: '.$r['target'],true,(int)$r['code']);return;}
-$_SESSION['csrf']??=bin2hex(random_bytes(24));$error='';$formValues=$_POST;
+$_SESSION['csrf']??=bin2hex(random_bytes(24));$error='';$formValues=array_filter($_POST,fn($value)=>is_scalar($value));
 if($path==='contact'){
     if($_SERVER['REQUEST_METHOD']==='POST')try{
-        if(!hash_equals($_SESSION['csrf'],(string)($_POST['csrf']??'')))throw new RuntimeException('Сессия формы истекла. Скопируйте введённое и обновите страницу перед повтором.');
+        if(!is_string($_POST['csrf']??null)||!hash_equals($_SESSION['csrf'],$_POST['csrf']))throw new RuntimeException('Сессия формы истекла. Скопируйте введённое и обновите страницу перед повтором.');
         $saved=$business->submit($_POST,session_id(),$_SERVER['REMOTE_ADDR']??'');
         $_SESSION['business_receipts'][$saved['reference']]=time();$_SESSION['business_receipts']=array_slice($_SESSION['business_receipts'],-10,null,true);
         $url='/request-success/?ref='.$saved['reference'];
@@ -53,4 +53,4 @@ if($path==='contact'){
 if($path==='request-success'){$ref=(string)($_GET['ref']??'');if(($_SESSION['business_receipts'][$ref]??0)>time()-86400)$options['receipt']=$ref;}
 $paths=[];foreach($pages as $p)if(str_starts_with($p['cover']??'','/uploads/content/'))$paths[]=ltrim($p['cover'],'/');
 foreach(array_chunk(array_unique($paths),200)as $chunk)foreach($db->all('SELECT path,width,metadata FROM byp_media WHERE path IN ('.implode(',',array_fill(0,count($chunk),'?')).')',$chunk)as $im){$m=json_decode($im['metadata']??'{}',true);Content::$images['/'.$im['path']]=['width'=>(int)$im['width'],'variants'=>$m['variants']??[]];}
-Atelier::render($pages,$settings,$path,'',$options);
+($settings['theme']==='corporate'?Corporate::class:Atelier::class)::render($pages,$settings,$path,'',$options);

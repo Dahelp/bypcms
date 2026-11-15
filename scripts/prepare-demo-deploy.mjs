@@ -17,6 +17,8 @@ await cp(join(out,"journal"),join(target,"journal"),{recursive:true});
 await cp(join(out,"themes","journal"),join(target,"themes","journal"),{recursive:true});
 await cp(join(out,"atelier"),join(target,"atelier"),{recursive:true});
 await cp(join(out,"themes","atelier"),join(target,"themes","atelier"),{recursive:true});
+await cp(join(out,"corporate"),join(target,"corporate"),{recursive:true});
+await cp(join(out,"themes","corporate"),join(target,"themes","corporate"),{recursive:true});
 for(const store of ["gallery","market","luxe"])await cp(join(out,store),join(target,store),{recursive:true});
 await cp(join(out,"themes","gallery"),join(target,"themes","gallery"),{recursive:true});
 await cp(join(out,"chronicle"),join(target,"chronicle"),{recursive:true});
@@ -24,7 +26,7 @@ await cp(join(out,"themes","chronicle"),join(target,"themes","chronicle"),{recur
 await cp(join(out,"focus"),join(target,"focus"),{recursive:true});
 await cp(join(out,"themes","focus"),join(target,"themes","focus"),{recursive:true});
 await mkdir(join(target,"_core"),{recursive:true});
-for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Gallery.php","GallerySeed.php","DemoStore.php"])await cp(join(out,"_core",file),join(target,"_core",file));
+for(const file of ["Content.php","Journal.php","JournalSeed.php","Chronicle.php","ChronicleSeed.php","Focus.php","FocusSeed.php","Atelier.php","AtelierSeed.php","Corporate.php","CorporateSeed.php","BusinessLead.php","BusinessDemoForm.php","Gallery.php","GallerySeed.php","DemoStore.php"])await cp(join(out,"_core",file),join(target,"_core",file));
 await writeFile(join(target,".htaccess"),"Options -Indexes\nDirectoryIndex index.html index.php\nRewriteEngine On\nRewriteRule ^(?:_core|_storage|_private)(?:/|$) - [F,L]\n");
 
 console.log("Standalone demo package prepared in demo-dist/");

@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import {randomBytes} from 'node:crypto';
+import {writeFile} from 'node:fs/promises';
+const origin=process.env.CORPORATE_INSTALLED_ORIGIN||'http://127.0.0.1:8060';if(new URL(origin).hostname!=='127.0.0.1')throw Error('Disposable installed Business only');
+let checks=0;const check=(ok,msg)=>{assert.ok(ok,msg);checks++};
+const login=await fetch(origin+'/api/index.php?action=auth.login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:'business-owner@example.test',password:'BYPCMS-Business-Only-2026'})});const auth=await login.json();check(login.ok,'owner login');const cookie=login.headers.getSetCookie().at(-1).split(';')[0];
+const api=async(action,body)=>{const r=await fetch(origin+'/api/index.php?action='+action,{method:body?'POST':'GET',headers:{Cookie:cookie,'X-CSRF-Token':auth.csrf,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:r.status,data:await r.json()}};
+const get=async(path,session)=>{const r=await fetch(origin+path,{headers:session?{Cookie:session}:{}});const text=await r.text();check(!/Warning<|Warning:|Fatal error|Deprecated</.test(text),'clean HTML '+path);return {r,text}};
+const list=(await api('content.list')).data.pages,service=list.find(p=>p.kind==='service'&&p.status==='published'),project=list.find(p=>p.kind==='project'&&p.parent_id===service.id&&p.status==='published');check(service&&project,'saved content relationships available');
+check((await api('content.configure',{theme:'corporate'})).status===200,'Corporate selection persisted');
+for(const path of ['/','/services/','/'+service.slug+'/','/projects/','/'+project.slug+'/','/team/','/about/','/privacy/','/contact/','/search/?q=проект']){const p=await get(path);check(p.r.status===200&&p.text.includes('corporate.css'),'installed route '+path)}
+const admin=await get('/manage/?section=design',cookie);check(admin.text.includes('value="corporate" selected'),'native design selection');
+const settings=(await api('settings.list')).data.settings;check(!settings.some(v=>v.setting_group==='business_private'),'no private settings leak');
+const form=await get('/contact/?project='+project.id+'&service='+service.id);const visitor=form.r.headers.getSetCookie().at(-1).split(';')[0];const field=n=>form.text.match(new RegExp('name="'+n+'" value="([^"]*)"'))[1];
+const lead={csrf:field('csrf'),request_token:field('request_token'),name:'CORPORATE_INSTALLED_PROOF_'+Date.now(),email:'visitor@example.test',phone:'',message:'CORPORATE_CRM_PROOF',consent:'1',service_id:String(service.id),project_id:String(project.id)};
+const submit=async(data)=>{const r=await fetch(origin+'/contact/',{method:'POST',headers:{Cookie:visitor,Accept:'application/json','Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(data)});return {status:r.status,data:await r.json()}};
+check((await submit({...lead,email:'bad'})).status===422,'invalid email');check((await submit({...lead,service_id:'9999999'})).status===422,'forged service');
+const pair=await Promise.all([submit(lead),submit(lead)]);check(pair.every(r=>r.status===200)&&pair[0].data.url===pair[1].data.url,'double click creates one lead');check((await submit({...lead,message:'changed'})).status===422,'altered replay rejected');
+check((await get(pair[0].data.url,visitor)).r.status===200,'owned confirmation');check((await get(pair[0].data.url)).r.status===404,'private confirmation');
+const leads=(await api('business.leads')).data.leads.filter(p=>p.name===lead.name);check(leads.length===1&&leads[0].service_id===service.id&&leads[0].project_id===project.id,'one actual CRM record with context');check(leads[0].mail_state==='pending','notification queued without sending');
+const draft=await api('content.preview',{...project,title:'UNSAVED_CORPORATE_INSTALLED',content:'<p>UNSAVED_BODY_CORPORATE</p>'});check(draft.status===200,'installed preview');const preview=await get(draft.data.url,cookie);check(preview.text.includes('corporate.css')&&preview.text.includes('UNSAVED_BODY_CORPORATE'),'installed unsaved Corporate renderer');check((await get(draft.data.url)).r.status===403,'installed preview private');check((await api('content.list')).data.pages.find(p=>p.id===project.id).title===project.title,'preview does not save');
+check((await api('content.configure',{theme:'atelier'})).status===200&&(await get('/')).text.includes('atelier.css'),'switch to Atelier preserves content');check((await api('content.list')).data.pages.find(p=>p.id===project.id).slug===project.slug,'theme switch preserves records');
+await api('content.configure',{theme:'corporate'});
+await writeFile('outputs/corporate-acceptance/installed-result.json',JSON.stringify({checks,origin,lead:leads[0].id,service:service.id,project:project.id,realEmails:false},null,2));console.log('Installed Corporate: '+checks+' checks passed');

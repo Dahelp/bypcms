@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+const origin=process.env.CORPORATE_ORIGIN||'http://127.0.0.1:8021';
+if(!['127.0.0.1','localhost'].includes(new URL(origin).hostname))throw Error('Loopback fixture only');
+let checks=0;const check=(ok,msg)=>{assert.ok(ok,msg);checks++};
+function client(){const jar=new Map();return async(path,data,json=false)=>{const r=await fetch(origin+path,{method:data?'POST':'GET',redirect:'manual',headers:{Cookie:[...jar].map(v=>v.join('=')).join('; '),...(data?{'Content-Type':path.includes('preview.php')?'application/json':'application/x-www-form-urlencoded',Accept:json?'application/json':'text/html'}:{})},body:data?(path.includes('preview.php')?JSON.stringify(data):new URLSearchParams(data)):undefined});for(const c of r.headers.getSetCookie()){const [k,v]=c.split(';')[0].split('=');jar.set(k,v)}const text=await r.text();check(!/Warning:|Fatal error|Deprecated:/.test(text),'no PHP warnings '+path);return {status:r.status,text,location:r.headers.get('location'),data:json?JSON.parse(text):null};}}
+const c=client(),field=(h,n)=>h.match(new RegExp('name="'+n+'" value="([^"]*)"'))?.[1];
+for(const path of ['','services/','projects/','team/','about/','privacy/','contact/','search/','services/strategy/','services/infrastructure/','services/support/','projects/business-campus/','projects/operating-model/','projects/service-office/','projects/workplace-platform/','team/project-lead/','team/technical-lead/','team/consultant/']){const r=await c('/corporate/'+path);check(r.status===200&&r.text.includes('corporate.css'),'route '+path);}
+let r=await c('/corporate/contact/?project=201');check(r.text.includes('value="201"')&&r.text.includes('value="102" selected'),'context preselection');
+const data={csrf:field(r.text,'csrf'),request_token:field(r.text,'request_token'),project_id:'201',service_id:'102',name:'QA_VISITOR',email:'visitor@example.test',message:'QA_MESSAGE_RETAINED',consent:'1'};
+r=await c('/corporate/contact/',{...data,csrf:'wrong'},true);check(r.status===403,'CSRF');
+r=await c('/corporate/contact/',{...data,consent:''});check(r.status===422&&r.text.includes('QA_MESSAGE_RETAINED')&&r.text.includes('QA_VISITOR'),'native validation preserves values');
+r=await c('/corporate/contact/',{...data,service_id:'9999'},true);check(r.status===422,'unknown context');
+r=await c('/corporate/contact/',{...data,website:'0'},true);check(r.status===422,'honeypot');
+const pair=await Promise.all([c('/corporate/contact/',data,true),c('/corporate/contact/',data,true)]);check(pair.every(r=>r.status===200)&&pair[0].data.url===pair[1].data.url,'duplicate submission gives one receipt');
+const receipt=pair[0].data.url;r=await c(receipt);check(r.status===200&&r.text.includes('Спасибо за обращение'),'receipt');check((await client()(receipt)).status===404,'receipt cannot be shared');
+check((await c('/corporate/contact/',{...data,message:'changed'},true)).status===422,'altered replay rejected');
+check((await c('/corporate/missing/')).status===404,'missing route');check((await c('/corporate/projects/?service%5B%5D=1')).status===400,'malformed filter');
+for(const kind of ['services','projects','team','pages']){r=await c('/corporate/preview.php',{entity:{id:0,kind,slug:'unsaved-'+kind,title:'UNSAVED_PROOF',image:987,body:'<p>UNSAVED_BODY</p><script>BAD_SCRIPT</script>'},media:{987:{url:'/themes/corporate/assets/workspace.webp'}},settings:{siteName:'PREVIEW_BRAND'}},true);check(r.status===200,'prepare '+kind);const p=await c(r.data.url);check(p.status===200&&p.text.includes('UNSAVED_BODY')&&p.text.includes('workspace.webp')&&p.text.includes('PREVIEW_BRAND')&&!p.text.includes('BAD_SCRIPT'),'unsaved fidelity '+kind);check((await client()(r.data.url)).status===410,'snapshot isolated');}
+for(const payload of [[],{entity:[]},{entity:{title:[],kind:'pages'}},{settings:[],entities:[]}]){r=await c('/corporate/preview.php',payload,true);check([200,422].includes(r.status),'malformed preview safely handled');}
+console.log('Corporate HTTP: '+checks+' checks passed');

@@ -13,7 +13,7 @@ final class BusinessLead {
         if(($values['consent']??'')!=='1')throw new \RuntimeException('Для отправки необходимо согласие на обработку данных.');
         if(trim((string)($values['website']??''))!=='')throw new \RuntimeException('Заявка отклонена антиспам-проверкой.');
         if(!preg_match('/^[a-f0-9]{32}$/D',(string)($values['request_token']??'')))throw new \RuntimeException('Обновите форму и повторите отправку.');
-        foreach(['service_id','project_id'] as $key){$id=(string)($values[$key]??'');if($id!==''&&(!ctype_digit($id)||strlen($id)>10||(float)$id>4294967295))throw new \RuntimeException('Выберите корректную услугу или проект.');$out[$key]=(int)$id?:null;}
+        foreach(['service_id','project_id'] as $key){$id=(string)($values[$key]??'');if($id!==''&&(!ctype_digit($id)||strlen($id)>16||(float)$id>9007199254740991))throw new \RuntimeException('Выберите корректную услугу или проект.');$out[$key]=(int)$id?:null;}
         return $out;
     }
 }

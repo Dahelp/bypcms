@@ -55,3 +55,15 @@ jobs:
           state-name: .ftp-deploy-sync-state-qa-catalog-271.json
           log-level: minimal
           timeout: 60000
+      - name: Mirror only the QA directory for the documented demo vhost alias
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: grass.gohost.ru
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./qa-domain-proofs/
+          server-dir: ./demo/_qa-update-20261118/
+          state-name: .ftp-deploy-sync-state-qa-catalog-271.json
+          log-level: minimal
+          timeout: 60000

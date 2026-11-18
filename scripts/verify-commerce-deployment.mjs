@@ -55,3 +55,12 @@ for(const next of ['https://untrusted.example/','//untrusted.example/','/owner/'
  if(r.status!==200||!(await r.text()).includes('name="next" value="/account/"'))throw new Error('Unsafe sign-in return path accepted');
 }
 console.log('PASS sign-in return URL allowlist');
+
+// Read-only recovery checks; no reset request or email is generated.
+if(!html.includes('/account/forgot.php'))throw new Error('Password recovery entry missing');
+for(const [path,required] of [['/account/forgot.php','Восстановление пароля'],['/account/reset.php','Ссылка недействительна']]){
+ const r=await fetch(origin+path,{redirect:'manual',signal:AbortSignal.timeout(20000)}),body=await r.text();
+ if(r.status!==200||!body.includes(required)||body.includes('Fatal error:')||body.includes('Warning:'))throw new Error('Recovery page unavailable: '+path);
+ if(!r.headers.get('cache-control')?.includes('no-store')||r.headers.get('referrer-policy')?.split(',').at(-1).trim()!=='no-referrer')throw new Error('Recovery privacy headers missing');
+ console.log('PASS private recovery page '+path);
+}

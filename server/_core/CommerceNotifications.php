@@ -6,6 +6,7 @@ use Throwable;
 require_once __DIR__.'/SmtpTransport.php';
 require_once __DIR__.'/CommerceMailTemplates.php';
 require_once __DIR__.'/LicensePolicy.php';
+require_once __DIR__.'/CustomerRecovery.php';
 
 final class CommerceNotifications {
     public function __construct(private Database $db,private CommerceSettings $settings,private array $config){
@@ -54,6 +55,10 @@ final class CommerceNotifications {
         }return $meta;
     }
     private function obsolete(array $mail,array $meta):?string {
+        if($meta['template_key']==='customer_password_reset'){
+            $reset=$this->db->one('SELECT used_at,expires_at FROM byp_customer_password_resets WHERE mail_id=?',[$mail['id']]);
+            if(!$reset||$reset['used_at']!==null||(int)$reset['expires_at']<=time())return 'Ссылка восстановления использована или истекла. Покупатель может запросить новую.';
+        }
         if(!$mail['order_id'])return null;
         $o=$this->db->one('SELECT * FROM byp_commerce_orders WHERE order_id=?',[$mail['order_id']]);if(!$o)return 'Заказ больше недоступен.';
         $key=$meta['template_key'];
@@ -97,7 +102,11 @@ final class CommerceNotifications {
                 $this->db->execute('INSERT INTO byp_mail_attempts(token,mail_id,attempt_number,state,started_at) VALUES(?,?,?,"sending",NOW())',[$token,$mail['id'],$number]);$pdo->commit();$sent++;
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
             $state='accepted';$code=null;$error=null;
-            try{$code=(new SmtpTransport($s,$this->config))->send($mail+['html'=>$meta['html']]);}
+            try{
+                $payload=$meta['template_key']==='customer_password_reset'?CustomerRecovery::mail($this->db,$this->config,$mail):null;
+                if($meta['template_key']==='customer_password_reset'&&!$payload)throw new \RuntimeException('Ссылка восстановления недоступна.');
+                $code=(new SmtpTransport($s,$this->config))->send(array_replace($mail,['html'=>$meta['html']],$payload??[]));
+            }
             catch(MailTransportException $e){$code=$e->smtpCode;$error=$e->getMessage();$state=$e->uncertain?'uncertain':($e->permanent||(int)$meta['cycle_attempts']+1>=5?'failed':'retry');}
             catch(Throwable $e){$state='failed';$error='Не удалось подготовить письмо. Проверьте отправителя и шаблон.';}
             // Storage failure after SMTP acknowledgement must leave the lease uncertain, never retry automatically.
@@ -118,6 +127,7 @@ final class CommerceNotifications {
             $mail=$this->db->one('SELECT * FROM byp_notification_outbox WHERE id=? FOR UPDATE',[$id]);if(!$mail)throw new RuntimeException('Письмо не найдено.');
             if($old=$this->db->one('SELECT * FROM byp_mail_actions WHERE operation_id=?',[$op])){if((int)$old['mail_id']!==$id||$old['action']!==$action)throw new RuntimeException('Операция уже использована для другого действия.');$pdo->commit();return (int)$old['result_id'];}
             $meta=$this->metadata($id);$result=$id;
+            if($meta['template_key']==='customer_password_reset'&&$action!=='cancel')throw new RuntimeException('Для восстановления покупатель запрашивает новую ссылку в кабинете. Повтор из журнала недоступен.');
             if($action==='retry')$this->retryLocked($mail,$meta,!empty($input['acknowledge']));
             elseif($action==='cancel'){
                 if(empty($input['confirmed'])||!in_array($mail['state'],['pending','retry','failed','uncertain','canceled'],true))throw new RuntimeException('Подтвердите отмену неотправленного письма. Принятое или отправляемое отменить нельзя.');
@@ -134,6 +144,7 @@ final class CommerceNotifications {
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
     private function retryLocked(array $mail,array $meta,bool $acknowledge):void {
+        if($meta['template_key']==='customer_password_reset')throw new RuntimeException('Покупатель должен запросить новую ссылку восстановления.');
         if(!in_array($mail['state'],['pending','retry','failed','uncertain'],true))throw new RuntimeException('Это письмо нельзя вернуть в очередь: оно принято, отправляется, отменено или устарело.');
         if($mail['state']==='uncertain'&&!$acknowledge)throw new RuntimeException('SMTP мог уже принять письмо. Проверьте получателя и подтвердите риск дубля.');
         if($reason=$this->obsolete($mail,$meta))throw new RuntimeException($reason);

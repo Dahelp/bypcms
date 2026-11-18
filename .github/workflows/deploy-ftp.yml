@@ -40,10 +40,10 @@ jobs:
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 
       - name: Verify licensing and bulk policies
-        run: php tests/shop.test.php && php tests/gallery-filters.test.php && php tests/demo-store.test.php && php tests/business.test.php && php tests/corporate.test.php && php tests/mono.test.php && php tests/content.test.php && php tests/chronicle.test.php && php tests/focus.test.php && php tests/theme-assets.test.php && php tests/commerce.test.php && php tests/commerce-worker.test.php && php tests/invoices.test.php && php tests/mail-templates.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php && php tests/client-package.test.php && php tests/client-build-storage.test.php
+        run: php tests/shop.test.php && php tests/gallery-filters.test.php && php tests/demo-store.test.php && php tests/business.test.php && php tests/corporate.test.php && php tests/mono.test.php && php tests/content.test.php && php tests/chronicle.test.php && php tests/focus.test.php && php tests/theme-assets.test.php && php tests/commerce.test.php && php tests/commerce-worker.test.php && php tests/customer-recovery.test.php && php tests/invoices.test.php && php tests/mail-templates.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php && php tests/client-package.test.php && php tests/client-build-storage.test.php
 
       - name: Validate isolated invoice purchase harness
-        run: php -l tests/invoice-purchase-fixture.php && node --check tests/invoice-purchase-journey.mjs && node --check tests/worker-http.mjs && sh -n server/_core/commerce-worker.sh
+        run: php -l tests/invoice-purchase-fixture.php && node --check tests/invoice-purchase-journey.mjs && node --check tests/worker-http.mjs && php -l tests/customer-recovery-fixture.php && node --check tests/customer-recovery-http.mjs && sh -n server/_core/commerce-worker.sh
 
       - name: Verify three demo storefront journeys
         run: |

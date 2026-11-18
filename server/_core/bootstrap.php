@@ -163,3 +163,6 @@ if (($config['app']['installation_type'] ?? 'platform') !== 'client' && !is_file
 if (random_int(1, 100) === 1) {
     $db->execute('DELETE FROM byp_demo_sessions WHERE expires_at < NOW()');
 }
+
+require_once __DIR__.'/CustomerAccounts.php';
+\BYPCMS\Core\CustomerAccounts::validateSession($db,BYPCMS_ROOT);

@@ -1,117 +1,57 @@
-name: Deploy BYPCMS website
-
+name: QA live catalog domain proofs only
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
-
+    inputs:
+      phase:
+        description: publish or cleanup disposable proofs
+        required: true
+        type: choice
+        options: [publish, cleanup]
+      proofs:
+        description: Public single-use domain challenges only, never keys
+        required: false
+        default: '[]'
 permissions:
   contents: read
-
 concurrency:
-  group: bypcms-production
-  cancel-in-progress: true
-
+  group: bypcms-qa-catalog-271-20261118
+  cancel-in-progress: false
 jobs:
-  build-and-deploy:
+  domain-proof-files-only:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 11.9.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Validate PHP runtime
-        run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
-
-      - name: Verify licensing and bulk policies
-        run: php tests/shop.test.php && php tests/gallery-filters.test.php && php tests/demo-store.test.php && php tests/business.test.php && php tests/corporate.test.php && php tests/mono.test.php && php tests/content.test.php && php tests/chronicle.test.php && php tests/focus.test.php && php tests/theme-assets.test.php && php tests/commerce.test.php && php tests/invoices.test.php && php tests/mail-templates.test.php && php tests/license.test.php && php tests/license-client.test.php && php tests/panel-bulk.test.php && php tests/update-package.test.php && php tests/client-package.test.php && php tests/client-build-storage.test.php
-
-      - name: Verify three demo storefront journeys
+      - name: Prepare strictly scoped public JSON proofs
+        shell: python
+        env:
+          PHASE: ${{ inputs.phase }}
+          PROOFS: ${{ inputs.proofs }}
         run: |
-          php -S 127.0.0.1:8021 -t server tests/storefront-router.php > /tmp/storefront-qa.log 2>&1 &
-          storefront_pid=$!
-          trap 'kill "$storefront_pid"' EXIT
-          node tests/storefront-http.mjs
-          node tests/themes-public-http.mjs
-          node tests/corporate-http.mjs
-          node tests/mono-http.mjs
-
-      - name: Build static website
-        run: pnpm build:ftp
-
-      - name: Verify panel startup and settings routes
-        run: node --test tests/owner-commerce-route.test.mjs tests/client-install.test.mjs
-
-      - name: Deploy to GoHost
+          import json, os, re
+          from pathlib import Path
+          root=Path('qa-domain-proofs')
+          root.mkdir()
+          if os.environ['PHASE']=='publish':
+              proofs=json.loads(os.environ['PROOFS'])
+              assert len(proofs)==3 and {p['edition'] for p in proofs}=={'content','business','commerce'}
+              for p in proofs:
+                  assert re.fullmatch('[a-f0-9]{32}',p['id'])
+                  assert re.fullmatch('[a-f0-9]{32}',p['installation_id'])
+                  assert re.fullmatch('[a-f0-9]{64}',p['nonce'])
+                  target=root/p['edition']/'.well-known'/'bypcms-activation'
+                  target.mkdir(parents=True)
+                  (target/(p['id']+'.json')).write_text(json.dumps({'installation_id':p['installation_id'],'nonce':p['nonce']}))
+          else:
+              assert os.environ['PHASE']=='cleanup'
+      - name: Sync only the disposable QA directory
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0
         with:
           server: grass.gohost.ru
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
-          local-dir: ./out/
-          server-dir: ./
+          local-dir: ./qa-domain-proofs/
+          server-dir: ../demo.bypcms.ru/_qa-update-20261118/
+          state-name: .ftp-deploy-sync-state-qa-catalog-271.json
           log-level: minimal
           timeout: 60000
-
-      - name: Prepare standalone demo package
-        run: pnpm prepare:demo
-
-      - name: Deploy standalone demo
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
-        with:
-          server: grass.gohost.ru
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: ./demo-dist/
-          server-dir: ../demo.bypcms.ru/
-          state-name: .ftp-deploy-sync-state-demo.json
-          log-level: standard
-          timeout: 120000
-
-      - name: Verify deployed application assets
-        run: node scripts/verify-deployment.mjs
-
-      - name: Verify deployed licensing API
-        run: node scripts/verify-licensing-deployment.mjs
-
-      - name: Verify deployed commerce boundaries
-        run: node scripts/verify-commerce-deployment.mjs
-
-      - name: Verify deployed Journal routes and assets
-        run: node scripts/verify-journal-deployment.mjs
-
-      - name: Verify deployed Business Atelier routes and assets
-        run: node scripts/verify-business-deployment.mjs
-
-      - name: Verify deployed Commerce Gallery routes and assets
-        run: node scripts/verify-gallery-deployment.mjs
-
-      - name: Verify deployed Content Chronicle routes and assets
-        run: node scripts/verify-chronicle-deployment.mjs
-
-      - name: Verify deployed Content Focus routes and assets
-        run: node scripts/verify-focus-deployment.mjs
-
-      - name: Verify deployed Business Corporate routes and assets
-        run: node scripts/verify-corporate-deployment.mjs
-
-      - name: Verify deployed Business Mono routes and assets
-        run: node scripts/verify-mono-deployment.mjs

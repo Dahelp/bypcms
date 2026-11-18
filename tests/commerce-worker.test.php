@@ -4,7 +4,7 @@ require_once __DIR__.'/../server/_core/CommerceWorker.php';
 use BYPCMS\Core\{CommerceSettings,CommerceWorker,UpdateRuntime};
 $checks=0;function check(bool $ok,string $why):void{global $checks;if(!$ok)throw new RuntimeException($why);$checks++;}
 $dir=__DIR__.'/../outputs/worker-unit-'.bin2hex(random_bytes(6));mkdir($dir.'/site/_storage',0750,true);$root=realpath($dir.'/site');$private=realpath($dir).'/private';$config=['app'=>['key'=>'synthetic-unit-key'],'updates'=>['private_dir'=>$private]];file_put_contents($root.'/_storage/config.php','<?php return '.var_export($config,true).';');
-$s=new CommerceSettings($root,$config);$worker=new CommerceWorker($s,$root);check(!$s->workerStatus()['healthy'],'empty report never confirms cron');
+$s=new CommerceSettings($root,$config);$worker=new CommerceWorker($s,$root);check(!$s->workerStatus()['healthy'],'empty report never confirms cron');check($s->workerStatus()['manual']===null,'missing manual report is null, not a JSON array with inherited at method');
 UpdateRuntime::atomic($private.'/commerce/worker.json',['at'=>time()]);check(!$s->workerStatus()['healthy']&&$s->workerStatus()['legacy'],'old manual/CLI report is explicitly unverified');
 $worker->run(fn()=>['fulfilled'=>1,'errors'=>0],'manual');$status=$s->workerStatus();check(!$status['healthy']&&$status['manual']['source']==='manual','manual completion cannot mask absent cron');
 $r=$worker->run(fn()=>['fulfilled'=>2,'errors'=>0],'cli');$status=$s->workerStatus();check($r['fulfilled']===2&&$status['healthy']&&$status['source']==='cli','CLI cycle writes independent heartbeat');$run=$status['run_id'];

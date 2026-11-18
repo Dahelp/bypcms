@@ -1,7 +1,7 @@
 "use client";
 export type WorkerReport={at?:number;source?:string;state?:string;error?:string;duration_seconds?:number;result?:{fulfilled?:number;errors?:number;stage_errors?:string[];mail?:{accepted?:number;failed?:number;uncertain?:number;disabled?:boolean};refunds?:{errors?:number}}};
-export type WorkerStatus=WorkerReport&{healthy:boolean;legacy?:boolean;manual?:WorkerReport};
-const date=(at?:number)=>at?new Date(at*1000).toLocaleString("ru-RU"):"Нет подтверждённого запуска";
+export type WorkerStatus=WorkerReport&{healthy:boolean;legacy?:boolean;manual?:WorkerReport|null};
+const date=(at?:number)=>typeof at==="number"&&Number.isFinite(at)&&at>0?new Date(at*1000).toLocaleString("ru-RU"):"Нет подтверждённого запуска";
 const states:Record<string,string>={completed:"Завершён",warning:"Завершён с ошибками — проверьте очередь",failed:"Цикл прерван"};
 const stages:Record<string,string>={payments:"сверка оплат",fulfillment:"выдача лицензий",invoices:"сроки счетов",refunds:"сверка возвратов",mail:"почта"};
 export default function CommerceWorkerStatus({worker}:{worker:WorkerStatus}){

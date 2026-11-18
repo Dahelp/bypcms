@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import ts from 'typescript';
+import {createElement} from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+const require=createRequire(import.meta.url),module={exports:{}};
+const compiled=ts.transpileModule(readFileSync(new URL('../app/components/CommerceWorkerStatus.tsx',import.meta.url),'utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS}}).outputText;
+new Function('require','module','exports',compiled)(require,module,module.exports);
+const Component=module.exports.default;
+for(const manual of [undefined,null,[]])test('missing/legacy manual worker report renders a real empty state: '+JSON.stringify(manual),()=>{const html=renderToStaticMarkup(createElement(Component,{worker:{healthy:false,manual}}));assert.ok(!html.includes('Invalid Date'));assert.ok(html.includes('Нет подтверждённого запуска'));});
+test('actual CLI and manual report render independently',()=>{const html=renderToStaticMarkup(createElement(Component,{worker:{healthy:true,source:'cli',state:'completed',at:1795000000,manual:{source:'manual',state:'completed',at:1794999900}}}));assert.ok(html.includes('Получен свежий отчёт CLI'));assert.ok(!html.includes('Invalid Date'));assert.ok(html.includes('Последний ручной цикл'));});

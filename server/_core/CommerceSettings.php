@@ -51,6 +51,6 @@ final class CommerceSettings {
         $data=UpdateRuntime::json($this->directory.'/worker.json');$at=(int)($data['at']??0);
         $data['healthy']=($data['source']??'')==='cli'&&in_array($data['state']??'',['completed','warning'],true)&&$at>time()-900&&$at<=time()+60;
         $data['legacy']=$at>0&&($data['source']??'')!=='cli';
-        $data['manual']=UpdateRuntime::json($this->directory.'/worker-manual.json');return $data;
+        $manual=UpdateRuntime::json($this->directory.'/worker-manual.json');$data['manual']=$manual?:null;return $data;
     }
 }

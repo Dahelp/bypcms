@@ -59,7 +59,7 @@ jobs:
         run: pnpm build:ftp
 
       - name: Verify panel startup and settings routes
-        run: node --test tests/owner-commerce-route.test.mjs tests/client-install.test.mjs
+        run: node --test tests/owner-commerce-route.test.mjs tests/client-install.test.mjs tests/worker-status.test.mjs
 
       - name: Deploy to GoHost
         uses: SamKirkland/FTP-Deploy-Action@v4.4.0

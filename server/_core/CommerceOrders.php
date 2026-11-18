@@ -159,10 +159,18 @@ final class CommerceOrders {
             error_log("[BYPCMS fulfilment order ".$id."] ".get_class($e).": ".$reason);
             $pdo=$this->db->pdo();if($pdo->inTransaction())$pdo->rollBack();$pdo->beginTransaction();try{$order=$this->row($id,null,true);$this->db->execute('UPDATE byp_commerce_orders SET fulfillment_state="failed",fulfillment_error="Оплата получена; выдачу нужно повторить. Владелец уведомлён.",updated_at=NOW() WHERE order_id=?',[$id]);$this->notifications->event($order,'fulfillment_error');$pdo->commit();}catch(Throwable $ignored){if($pdo->inTransaction())$pdo->rollBack();}throw new RuntimeException('Оплата подтверждена, но выдача ещё не завершена. Повторите проверку позже.');}
     }
-    public function work():array {
-        $result=['fulfilled'=>0,'errors'=>0];
-        foreach($this->db->all('SELECT order_id FROM byp_payment_attempts WHERE provider_id IS NOT NULL AND state IN ("pending","waiting_for_capture","uncertain") AND (checked_at IS NULL OR checked_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE)) ORDER BY created_at LIMIT 2')as $row){try{$this->sync((int)$row['order_id']);}catch(Throwable $e){$result['errors']++;}}
-        foreach($this->db->all('SELECT order_id FROM byp_commerce_orders WHERE payment_state="paid" AND (fulfillment_state="pending" OR (fulfillment_state="failed" AND updated_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE))) ORDER BY updated_at,order_id LIMIT 2')as $row){try{$this->fulfill((int)$row['order_id']);$result['fulfilled']++;}catch(Throwable $e){$result['errors']++;}}
-        $result['expired_invoices']=$this->invoices->notifyExpired();$result['refunds']=(new CommerceRefunds($this->db,$this->config,$this))->work();$result['mail']=$this->notifications->process(3);$this->settings->workerReport($result);return $result;
+    public function work(string $source='manual'):array {
+        require_once __DIR__.'/CommerceWorker.php';
+        return (new CommerceWorker($this->settings,$this->root))->run(fn()=>$this->workCycle(),$source);
+    }
+    private function workCycle():array {
+        $result=['fulfilled'=>0,'errors'=>0,'stage_errors'=>[]];
+        $failure=function(string $stage,Throwable $e)use(&$result):void{$result['errors']++;$result['stage_errors'][]=$stage;error_log('[BYPCMS worker stage '.$stage.'] '.get_class($e));};
+        $stage=function(string $name,callable $run)use($failure){try{return $run();}catch(Throwable $e){$failure($name,$e);return null;}};
+        $stage('payments',function()use(&$result,$failure){foreach($this->db->all('SELECT order_id FROM byp_payment_attempts WHERE provider_id IS NOT NULL AND state IN ("pending","waiting_for_capture","uncertain") AND (checked_at IS NULL OR checked_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE)) ORDER BY created_at LIMIT 2')as $row){try{$this->sync((int)$row['order_id']);}catch(Throwable $e){$failure('payments',$e);}}});
+        $stage('fulfillment',function()use(&$result,$failure){foreach($this->db->all('SELECT order_id FROM byp_commerce_orders WHERE payment_state="paid" AND (fulfillment_state="pending" OR (fulfillment_state="failed" AND updated_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE))) ORDER BY updated_at,order_id LIMIT 2')as $row){try{$this->fulfill((int)$row['order_id']);$result['fulfilled']++;}catch(Throwable $e){$failure('fulfillment',$e);}}});
+        $result['expired_invoices']=$stage('invoices',fn()=>$this->invoices->notifyExpired());
+        $result['refunds']=$stage('refunds',fn()=>(new CommerceRefunds($this->db,$this->config,$this))->work());
+        $result['mail']=$stage('mail',fn()=>$this->notifications->process(3));return $result;
     }
 }

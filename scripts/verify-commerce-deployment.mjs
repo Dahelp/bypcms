@@ -9,6 +9,7 @@ for(const [path,expected]of [
  ['/commerce/index.php?action=owner.mail.templates',401],
  ['/commerce/index.php?action=owner.mail&id=0',401],
  ['/commerce/index.php?action=owner.mail.resend',401],
+ ['/commerce/index.php?action=owner.mail.test.process',401],
  ['/commerce/index.php?action=owner.invoice.confirm',401],
  ['/commerce/index.php?action=owner.invoice.issue',401],
  ['/account/invoice.php?id=0',404],

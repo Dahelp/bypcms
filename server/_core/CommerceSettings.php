@@ -43,6 +43,14 @@ final class CommerceSettings {
             $saved=$data;foreach(['shop_secret','smtp_password']as $key){$saved[$key.'_cipher']=$data[$key]===''?'':LicenseCrypto::encrypt($data[$key],$this->config['app']['key']);unset($saved[$key]);}UpdateRuntime::atomic($this->directory.'/settings.json',$saved);return $this->public();
         } finally {flock($lock,LOCK_UN);fclose($lock);}
     }
-    public function workerReport(array $data):void{UpdateRuntime::atomic($this->directory.'/worker.json',$data+['at'=>time()]);}
-    public function workerStatus():array{$data=UpdateRuntime::json($this->directory.'/worker.json');$data['healthy']=($data['at']??0)>time()-900;return $data;}
+    public function workerReport(array $data,string $source='cli'):void{
+        if(!in_array($source,['cli','manual'],true)||($source==='cli'&&PHP_SAPI!=='cli'))throw new InvalidArgumentException('Недопустимый источник отчёта.');
+        UpdateRuntime::atomic($this->directory.($source==='cli'?'/worker.json':'/worker-manual.json'),array_replace($data,['schema'=>2,'source'=>$source,'state'=>$data['state']??'completed','at'=>time()]));
+    }
+    public function workerStatus():array{
+        $data=UpdateRuntime::json($this->directory.'/worker.json');$at=(int)($data['at']??0);
+        $data['healthy']=($data['source']??'')==='cli'&&in_array($data['state']??'',['completed','warning'],true)&&$at>time()-900&&$at<=time()+60;
+        $data['legacy']=$at>0&&($data['source']??'')!=='cli';
+        $data['manual']=UpdateRuntime::json($this->directory.'/worker-manual.json');return $data;
+    }
 }

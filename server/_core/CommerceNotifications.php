@@ -77,15 +77,17 @@ final class CommerceNotifications {
     public function summary():array {
         $counts=[];foreach($this->db->all('SELECT state,COUNT(*) n FROM byp_notification_outbox GROUP BY state')as $row)$counts[$row['state']]=(int)$row['n'];return $counts;
     }
-    public function process(int $limit=3):array {
+    public function process(int $limit=3,?int $onlyId=null):array {
+        if($onlyId!==null&&$onlyId<1)throw new RuntimeException('Некорректный номер письма.');
+        $filter=$onlyId!==null?' AND id=?':'';$params=$onlyId!==null?[$onlyId]:[];
         $s=$this->settings->get();$result=['accepted'=>0,'failed'=>0,'uncertain'=>0,'superseded'=>0];if(!$s['smtp_enabled']){$result['disabled']=true;$limit=0;}
         // Recover abandoned leases conservatively: DATA may have reached the recipient already.
-        foreach($this->db->all('SELECT id FROM byp_notification_outbox WHERE state="sending" AND lease_until<NOW() LIMIT 100')as $r){$pdo=$this->db->pdo();$pdo->beginTransaction();try{
+        foreach($this->db->all('SELECT id FROM byp_notification_outbox WHERE state="sending" AND lease_until<NOW()'.$filter.' LIMIT 100',$params)as $r){$pdo=$this->db->pdo();$pdo->beginTransaction();try{
             $mail=$this->db->one('SELECT *,lease_until<NOW() AS expired FROM byp_notification_outbox WHERE id=? FOR UPDATE',[$r['id']]);
             if($mail['state']==='sending'&&!empty($mail['expired'])){$result['uncertain']++;$meta=$this->metadata((int)$mail['id']);$this->db->execute('UPDATE byp_notification_outbox SET state="uncertain",last_error="Процесс прерван. SMTP мог принять письмо; проверьте получателя.",lease_until=NULL WHERE id=?',[$mail['id']]);$this->db->execute('UPDATE byp_mail_metadata SET lease_token=NULL WHERE mail_id=?',[$mail['id']]);if($meta['lease_token'])$this->db->execute('UPDATE byp_mail_attempts SET state="uncertain",error="Истёк срок процесса отправки",finished_at=NOW() WHERE token=?',[$meta['lease_token']]);}$pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}}
         $sent=0;for($scan=0;$sent<max(0,min(10,$limit))&&$scan<100;$scan++){
-            $candidate=$this->db->one('SELECT id,order_id FROM byp_notification_outbox WHERE state IN ("pending","retry") AND next_attempt_at<=NOW() ORDER BY id LIMIT 1');if(!$candidate)break;
+            $candidate=$this->db->one('SELECT id,order_id FROM byp_notification_outbox WHERE state IN ("pending","retry") AND next_attempt_at<=NOW()'.$filter.' ORDER BY id LIMIT 1',$params);if(!$candidate)break;
             $pdo=$this->db->pdo();$pdo->beginTransaction();try{
                 if($candidate['order_id'])$this->db->one('SELECT order_id FROM byp_commerce_orders WHERE order_id=? FOR UPDATE',[$candidate['order_id']]);
                 $mail=$this->db->one('SELECT * FROM byp_notification_outbox WHERE id=? AND state IN ("pending","retry") AND next_attempt_at<=NOW() FOR UPDATE',[$candidate['id']]);if(!$mail){$pdo->commit();continue;}$meta=$this->metadata((int)$mail['id']);
@@ -106,7 +108,7 @@ final class CommerceNotifications {
                 $result[$state==='accepted'?'accepted':($state==='uncertain'?'uncertain':'failed')]++;
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
         }
-        foreach($this->db->all('SELECT id,order_id FROM byp_notification_outbox WHERE state IN ("failed","uncertain") ORDER BY id DESC LIMIT 100')as $mail){$pdo=$this->db->pdo();$pdo->beginTransaction();try{
+        foreach($this->db->all('SELECT id,order_id FROM byp_notification_outbox WHERE state IN ("failed","uncertain")'.$filter.' ORDER BY id DESC LIMIT 100',$params)as $mail){$pdo=$this->db->pdo();$pdo->beginTransaction();try{
             if($this->db->execute('INSERT IGNORE INTO byp_commerce_events(event_key,order_id,event_type,created_at) VALUES(?,?,"mail_error",NOW())',['mail-error:'.$mail['id'],$mail['order_id']??0]))$this->db->execute('INSERT INTO byp_owner_notifications(notification_type,title,message,entity_type,entity_id,severity,is_read,created_at) VALUES("mail_error","Проверьте отправку письма",?,"mail",?,"warning",0,NOW())',['Письмо №'.$mail['id'].' требует проверки. Откройте очередь уведомлений.',$mail['id']]);$pdo->commit();
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}}return $result;
     }

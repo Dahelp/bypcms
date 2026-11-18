@@ -2,7 +2,10 @@
 declare(strict_types=1);
 require __DIR__.'/../_core/bootstrap.php';
 header('Cache-Control: no-store');header('X-Robots-Tag: noindex, nofollow');
-if(empty($_SESSION['customer_id'])){http_response_code(401);exit('Войдите в личный кабинет');}
+if(empty($_SESSION['customer_id'])){
+    $returnTo='/account/purchase.php?id='.(int)($_GET['id']??0).(isset($_GET['download'])?'&download=1':'');
+    header('Location: /account/?next='.rawurlencode($returnTo),true,302);exit;
+}
 require __DIR__.'/../_core/customer-delivery.php';
 $purchase=$db->one('SELECT o.*,d.key_cipher,d.archive_path,d.confirmed_at FROM byp_customer_orders o JOIN byp_customer_deliveries d ON d.order_id=o.id WHERE o.id=:id AND o.customer_id=:customer AND o.status IN ("test_confirmed","paid")',['id'=>(int)($_GET['id']??0),'customer'=>(int)$_SESSION['customer_id']]);
 if($purchase&&\BYPCMS\Core\CommerceAccess::orderDenied($db->pdo(),(int)$purchase['id'])){http_response_code(403);exit('Доступ к покупке закрыт в связи с возвратом. Откройте заказ в личном кабинете.');}

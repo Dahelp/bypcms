@@ -152,7 +152,12 @@ final class CommerceOrders {
                 $db=$this->db;$config=$this->config;require_once __DIR__.'/customer-delivery.php';\customer_fulfill($db,$config,$id,0,true);
                 $pdo=$this->db->pdo();$pdo->beginTransaction();try{$order=$this->row($id,null,true);$this->db->execute('UPDATE byp_commerce_orders SET fulfillment_state="ready",fulfilled_at=COALESCE(fulfilled_at,NOW()),fulfillment_error=NULL,updated_at=NOW() WHERE order_id=?',[$id]);$this->notifications->event($order,'ready');$pdo->commit();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
             }
-        }catch(Throwable $e){$pdo=$this->db->pdo();if($pdo->inTransaction())$pdo->rollBack();$pdo->beginTransaction();try{$order=$this->row($id,null,true);$this->db->execute('UPDATE byp_commerce_orders SET fulfillment_state="failed",fulfillment_error="Оплата получена; выдачу нужно повторить. Владелец уведомлён.",updated_at=NOW() WHERE order_id=?',[$id]);$this->notifications->event($order,'fulfillment_error');$pdo->commit();}catch(Throwable $ignored){if($pdo->inTransaction())$pdo->rollBack();}throw new RuntimeException('Оплата подтверждена, но выдача ещё не завершена. Повторите проверку позже.');}
+        }catch(Throwable $e){
+            // Keep the payment intact and record the cause only in the server log.
+            $reason=preg_replace(['/BYP-[A-Z0-9-]+/i','/(?<![0-9])[0-9]{20}(?![0-9])/'],'[redacted]',$e->getMessage());
+            $reason=str_replace(["\r","\n"]," ",mb_substr($reason??'',0,1000));
+            error_log("[BYPCMS fulfilment order ".$id."] ".get_class($e).": ".$reason);
+            $pdo=$this->db->pdo();if($pdo->inTransaction())$pdo->rollBack();$pdo->beginTransaction();try{$order=$this->row($id,null,true);$this->db->execute('UPDATE byp_commerce_orders SET fulfillment_state="failed",fulfillment_error="Оплата получена; выдачу нужно повторить. Владелец уведомлён.",updated_at=NOW() WHERE order_id=?',[$id]);$this->notifications->event($order,'fulfillment_error');$pdo->commit();}catch(Throwable $ignored){if($pdo->inTransaction())$pdo->rollBack();}throw new RuntimeException('Оплата подтверждена, но выдача ещё не завершена. Повторите проверку позже.');}
     }
     public function work():array {
         $result=['fulfilled'=>0,'errors'=>0];

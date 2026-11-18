@@ -6,7 +6,7 @@ header('Cache-Control: no-store');header('X-Robots-Tag: noindex, nofollow');
 if(($config['app']['installation_type']??'platform')==='client'){http_response_code(403);exit('Кабинет покупателя доступен на платформе BYPCMS.');}
 $commerce=new CommerceOrders($db,$config,BYPCMS_ROOT);$_SESSION['customer_csrf']??=bin2hex(random_bytes(32));
 $e=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
-$next=(string)($_GET['next']??$_POST['next']??'/account/');if(strlen($next)>2500||strpbrk($next,"\r\n\0\\")!==false||!preg_match('~^/(?:order/?|account/(?:order\.php)?)(?:\?[^#]*)?$~D',$next))$next='/account/';
+$next=(string)($_GET['next']??$_POST['next']??'/account/');if(strlen($next)>2500||strpbrk($next,"\r\n\0\\")!==false||!preg_match('~^/(?:order/?|account/(?:(?:order|purchase)\.php)?)(?:\?[^#]*)?$~D',$next))$next='/account/';
 $error='';
 if(($_SERVER['REQUEST_METHOD']??'GET')==='POST')try{
  if(!hash_equals($_SESSION['customer_csrf'],(string)($_POST['csrf']??'')))throw new RuntimeException('Сессия формы истекла. Обновите страницу и повторите действие.');

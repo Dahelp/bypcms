@@ -39,3 +39,18 @@ for(const key of ['offer','privacy','consent','refunds']){
 const contacts=await fetch(origin+'/contacts/',{signal:AbortSignal.timeout(20000)});const text=await contacts.text();
 if(contacts.status!==200||!text.includes('tel:+79296252500')||!text.includes('550519989590'))throw new Error('Confirmed public contacts missing');
 console.log('PASS confirmed seller contacts');
+
+// An expired buyer session must resume the same private purchase/download after login.
+for(const target of ['/account/purchase.php?id=0','/account/purchase.php?id=0&download=1']){
+ const r=await fetch(origin+target,{redirect:'manual',signal:AbortSignal.timeout(20000)});
+ const login=new URL(r.headers.get('location')||'/',origin);
+ if(r.status!==302||login.origin!==new URL(origin).origin||login.pathname!=='/account/'||login.searchParams.get('next')!==target)throw new Error('Private purchase sign-in return path lost');
+ const form=await fetch(login,{signal:AbortSignal.timeout(20000)});const body=await form.text();
+ if(form.status!==200||!body.includes('name="next" value="'+target.replaceAll('&','&amp;')+'"'))throw new Error('Sign-in rejected safe purchase return path');
+ console.log('PASS expired session → sign-in → '+target);
+}
+for(const next of ['https://untrusted.example/','//untrusted.example/','/owner/','/account/purchase.php/invalid']){
+ const r=await fetch(origin+'/account/?next='+encodeURIComponent(next),{signal:AbortSignal.timeout(20000)});
+ if(r.status!==200||!(await r.text()).includes('name="next" value="/account/"'))throw new Error('Unsafe sign-in return path accepted');
+}
+console.log('PASS sign-in return URL allowlist');

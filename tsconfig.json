@@ -37,6 +37,10 @@
     "drizzle",
     "examples",
     "tests",
-    "worker"
+    "worker",
+    "outputs",
+    "work",
+    "out",
+    "demo-dist"
   ]
 }

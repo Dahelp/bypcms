@@ -1,0 +1,20 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__.'/../scripts/repair-update-transport.php';
+$qa=__DIR__.'/../outputs/loader-repair-unit-'.bin2hex(random_bytes(5));$root=$qa.'/site';foreach(['_storage','_core','updates']as $p)mkdir($root.'/'.$p,0750,true);
+$legacy=['_core/LicenseHttp.php'=>file_get_contents(__DIR__.'/fixtures/legacy-update-loader/LicenseHttp.php.txt'),'updates/index.php'=>file_get_contents(__DIR__.'/fixtures/legacy-update-loader/updates-index.php.txt')];
+$config=['app'=>['installation_type'=>'client','key'=>'qa-only'],'updates'=>['private_dir'=>realpath($qa).'/private']];$configFile=$root.'/_storage/config.php';file_put_contents($configFile,'<?php return '.var_export($config,true).';');$configHash=hash_file('sha256',$configFile);$checks=0;
+function verify(bool $ok,string $message):void{global $checks;if(!$ok)throw new RuntimeException($message);$checks++;}
+function rejects(callable $run,string $message):void{try{$run();}catch(RuntimeException $e){verify(true,$message);return;}throw new LogicException($message);}
+$reset=function()use($legacy,$root){foreach($legacy as $p=>$bytes)file_put_contents($root.'/'.$p,$bytes);};$reset();
+$dry=byp_repair_update_transport($root);verify(!$dry['applied']&&count($dry['files'])===2&&!$dry['backup'],'default is inspection only');foreach($legacy as $p=>$bytes)verify(file_get_contents($root.'/'.$p)===$bytes,'inspection does not modify code');
+$r=byp_repair_update_transport($root,true);verify($r['applied']&&count($r['files'])===2,'known older loader repaired');
+$manifest=BYPCMS\Core\UpdateRuntime::json($r['backup'].'/manifest.json');verify($manifest['state']==='completed','durable repair completion');
+foreach($legacy as $p=>$bytes){verify(file_get_contents($r['backup'].'/'.$p)===$bytes,'exact private source backup');verify(hash_file('sha256',$root.'/'.$p)===$manifest['files'][$p]['after'],'repaired file checksum');token_get_all(file_get_contents($root.'/'.$p),TOKEN_PARSE);verify(true,'repaired PHP syntax');}
+verify(hash_file('sha256',$configFile)===$configHash,'config and keys never replaced');$again=byp_repair_update_transport($root,true);verify(!$again['applied']&&$again['files']===[],'retry is a no-op');
+$reset();file_put_contents($root.'/_core/LicenseHttp.php',"\n// custom modification\n",FILE_APPEND);rejects(fn()=>byp_repair_update_transport($root,true),'unknown custom loader rejected');verify(file_get_contents($root.'/updates/index.php')===$legacy['updates/index.php'],'preflight checks all files before any replacement');
+$reset();$lock=fopen($root.'/_storage/update-runtime.lock','c');flock($lock,LOCK_EX);rejects(fn()=>byp_repair_update_transport($root,true),'concurrent request blocks repair');flock($lock,LOCK_UN);fclose($lock);
+$base=$config['updates']['private_dir'].'/updates';mkdir($base.'/jobs',0750,true);file_put_contents($base.'/jobs/test.json','{"state":"running"}');rejects(fn()=>byp_repair_update_transport($root,true),'active update blocks repair');unlink($base.'/jobs/test.json');file_put_contents($base.'/maintenance.json','{}');rejects(fn()=>byp_repair_update_transport($root,true),'maintenance blocks repair');unlink($base.'/maintenance.json');
+rejects(fn()=>byp_repair_update_transport($root,true,static function(){throw new RuntimeException('Injected interruption after first replacement');}),'interruption rolls back code');foreach($legacy as $p=>$bytes)verify(file_get_contents($root.'/'.$p)===$bytes,'both original files restored after partial repair');
+$config['app']['installation_type']='platform';file_put_contents($configFile,'<?php return '.var_export($config,true).';');rejects(fn()=>byp_repair_update_transport($root,true),'platform cannot be patched by client repair');
+echo $checks." loader repair, exact backup, repeat, concurrency, refusal and rollback checks passed\n";

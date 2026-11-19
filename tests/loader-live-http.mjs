@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';import {readFile,writeFile,mkdir,realpath} from 'node:fs/promises';import {execFileSync} from 'node:child_process';import {randomBytes} from 'node:crypto';import http from 'node:http';import path from 'node:path';
+const qa=await realpath(process.argv[2]),report=path.resolve(process.argv[3]||'outputs/loader-fix-20261119'),php=process.env.BYPCMS_TEST_PHP||'php';
+assert.equal(qa,await realpath('outputs/final-acceptance-live-20261118'));assert.ok(report.startsWith(path.resolve('outputs')+path.sep));await mkdir(report,{recursive:true});
+const targets=JSON.parse(await readFile(qa+'/targets.json','utf8'));let checks=0,downloads=0;const check=(v,m)=>{assert.ok(v,m);checks++;};
+const fixture=(t,mode,id)=>execFileSync(php,['tests/loader-live-fixture.php',qa,t.edition,mode,report,...(id?[id]:[])],{encoding:'utf8'});
+const snapshot=t=>JSON.parse(fixture(t,'snapshot'));const proof=t=>qa+'/loader272-preservation-'+t.edition+'.json';
+const fingerprint=(t,mode)=>{execFileSync(php,['tests/client-preservation.php',t.root,mode,proof(t)],{stdio:'pipe'});checks++;};
+async function req(t,p,a,b,expected=200,csrf=true){const r=await fetch(t.origin+p+'?action='+a,{method:b===undefined?'GET':'POST',headers:{Cookie:t.cookie||'','Content-Type':'application/json',Connection:'close',...(csrf?{'X-CSRF-Token':t.csrf||''}:{})},body:b===undefined?undefined:JSON.stringify(b),signal:AbortSignal.timeout(180000)});const text=await r.text();let j;try{j=JSON.parse(text)}catch{throw Error(a+': invalid response '+text.slice(0,180))}check(r.status===expected,t.edition+' '+a+': '+r.status+' '+(j.error||''));return j;}
+const update=(t,a,b,e,c)=>req(t,'/updates/index.php',a,b,e,c),api=(t,a,b,e,c)=>req(t,'/api/index.php',a,b,e,c);
+const op=()=>randomBytes(16).toString('hex'),results=[];
+const bad=http.createServer((req,res)=>{res.setHeader('Content-Type','application/json');if(req.url.includes('updates.download')){downloads++;res.end('not a signed ZIP');}else{res.statusCode=503;res.end('{"error":"Synthetic local licensing outage"}');}});await new Promise(r=>bad.listen(8160,'127.0.0.1',r));
+try{for(const t of targets){
+ assert.match(t.origin,/^http:\/\/127\.0\.0\.1:811[1-3]$/);assert.equal(await realpath(t.root),await realpath(qa+'/clients/'+t.edition+'/site'));
+ const r=await fetch(t.origin+'/api/index.php?action=auth.login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:t.email,password:t.password})});check(r.ok,'local owner login');t.cookie=r.headers.getSetCookie().at(-1).split(';')[0];t.csrf=(await r.json()).csrf;
+ const existing=snapshot(t);let prior;try{prior=JSON.parse(await readFile(report+'/'+t.edition+'.json','utf8'));}catch{}
+ if(existing.current.version==='2.7.2'&&prior?.completed&&existing.current.release===prior.job){fingerprint(t,'verify');JSON.parse(fixture(t,'verify',prior.job));results.push(prior);console.log('PASS verified completed local installation '+t.edition);continue;}
+ check(existing.current.version==='2.7.0','real archived older baseline');fingerprint(t,'record');
+ const status=await update(t,'check',{}),release=status.releases.find(r=>r.version==='2.7.2');check(release?.id==='dfdb22c1464c8b6d8d3a955b6cfeb778108cb45e74680cd1e804a34f9587896b'&&release.compatible,'exact compatible production release');
+ const operation=op();await update(t,'begin',{package:release.id,operation_id:operation,confirmed:true},403,false);await update(t,'begin',{package:release.id,operation_id:operation},422);await update(t,'begin',{package:release.id,operation_id:operation,confirmed:false},422);
+ check(JSON.stringify(snapshot(t))===JSON.stringify(existing),'no CSRF or confirmation means no installation');
+ fixture(t,'fault');let failed;try{
+  const corruptOp=op();failed=(await update(t,'begin',{package:release.id,operation_id:corruptOp,confirmed:true})).job;failed=(await update(t,'step',{id:failed.id})).job;
+  check(failed.state==='failed'&&!failed.backup_ready&&failed.phase==='download','corrupt package rejected before backup and migrations');const n=downloads;
+  check((await update(t,'begin',{package:release.id,operation_id:corruptOp,confirmed:true})).job.id===failed.id,'failed begin retry returns same job');check((await update(t,'step',{id:failed.id})).job.state==='failed'&&downloads===n,'failed step retry neither downloads nor installs again');
+  const after=snapshot(t);check(JSON.stringify(after.current)===JSON.stringify(existing.current)&&after.backups===existing.backups&&!after.maintenance,'failed package leaves runtime and backups unchanged');fingerprint(t,'verify');
+ }finally{fixture(t,'restore');}
+ let job=(await update(t,'begin',{package:release.id,operation_id:operation,confirmed:true})).job;check((await update(t,'begin',{package:release.id,operation_id:operation,confirmed:true})).job.id===job.id,'confirmed double click deduplicates');let last='',downloadSeconds;
+ for(let i=0;i<1000;i++){const start=performance.now();job=(await update(t,'step',{id:job.id})).job;if(job.phase==='preflight')downloadSeconds=(performance.now()-start)/1000;if(job.phase!==last){console.log(t.edition+': '+job.phase+' / '+job.state);last=job.phase;await writeFile(report+'/progress-'+t.edition+'.json',JSON.stringify({job,checks},null,2));}if(['completed','failed','rolled_back','recovery_required'].includes(job.state))break;}
+ check(job.state==='completed'&&job.backup_ready,JSON.stringify(job));fingerprint(t,'verify');const verified=JSON.parse(fixture(t,'verify',job.id));
+ const completed=snapshot(t);check(completed.current.version==='2.7.2'&&completed.current.release===job.id&&!completed.maintenance,'actual 2.7.2 active, maintenance cleared');check(completed.loader===existing.loader&&completed.endpoint===existing.endpoint,'stable transport repair survives installing original package');
+ check((await update(t,'begin',{package:release.id,operation_id:operation,confirmed:true})).job.id===job.id,'completed begin retry deduplicated');check((await update(t,'step',{id:job.id})).job.state==='completed','completed step retry harmless');check(JSON.stringify(snapshot(t))===JSON.stringify(completed),'no duplicate job or backup after completion');
+ const discovered=await api(t,'client.updates.discover',{});check(discovered.discovery.state==='current'&&!discovered.discovery.unread&&discovered.releases.find(r=>r.id===release.id)?.installed,'delivered 2.7.2 detector reports installed release');
+ check((await fetch(t.origin+'/')).status===200,'public client site works');
+ const result={edition:t.edition,from:existing.current.version,to:'2.7.2',job:job.id,failedCorruptJob:failed.id,downloadSeconds:Math.round(downloadSeconds*1000)/1000,confirmed:true,completed:true,customerDataPreserved:true,duplicateRequestsHarmless:true,noConfirmationRejected:true,verification:verified};results.push(result);await writeFile(report+'/'+t.edition+'.json',JSON.stringify(result,null,2));console.log('PASS '+t.edition+' real 2.7.2 signed installation, backup, preservation and retry');
+}}finally{for(const t of targets){try{fixture(t,'restore');}catch{}}await new Promise(r=>bad.close(r));}
+await writeFile(report+'/http-result.json',JSON.stringify({checks,results,customerSitesTouched:0,realPayments:0,externalEmails:0},null,2));console.log(checks+' confirmed production 2.7.2 update checks passed');

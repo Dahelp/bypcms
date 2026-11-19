@@ -47,7 +47,7 @@ try{
         Response::ok(['releases'=>$publisher->catalog()['releases'],'candidate'=>is_file($candidate)?$publisher->candidate($candidate)['version']:null]);
     }
     if($method!=='POST')Response::error('Требуется POST',405);
-    ignore_user_abort(true);@set_time_limit(60);session_write_close();
+    ignore_user_abort(true);@set_time_limit(150);session_write_close();
     if($action==='publish'){
         if(($config['app']['installation_type']??'platform')==='client')Response::error('Клиентская установка не публикует выпуски',403);
         $publisher=new UpdatePublisher($root,new LicenseAuthority($pdo,$root.'/_storage',$config));Response::ok(['release'=>$publisher->publish($root.'/_private/update-candidate.php')]);

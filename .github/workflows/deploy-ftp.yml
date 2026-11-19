@@ -55,6 +55,9 @@ jobs:
           node tests/corporate-http.mjs
           node tests/mono-http.mjs
 
+      - name: Verify update transport and manual bootstrap repair
+        run: php tests/update-transport-repair.test.php && node tests/license-http.mjs && php -l tests/loader-live-fixture.php && node --check tests/loader-live-http.mjs
+
       - name: Build static website
         run: pnpm build:ftp
 

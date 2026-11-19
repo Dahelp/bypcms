@@ -78,7 +78,7 @@ export default function Home() {
         <div className="layerStack">
           <div className="layer projectLayer"><span>04</span><div><strong>Разработка и запуск</strong><small>Frontend · интеграции · перенос · обучение</small></div><b>Под ключ</b></div>
           <div className="layer moduleLayer"><span>03</span><div><strong>Индивидуальный дизайн</strong><small>UX-исследование · UI-kit · адаптивный шаблон</small></div><b>Уникально</b></div>
-          <div className="layer moduleLayer"><span>02</span><div><strong>Модули</strong><small>Каталог · продажи · CRM · аналитика</small></div><b>На выбор</b></div>
+          <div className="layer moduleLayer"><span>02</span><div><strong>Модули</strong><small>Каталог · продажи · CRM в Business</small></div><b>По редакции</b></div>
           <div className="layer coreLayer"><span>01</span><div><strong>BYPCMS Core</strong><small>Управление · API · обновления · лицензия</small></div><b>Основа</b></div>
         </div>
       </section>

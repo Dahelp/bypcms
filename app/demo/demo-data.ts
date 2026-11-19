@@ -1,3 +1,5 @@
+import {publicModules} from "../modules/data";
+
 export type EditionKey = "content" | "business" | "commerce";
 export type EntityKind =
   | "pages" | "articles" | "categories" | "authors"
@@ -139,10 +141,10 @@ export const editions: Record<EditionKey, { name: string; project: string; note:
 };
 
 export const moduleRegistry: DemoModule[] = [
-  { key: "seo", name: "SEO Pro", description: "Метаданные, Open Graph, аудит, sitemap и редиректы.", version: "1.8.2", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "editor.tab", "dashboard.widget", "settings.section"], editorKinds: ["pages", "articles", "services", "projects", "products", "categories", "brands"], color: "#7057e8" },
-  { key: "analytics", name: "Аналитика", description: "События, цели, воронки и отчёты по контенту и продажам.", version: "1.2.4", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "dashboard.widget"], color: "#286a8a" },
-  { key: "forms", name: "Формы и CRM", description: "Конструктор форм, заявки, статусы и ответственные.", version: "1.4.0", price: 9900, editions: ["business", "commerce"], slots: ["menu.main", "editor.sidebar", "dashboard.widget", "settings.section"], editorKinds: ["pages", "services", "products"], color: "#557a25" },
-  { key: "payments", name: "Платежи", description: "ЮKassa, СБП, чеки, статусы операций и возвраты.", version: "1.3.0", price: 7900, editions: ["commerce"], slots: ["menu.main", "editor.tab", "settings.section"], editorKinds: ["orders"], color: "#c65b2d" },
+  { key: "seo", name: "SEO Pro", description: publicModules.find(m=>m.slug==="seo")!.lead, version: "1.8.2", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "editor.tab", "dashboard.widget", "settings.section"], editorKinds: ["pages", "articles", "services", "projects", "products", "categories", "brands"], color: "#7057e8" },
+  { key: "analytics", name: "Аналитика", description: publicModules.find(m=>m.slug==="analytics")!.lead, version: "1.2.4", price: 5900, editions: ["content", "business", "commerce"], slots: ["menu.marketing", "dashboard.widget"], color: "#286a8a" },
+  { key: "forms", name: "Формы и CRM", description: publicModules.find(m=>m.slug==="forms")!.lead, version: "1.4.0", price: 9900, editions: ["business", "commerce"], slots: ["menu.main", "editor.sidebar", "dashboard.widget", "settings.section"], editorKinds: ["pages", "services", "products"], color: "#557a25" },
+  { key: "payments", name: "Платежи", description: publicModules.find(m=>m.slug==="payments")!.lead, version: "1.3.0", price: 7900, editions: ["commerce"], slots: ["menu.main", "editor.tab", "settings.section"], editorKinds: ["orders"], color: "#c65b2d" },
   { key: "reviews", name: "Отзывы и рейтинг", description: "Отзывы покупателей, модерация и рейтинг товаров.", version: "1.0.3", price: 4900, editions: ["commerce"], slots: ["menu.main", "editor.tab", "dashboard.widget"], menu: { id: "reviews", label: "Отзывы", icon: "★", group: "Маркетинг", moduleKey: "reviews" }, editorKinds: ["products"], color: "#a56a18" },
   { key: "delivery", name: "Доставка", description: "Зоны, тарифы, службы доставки и трекинг заказов.", version: "1.1.0", price: 6900, editions: ["commerce"], slots: ["editor.tab", "settings.section"], editorKinds: ["orders", "products"], color: "#3d6c9c" },
   { key: "bookings", name: "Онлайн-запись", description: "Расписание, специалисты, услуги и бронирования клиентов.", version: "1.0.8", price: 8900, editions: ["business"], slots: ["menu.main", "editor.sidebar", "dashboard.widget"], menu: { id: "bookings", label: "Онлайн-запись", icon: "◷", group: "Продажи", moduleKey: "bookings" }, editorKinds: ["services", "team"], color: "#925b87" },
@@ -151,9 +153,9 @@ export const moduleRegistry: DemoModule[] = [
 ];
 
 export const defaultInstalledModules: Record<EditionKey, string[]> = {
-  content: ["seo", "analytics"],
-  business: ["seo", "analytics", "forms"],
-  commerce: ["seo", "analytics", "forms", "payments"],
+  content: ["seo"],
+  business: ["seo", "forms"],
+  commerce: ["seo", "payments"],
 };
 
 const entity = (id: number, kind: EntityKind, title: string, slug: string, image: number, patch: Partial<DemoEntity> = {}): DemoEntity => ({

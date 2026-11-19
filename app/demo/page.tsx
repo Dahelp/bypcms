@@ -1,4 +1,5 @@
 "use client";
+import {moduleAvailable, publicModules} from "../modules/data";
 import PanelRouteLoading from "../components/PanelRouteLoading";
 
 import PanelTable, { type PanelBulkAction } from "../components/PanelTable";
@@ -84,6 +85,7 @@ function DemoWorkspace() {
         if (saved.installedModules) nextModules = { ...defaultInstalledModules, ...saved.installedModules };
       }
     } catch { sessionStorage.removeItem("bypcms-real-demo-v1"); }
+    nextModules = Object.fromEntries(Object.entries(nextModules).map(([key,keys])=>[key,keys.filter(k=>moduleAvailable(k,key))])) as Record<EditionKey,string[]>;
     const menu = editions[nextEdition].menu.filter(item => !item.moduleKey || nextModules[nextEdition].includes(item.moduleKey));
     const extraMenu = moduleRegistry.filter(module => nextModules[nextEdition].includes(module.key) && module.menu).map(module => module.menu!);
     const section = route.get("section") || "overview";
@@ -138,7 +140,7 @@ function DemoWorkspace() {
   }, []);
 
   const current = editions[edition];
-  const activeModules = installedModules[edition];
+  const activeModules = useMemo(()=>installedModules[edition].filter(key=>moduleAvailable(key,edition)),[installedModules,edition]);
   const currentMenu = useMemo(() => {
     const base = current.menu.filter(item => !item.moduleKey || activeModules.includes(item.moduleKey));
     const injected = moduleRegistry.filter(module => activeModules.includes(module.key) && module.menu && !base.some(item => item.id === module.menu?.id)).map(module => module.menu!);
@@ -232,7 +234,7 @@ function DemoWorkspace() {
         {currentKind && editing && <EntityEditor key={editing.id} siteName={settings.siteName} domain={settings.domain} seoSettingsHref={seoSettingsHref} edition={edition} isSaved={editingSaved} entity={editing} tab={editorTab} setTab={setEditorTab} entities={entities} installed={moduleRegistry.filter(module => activeModules.includes(module.key))} onSave={saveEntity} onDelete={deleteEntity} cancelHref={sectionHref(view)} previewHref={previewHref(editing)} flash={flash} />}
         {view === "media" && <DemoMediaLibrary />}
         {view === "seo" && <SeoCenter bulkActions={statusBulkActions<DemoEntity>([["Опубликовано","Опубликовать"],["Черновик","В черновики"]],(rows,status)=>batchEntities(rows,"status",status))} entities={entities.filter(item => currentMenu.some(menu => menu.kind === item.kind))} editHref={item => entityHref(item, { tab: "seo" })} flash={flash} />}
-        {view === "analytics" && <Analytics edition={edition} flash={flash} />}
+        {view === "analytics" && <Analytics />}
         {view === "design" && <DesignStudioV2 entities={entities} edition={edition} theme={theme} setTheme={setTheme} settings={settings} setSettings={setSettings} flash={flash} />}
         {view === "extensions" && <ExtensionCenterV2 edition={edition} installed={activeModules} setInstalled={keys => setInstalledModules(value => ({ ...value, [edition]: keys }))} flash={flash} />}
         {moduleRegistry.some(module => module.key === view && module.menu) && <InjectedModulePage edition={edition} module={moduleRegistry.find(module => module.key === view)!} />}
@@ -498,8 +500,8 @@ function SeoCenter({ entities, editHref, flash, bulkActions }: { entities: DemoE
   ]} actions={item => [{ label: "Редактировать SEO", href: editHref(item) }]} /><section className="seoTools"><article><small>ТЕХНИЧЕСКОЕ SEO</small><h3>Sitemap.xml</h3><p>Обновлён 12 минут назад · {pages.length} URL</p><button onClick={() => flash("Sitemap.xml обновлён")}>Обновить карту сайта</button></article><article><small>ПЕРЕНАПРАВЛЕНИЯ</small><h3>Редиректы</h3><p>3 активных правила · ошибок нет</p><button onClick={() => flash("Редактор редиректов открыт: 3 активных правила")}>Управлять редиректами</button></article><article><small>ИНДЕКСАЦИЯ</small><h3>Robots.txt</h3><p>Правила настроены корректно</p><button onClick={() => flash("Редактор robots.txt открыт")}>Открыть редактор</button></article></section></>;
 }
 
-function Analytics({ edition, flash }: { edition: EditionKey; flash: (message: string) => void }) {
-  return <><PageHeading eyebrow="АНАЛИТИКА" title={edition === "commerce" ? "Продажи и конверсия" : edition === "business" ? "Заявки и источники" : "Аудитория и материалы"} description="События, цели и отчёты внутри панели BYPCMS" actions={<button onClick={() => flash("Отчёт экспортирован в CSV")}>Экспорт отчёта</button>} /><section className="analyticsKpi">{[["24 892", "Посетители", "+18,4%"], ["1 248", "Целевые действия", "+7,2%"], ["5,01%", "Конверсия", "+1,6%"], ["84 200 ₽", "Ценность цели", "+12,1%"]].map(item => <article key={item[1]}><small>{item[1]}</small><strong>{item[0]}</strong><span>{item[2]}</span></article>)}</section><section className="analyticsLayout"><article><header><h2>Воронка</h2><select><option>Все источники</option></select></header>{[["Посетители", 100, "24 892"], ["Просмотр предложения", 72, "17 922"], ["Начало формы", 46, "11 450"], ["Отправка формы", 21, "5 227"]].map(([name, width, value]) => <p key={name}><span>{name}<b>{value}</b></span><i style={{ width: `${width}%` }} /></p>)}</article><article><h2>Источники</h2>{[["Поиск", "42%"], ["Прямые переходы", "28%"], ["Реклама", "18%"], ["Социальные сети", "12%"]].map(([name, value]) => <p key={name}><span>{name}</span><b>{value}</b></p>)}</article></section></>;
+function Analytics() {
+  return <><PageHeading eyebrow="АНАЛИТИКА" title="Модуль в разработке" description="Не продаётся и не входит в новые сборки BYPCMS" /><section className="fieldCard"><p>Сбор событий и отчёты пока не входят в поставку. <a href="https://bypcms.ru/modules/analytics/">Статус модуля →</a></p></section></>;
 }
 
 function DesignStudio({ edition, theme, setTheme, settings, flash }: { edition: EditionKey; theme: ThemeState; setTheme: React.Dispatch<React.SetStateAction<ThemeState>>; settings: SettingsState; flash: (message: string) => void }) {
@@ -671,29 +673,11 @@ function SeoEditorV2({ onOpenSettings, draft, siteName, domain, settingsHref, up
 }
 
 function ExtensionCenterV2({ edition, installed, setInstalled, flash }: { edition: EditionKey; installed: string[]; setInstalled: (keys: string[]) => void; flash: (message: string) => void }) {
-  const [filter, setFilter] = useState<"installed" | "catalog" | "updates">("installed");
-  const [settingsModule, setSettingsModule] = useState<DemoModule | null>(null);
-  const [installing, setInstalling] = useState<DemoModule | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  const compatible = moduleRegistry.filter(module => module.editions.includes(edition));
-  const list = filter === "installed" ? compatible.filter(module => installed.includes(module.key)) : filter === "updates" ? compatible.filter(module => installed.includes(module.key)).slice(0, 2) : compatible;
-  function confirmToggle() {
-    if (!installing) return;
-    const active = installed.includes(installing.key);
-    setInstalled(active ? installed.filter(key => key !== installing.key) : [...installed, installing.key]);
-    flash(`${installing.name}: ${active ? "модуль отключён" : "установка завершена, точки встраивания зарегистрированы"}`);
-    setInstalling(null);
-  }
-  return <><PageHeading eyebrow="СИСТЕМА РАСШИРЕНИЙ" title="Модули" description="Установка, настройки и обновления без изменения ядра" actions={<button onClick={() => setAddOpen(true)}><PanelIcon name="plus" /> Добавить модуль</button>} /><nav className="extensionTabs"><button className={filter === "installed" ? "active" : ""} onClick={() => setFilter("installed")}>Установлено <em>{installed.length}</em></button><button className={filter === "catalog" ? "active" : ""} onClick={() => setFilter("catalog")}>Каталог модулей <em>{compatible.length}</em></button><button className={filter === "updates" ? "active" : ""} onClick={() => setFilter("updates")}>Обновления <em>2</em></button></nav>{filter === "updates" && <div className="updatesNotice"><div><b>Доступно 2 обновления</b><span>Перед обновлением создаётся резервная точка восстановления.</span></div><button onClick={() => flash("Все модули обновлены до последних версий")}>Обновить все</button></div>}<section className="extensionGrid">{list.map(module => { const active = installed.includes(module.key); return <article key={module.key} style={{ "--module-color": module.color } as React.CSSProperties}><header><i>{module.name[0]}</i><div><small>{filter === "updates" ? "ЕСТЬ ОБНОВЛЕНИЕ" : active ? "УСТАНОВЛЕН" : "ДОСТУПЕН"}</small><h3>{module.name}</h3></div><em>v{module.version}</em></header><p>{module.description}</p><div className="slotList">{module.slots.map(slot => <span key={slot}>↳ {slot}</span>)}</div><footer><strong>{module.price ? `${module.price.toLocaleString("ru-RU")} ₽` : "В редакции"}</strong>{filter === "updates" ? <button onClick={() => flash(`${module.name} обновлён до версии ${module.version}`)}>Обновить</button> : <button onClick={() => setInstalling(module)} className={active ? "installed" : ""}>{active ? "Отключить" : "Установить"}</button>}<button onClick={() => setSettingsModule(module)}>Настройки</button></footer></article>})}</section>
-  {installing && <div className="demoModal"><section className="confirmDialog"><small>{installed.includes(installing.key) ? "ОТКЛЮЧЕНИЕ" : "УСТАНОВКА МОДУЛЯ"}</small><h2>{installing.name}</h2><p>{installed.includes(installing.key) ? "Все пункты меню и вкладки модуля будут скрыты. Демо-данные сохранятся." : `Ядро зарегистрирует ${installing.slots.length} точек встраивания. Файлы ядра не изменяются.`}</p><div><button onClick={() => setInstalling(null)}>Отмена</button><button className="primary" onClick={confirmToggle}>{installed.includes(installing.key) ? "Отключить" : "Установить"}</button></div></section></div>}
-  {settingsModule && <ModuleSettingsDialog module={settingsModule} onClose={() => setSettingsModule(null)} flash={flash} />}
-  {addOpen && <div className="demoModal"><section className="confirmDialog moduleUploadDialog"><small>РУЧНАЯ УСТАНОВКА</small><h2>Добавить модуль</h2><p>Загрузите ZIP-пакет с файлом <code>bypcms.module.json</code>. Перед установкой ядро проверит подпись, версию и заявленные точки встраивания.</p><label className="uploadButton">Выбрать ZIP-пакет<input type="file" accept=".zip" onChange={event => event.target.files?.[0] && flash(`Пакет ${event.target.files[0].name} прошёл предварительную проверку`)} /></label><textarea defaultValue={'{\n  "schema": "bypcms.module/v1",\n  "placements": ["menu.main", "editor.tab"]\n}'} rows={6} /><div><button onClick={() => setAddOpen(false)}>Отмена</button><button className="primary" onClick={() => { setAddOpen(false); flash("Демо-модуль добавлен в каталог"); }}>Проверить и добавить</button></div></section></div>}</>;
+  const compatible=moduleRegistry.filter(module=>moduleAvailable(module.key,edition));
+  function toggle(key:string){setInstalled(installed.includes(key)?installed.filter(k=>k!==key):[...installed,key]);flash("Изменён только интерфейс демо. Состав лицензии не меняется.");}
+  return <><PageHeading eyebrow="СОСТАВ РЕДАКЦИИ" title="Модули" description="Возможности выбранной редакции. Обновления модулей поставляются вместе с CMS." actions={<a className="panelDashboardLink" href="https://bypcms.ru/modules/">Состав и ограничения ↗</a>} /><p className="updatesNotice">Переключатели меняют только демонстрационный интерфейс. Отдельная установка ZIP-модулей и отдельные обновления пока не поддерживаются.</p><section className="extensionGrid">{compatible.map(module=><article key={module.key} style={{"--module-color":module.color} as React.CSSProperties}><header><i>{module.name[0]}</i><div><small>ВХОДИТ В РЕДАКЦИЮ</small><h3>{module.name}</h3></div></header><p>{publicModules.find(m=>m.slug===module.key)?.lead}</p><footer><a href={`https://bypcms.ru/modules/${module.key}/`}>Возможности и ограничения ↗</a><button onClick={()=>toggle(module.key)}>{installed.includes(module.key)?"Скрыть в демо":"Показать в демо"}</button></footer></article>)}</section></>;
 }
 
-function ModuleSettingsDialog({ module, onClose, flash }: { module: DemoModule; onClose: () => void; flash: (message: string) => void }) {
-  if(module.key==="seo")return <div className="demoModal"><section className="moduleSettingsDialog" role="dialog" aria-modal="true" aria-label="Настройки SEO Pro"><header><div><small>НАСТРОЙКИ МОДУЛЯ</small><h2>SEO Pro</h2></div><button type="button" aria-label="Закрыть настройки SEO" onClick={onClose}><PanelIcon name="close"/></button></header><SeoPreferencesForm onSaved={()=>{flash("Настройки SEO сохранены");onClose();}}/></section></div>;
-  return <div className="demoModal"><section className="moduleSettingsDialog" style={{ "--module-color": module.color } as React.CSSProperties}><header><div><small>НАСТРОЙКИ МОДУЛЯ</small><h2>{module.name}</h2></div><button onClick={onClose}><PanelIcon name="close" /></button></header><p>{module.description}</p><label className="settingSwitch"><span><b>Модуль активен</b><small>Версия {module.version}</small></span><input type="checkbox" defaultChecked /></label><label>Режим работы<select defaultValue="Автоматически"><option>Автоматически</option><option>Ручное управление</option></select></label><label>Роли с доступом<select defaultValue="Администратор и редактор"><option>Только администратор</option><option>Администратор и редактор</option><option>Все сотрудники</option></select></label><label className="settingSwitch"><span><b>Показывать уведомления</b><small>Ошибки и важные события модуля</small></span><input type="checkbox" defaultChecked /></label><div className="slotList">{module.slots.map(slot => <span key={slot}>{slot}</span>)}</div><footer><button onClick={onClose}>Отмена</button><button className="primary" onClick={() => { flash(`Настройки ${module.name} сохранены`); onClose(); }}>Сохранить настройки</button></footer></section></div>;
-}
 
 function SettingsPanelV2({ edition, settings, setSettings, modules, flash }: { edition: EditionKey; settings: SettingsState; setSettings: React.Dispatch<React.SetStateAction<SettingsState>>; modules: DemoModule[]; flash: (message: string) => void }) {
   const [tab, setTab] = useState("general");

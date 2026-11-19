@@ -6,6 +6,7 @@ use BYPCMS\Core\Response;
 
 require_once __DIR__ . '/../_core/bootstrap.php';
 require_once __DIR__ . '/../_core/licensing-api.php';
+require_once __DIR__ . '/../_core/ModuleReadiness.php';
 
 $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $action = (string)($_GET['action'] ?? 'status');
@@ -303,8 +304,8 @@ try {
                 'licenses'=>$licenses,
                 'tasks'=>$tasks,
                 'services'=>$db->all('SELECT * FROM byp_services ORDER BY name'),
-                'modules'=>$db->all('SELECT * FROM byp_module_catalog ORDER BY category,name'),
-                'edition_modules'=>$db->all('SELECT edition,module_key,availability FROM byp_edition_modules ORDER BY edition,module_key'),
+                'modules'=>\BYPCMS\Core\ModuleReadiness::describe($db->all('SELECT * FROM byp_module_catalog ORDER BY category,name')),
+                'edition_modules'=>\BYPCMS\Core\ModuleReadiness::availability($db->all('SELECT edition,module_key,availability FROM byp_edition_modules ORDER BY edition,module_key')),
                 'portfolio'=>$db->all('SELECT * FROM byp_portfolio_projects ORDER BY sort_order,title'),
                 'orders'=>$orders,
                 'builds'=>$builds,
@@ -388,9 +389,15 @@ try {
             $price=(float)($term==='lifetime'?$lifetimePrices[$edition]:$annualPrices[$edition]);
             $includedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability="included"',['edition'=>$edition]);
             $allowedRows=$db->all('SELECT module_key FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',['edition'=>$edition]);
-            $includedKeys=array_column($includedRows,'module_key');
-            $allowedKeys=array_column($allowedRows,'module_key');
-            $entitlements=array_values(array_unique(array_merge($includedKeys,array_intersect(array_values(array_filter((array)($input['entitlements'] ?? []))),$allowedKeys))));
+            $includedKeys=array_values(array_filter(array_column($includedRows,'module_key'),fn($k)=>\BYPCMS\Core\ModuleReadiness::allowed($k,$edition)));
+            $allowedKeys=array_values(array_filter(array_column($allowedRows,'module_key'),fn($k)=>\BYPCMS\Core\ModuleReadiness::allowed($k,$edition)));
+            $historical=$id>0?$db->one('SELECT entitlements,purchase_price,edition,license_term FROM byp_license_registry WHERE id=?',[$id]):null;
+            $legacy=array_values(array_filter(json_decode($historical['entitlements']??'[]',true)?:[],fn($k)=>!\BYPCMS\Core\ModuleReadiness::allowed($k,$edition)));
+            $requestedRights=array_values(array_filter((array)($input['entitlements']??[])));
+            foreach($requestedRights as $right)if(!is_string($right))Response::error('Некорректный список модулей.',422);
+            \BYPCMS\Core\ModuleReadiness::assertSelection(array_values(array_diff($requestedRights,$legacy)),$edition);
+            $entitlements=array_values(array_unique(array_merge($legacy,$includedKeys,array_intersect($requestedRights,$allowedKeys))));
+            if($historical&&$historical['edition']===$edition&&$historical['license_term']===$term)$price=(float)$historical['purchase_price'];
             $params=['client'=>$client,'domain'=>$domain,'edition'=>$edition,'term'=>$term,'price'=>$price,
                 'core'=>(string)($input['core_version'] ?? '2.1.0'),'installed'=>(string)($input['installed_version'] ?? ''),
                 'entitlements'=>json_encode($entitlements,JSON_UNESCAPED_UNICODE),'status'=>(string)($input['status'] ?? 'active'),
@@ -440,6 +447,7 @@ try {
             $params=['key'=>$key,'name'=>$name,'category'=>(string)($input['category'] ?? 'Расширение'),'description'=>(string)($input['description'] ?? ''),
                 'version'=>(string)($input['current_version'] ?? '1.0.0'),'price'=>(float)($input['price'] ?? 0),
                 'compatibility'=>(string)($input['compatibility'] ?? 'Core >= 2.0'),'status'=>(string)($input['status'] ?? 'published')];
+            foreach((array)($input['availability']??[]) as $ed=>$av){if(!in_array($ed,['Business','Commerce','Content'],true)||!in_array($av,['hidden','included','optional'],true))Response::error('Некорректная доступность модуля.',422);if($av!=='hidden')\BYPCMS\Core\ModuleReadiness::assertSelection([$key],$ed);}
             if($id>0){$params['id']=$id;$db->execute('UPDATE byp_module_catalog SET module_key=:key,name=:name,category=:category,description=:description,current_version=:version,price=:price,compatibility=:compatibility,status=:status,updated_at=NOW() WHERE id=:id',$params);}
             else{$id=$db->insert('INSERT INTO byp_module_catalog (module_key,name,category,description,current_version,price,compatibility,status,created_at,updated_at) VALUES (:key,:name,:category,:description,:version,:price,:compatibility,:status,NOW(),NOW())',$params);}
             foreach(['Business','Commerce','Content'] as $editionName){
@@ -539,6 +547,9 @@ try {
             'SELECT module_key, availability FROM byp_edition_modules WHERE edition=:edition AND availability IN ("included","optional")',
             ['edition'=>$edition]
         );
+        $editionRows=\BYPCMS\Core\ModuleReadiness::availability(array_map(fn($r)=>$r+['edition'=>$edition],$editionRows));
+        \BYPCMS\Core\ModuleReadiness::assertSelection($requested,$edition);
+        $editionRows=array_values(array_filter($editionRows,fn($r)=>$r['availability']!=='hidden'));
         $allowed = array_column($editionRows, 'module_key');
         $included = array_column(array_values(array_filter($editionRows, fn(array $row): bool => $row['availability'] === 'included')), 'module_key');
         $selected = array_values(array_unique(array_merge($included, array_intersect($requested, $allowed))));

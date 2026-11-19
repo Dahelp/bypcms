@@ -21,6 +21,7 @@ for(const [path,expected]of [
  if(response.status!==expected)throw new Error(`${path}: expected ${expected}, received ${response.status}`);
  if(path.includes('bootstrap')){
   const data=await response.json();
+  if(data.catalog?.modules?.some(m=>m.module_key==='analytics')||data.catalog?.availability?.some(a=>a.module_key==='analytics'&&a.availability!=='hidden')||data.catalog?.availability?.some(a=>a.module_key==='forms'&&a.edition==='Commerce'&&a.availability!=='hidden'))throw new Error('Unaccepted capabilities exposed for sale');
   if(typeof data.bank_available!=='boolean')throw new Error('Invoice readiness missing');
   if(!data.catalog?.modules?.length||data.catalog.editions.content.annual!==790000)throw new Error('Commerce catalog missing or invalid');
   if(JSON.stringify(data).match(/shop_secret|smtp_password|_cipher|correspondent|account_hint/))throw new Error('Private setting appeared in public bootstrap');
@@ -64,3 +65,6 @@ for(const [path,required] of [['/account/forgot.php','Восстановлени
  if(!r.headers.get('cache-control')?.includes('no-store')||r.headers.get('referrer-policy')?.split(',').at(-1).trim()!=='no-referrer')throw new Error('Recovery privacy headers missing');
  console.log('PASS private recovery page '+path);
 }
+
+for(const edition of ['content','business','commerce']){const r=await fetch(origin+'/commerce/index.php?action=quote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({edition,term:'annual',modules:['analytics'],services:[]}),signal:AbortSignal.timeout(20000)});const j=await r.json();if(r.status!==422||!j.error?.includes('недоступен'))throw new Error('Unsupported sales not blocked: '+edition);console.log('PASS unsupported Analytics sale rejected: '+edition);}
+const planned=await fetch(origin+'/modules/analytics/',{signal:AbortSignal.timeout(20000)});const plannedHtml=await planned.text();if(planned.status!==200||!plannedHtml.includes('В разработке · не продаётся')||plannedHtml.includes('24 892'))throw new Error('Planned module still marketed as ready');console.log('PASS public planned module status');

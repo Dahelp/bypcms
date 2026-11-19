@@ -29,7 +29,7 @@ $quote=$commerce->quote(input(['amount_minor'=>1,'modules'=>['content']]));check
 rejects(fn()=>$commerce->quote(input(['modules'=>['imaginary']])),'unknown module rejected');
 rejects(fn()=>$commerce->quote(input(['edition'=>'imaginary'])),'unknown edition rejected');
 check($commerce->quote(input(['modules'=>['seo']]))['amount_minor']===790000,'included SEO never double billed');
-check($commerce->quote(input(['modules'=>['analytics']]))['amount_minor']===1380000,'published compatible add-on priced by DB');
+rejects(fn()=>$commerce->quote(input(['modules'=>['analytics']])),'unaccepted add-on cannot be sold despite database price');
 $in=input();$order=legacyCreate($buyer,$in);$id=(int)$order['id'];
 check(legacyCreate($buyer,$in)['id']==$id,'double create same order');
 rejects(fn()=>legacyCreate($buyer,array_replace($in,['domain'=>'different.test'])),'changed payload cannot reuse operation');

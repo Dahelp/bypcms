@@ -12,7 +12,7 @@ export default function ModulesPage() {
       <section className="catalogHero">
         <p>ЭКОСИСТЕМА BYPCMS</p>
         <h1>Модули</h1>
-        <span>Выбирайте только нужные возможности. Каждый модуль работает независимо от ядра, обновляется безопасно и управляется из единой панели.</span>
+        <span>Возможности поставляются в составе совместимых редакций и обновляются вместе с CMS. Модули в разработке не продаются.</span>
       </section>
 
       <section className="catalogGrid">
@@ -22,7 +22,7 @@ export default function ModulesPage() {
             <h2>{module.name}</h2>
             <p>{module.lead}</p>
             <div>
-              <strong>{module.price ? `${module.price.toLocaleString("ru-RU")} ₽` : "Входит в редакцию"}</strong>
+              <strong>{module.readiness==="planned"?"В разработке · не продаётся":"В составе редакции"}</strong>
               <b>Подробнее →</b>
             </div>
           </Link>

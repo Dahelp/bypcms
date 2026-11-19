@@ -12,6 +12,7 @@ require_once __DIR__.'/LicensePolicy.php';
 require_once __DIR__.'/CommerceRefunds.php';
 require_once __DIR__.'/CommerceLegal.php';
 require_once __DIR__.'/CommerceInvoices.php';
+require_once __DIR__.'/ModuleReadiness.php';
 
 final class CommerceOrders {
     public CommerceSettings $settings;
@@ -29,15 +30,15 @@ final class CommerceOrders {
         if((int)$this->db->one('SELECT request_count FROM byp_license_requests WHERE bucket=? AND window_start=?',[$key,$start])['request_count']>$maximum)throw new RuntimeException('Слишком много запросов. Повторите позже.');
     }
     public function catalog():array {
-        $modules=$this->db->all('SELECT module_key,name,price FROM byp_module_catalog WHERE status="published" ORDER BY module_key');
+        $modules=array_values(array_filter($this->db->all('SELECT module_key,name,price FROM byp_module_catalog WHERE status="published" ORDER BY module_key'),fn($m)=>(ModuleReadiness::all()[$m['module_key']]['editions']??[])!==[]));
         foreach($modules as &$m){$m['minor']=PaymentGateway::minor((string)$m['price']);unset($m['price']);}unset($m);
-        return ['editions'=>self::EDITIONS,'modules'=>$modules,'availability'=>$this->db->all('SELECT edition,module_key,availability FROM byp_edition_modules'),'services'=>self::SERVICES];
+        return ['editions'=>self::EDITIONS,'modules'=>ModuleReadiness::describe($modules),'availability'=>ModuleReadiness::availability($this->db->all('SELECT edition,module_key,availability FROM byp_edition_modules')),'services'=>self::SERVICES];
     }
     private static function strings(mixed $values):array{if(!is_array($values)||count($values)>20)throw new InvalidArgumentException('Некорректный состав заказа.');$values=array_values(array_unique(array_map('strval',$values)));sort($values);return $values;}
     public function quote(array $input):array {
-        if(!empty($input['services_only'])){$services=self::strings($input['services']??[]);if(!$services)throw new InvalidArgumentException('Выберите хотя бы одну услугу.');foreach($services as $key)if(!isset(self::SERVICES[$key]))throw new InvalidArgumentException('Услуга не найдена.');return ['edition'=>'services','term'=>'annual','modules'=>[],'services'=>$services,'items'=>[],'amount_minor'=>0,'kind'=>'inquiry'];}
+        if(!empty($input['services_only'])){if(!empty($input['modules']))throw new InvalidArgumentException('Заказ услуг не включает модули CMS.');$services=self::strings($input['services']??[]);if(!$services)throw new InvalidArgumentException('Выберите хотя бы одну услугу.');foreach($services as $key)if(!isset(self::SERVICES[$key]))throw new InvalidArgumentException('Услуга не найдена.');return ['edition'=>'services','term'=>'annual','modules'=>[],'services'=>$services,'items'=>[],'amount_minor'=>0,'kind'=>'inquiry'];}
         $edition=strtolower((string)($input['edition']??'content'));$term=(string)($input['term']??'annual');if(!isset(self::EDITIONS[$edition])||!in_array($term,['annual','lifetime'],true))throw new InvalidArgumentException('Выберите редакцию и срок лицензии.');
-        $extra=self::strings($input['modules']??[]);$services=self::strings($input['services']??[]);$catalog=$this->catalog();$access=[];foreach($catalog['availability']as $row)if(strtolower($row['edition'])===$edition)$access[$row['module_key']]=$row['availability'];
+        $extra=self::strings($input['modules']??[]);ModuleReadiness::assertSelection($extra,$edition);$services=self::strings($input['services']??[]);$catalog=$this->catalog();$access=[];foreach($catalog['availability']as $row)if(strtolower($row['edition'])===$edition)$access[$row['module_key']]=$row['availability'];
         $included=array_keys(array_filter($access,fn($value)=>$value==='included'));if(!in_array('content',$included,true))throw new RuntimeException('Комплектация редакции не настроена.');
         $modules=$included;$items=[['name'=>'BYPCMS '.self::EDITIONS[$edition]['name'].' · '.($term==='annual'?'1 год':'пожизненная'),'minor'=>self::EDITIONS[$edition][$term]]];$total=self::EDITIONS[$edition][$term];$byKey=array_column($catalog['modules'],null,'module_key');
         foreach($extra as $key){if(in_array($key,$modules,true))continue;if(!isset($byKey[$key])||!isset($access[$key])||$access[$key]==='hidden')throw new InvalidArgumentException('Модуль не доступен для выбранной редакции.');if(in_array($key,$modules,true))continue;$modules[]=$key;$total+=$byKey[$key]['minor'];$items[]=['name'=>$byKey[$key]['name'],'minor'=>$byKey[$key]['minor']];}

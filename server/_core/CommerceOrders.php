@@ -172,6 +172,8 @@ final class CommerceOrders {
         $stage('fulfillment',function()use(&$result,$failure){foreach($this->db->all('SELECT order_id FROM byp_commerce_orders WHERE payment_state="paid" AND (fulfillment_state="pending" OR (fulfillment_state="failed" AND updated_at<DATE_SUB(NOW(),INTERVAL 1 MINUTE))) ORDER BY updated_at,order_id LIMIT 2')as $row){try{$this->fulfill((int)$row['order_id']);$result['fulfilled']++;}catch(Throwable $e){$failure('fulfillment',$e);}}});
         $result['expired_invoices']=$stage('invoices',fn()=>$this->invoices->notifyExpired());
         $result['refunds']=$stage('refunds',fn()=>(new CommerceRefunds($this->db,$this->config,$this))->work());
+        require_once __DIR__.'/ReleaseAnnouncements.php';
+        $result['release_notifications']=$stage('release_notifications',fn()=>(new ReleaseAnnouncements($this->db,$this->config,$this->root))->queue($this->notifications));
         $result['mail']=$stage('mail',fn()=>$this->notifications->process(3));return $result;
     }
 }

@@ -25,7 +25,7 @@ final class UpdatePublisher {
             }
             if(!copy($input,$tmp))throw new RuntimeException('Не удалось подготовить публикацию.');
             $zip=new \ZipArchive();$zip->open($tmp);$zip->addFromString('signature.json',json_encode($this->signed($manifest),JSON_THROW_ON_ERROR));if(!$zip->close())throw new RuntimeException('Не удалось подписать пакет.');
-            $id=hash_file('sha256',$tmp);$release=['id'=>$id,'sha256'=>$id,'bytes'=>filesize($tmp)]+array_intersect_key($manifest,array_flip(['version','from','editions','modules','php_min']));
+            $id=hash_file('sha256',$tmp);$release=['id'=>$id,'sha256'=>$id,'bytes'=>filesize($tmp)]+array_intersect_key($manifest,array_flip(['version','from','editions','modules','php_min','notes']));
             if(!rename($tmp,$this->base.'/'.$id.'.zip'))throw new RuntimeException('Не удалось сохранить публикацию.');
             $catalog['releases'][]=$release;$catalog['issued_at']=time();UpdateRuntime::atomic($this->base.'/catalog.json',$catalog);return $release;
         }finally{if(is_file($tmp))unlink($tmp);if(is_file($input))unlink($input);flock($lock,LOCK_UN);fclose($lock);}

@@ -55,6 +55,7 @@ final class CommerceNotifications {
         }return $meta;
     }
     private function obsolete(array $mail,array $meta):?string {
+        if($meta['template_key']==='release_available'){require_once __DIR__.'/ReleaseAnnouncements.php';return (new ReleaseAnnouncements($this->db,$this->config,$this->settings->root()))->obsolete($mail);}
         if($meta['template_key']==='customer_password_reset'){
             $reset=$this->db->one('SELECT used_at,expires_at FROM byp_customer_password_resets WHERE mail_id=?',[$mail['id']]);
             if(!$reset||$reset['used_at']!==null||(int)$reset['expires_at']<=time())return 'Ссылка восстановления использована или истекла. Покупатель может запросить новую.';
@@ -139,6 +140,7 @@ final class CommerceNotifications {
                 $result=$this->enqueue('mail-resend:'.$op,$mail['order_id']?(int)$mail['order_id']:null,$mail['recipient'],$mail['subject'],$mail['message'],$meta+['parent_id'=>$id]);
                 // Override an existing null parent from the original metadata.
                 $this->db->execute('UPDATE byp_mail_metadata SET parent_id=? WHERE mail_id=?',[$id,$result]);
+                if($meta['template_key']==='release_available')$this->db->execute('INSERT IGNORE INTO byp_release_announcements(mail_id,customer_id,release_id) SELECT ?,customer_id,release_id FROM byp_release_announcements WHERE mail_id=?',[$result,$id]);
             }
             $this->db->execute('INSERT INTO byp_mail_actions(operation_id,mail_id,action,result_id,owner_id,created_at) VALUES(?,?,?,?,?,NOW())',[$op,$id,$action,$result,$owner]);$pdo->commit();return $result;
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}

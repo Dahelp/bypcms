@@ -54,6 +54,7 @@ try{
     }
     if($action==='check')Response::ok($engine->check());
     if($action==='begin'){
+        if(($input['confirmed']??false)!==true)Response::error('Подтвердите установку выбранного выпуска.',422);
         $owner=$db->one('SELECT id,email,password_hash FROM byp_users WHERE id=?',[$user['id']]);$owner['role']='owner';
         Response::ok(['job'=>$engine->begin((string)($input['package']??''),(string)($input['operation_id']??''),$owner)]);
     }

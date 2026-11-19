@@ -2,9 +2,11 @@
 declare(strict_types=1);
 // Product-data and user-file fingerprints for disposable final acceptance sites.
 $root=realpath($argv[1]??'');$mode=$argv[2]??'';$proof=$argv[3]??'';
-if(!$root||!str_contains(str_replace('\\','/',$root),'/outputs/final-acceptance-')||!in_array($mode,['record','verify'],true)||!str_starts_with(str_replace('\\','/',realpath(dirname($proof))?:''),str_replace('\\','/',dirname($root,3))))throw new RuntimeException('Explicit disposable fixture/proof required');
+$normalized=str_replace('\\','/',$root?:'');$purchase=str_contains($normalized,'/outputs/purchase-acceptance-20261118/clients/');
+$proofBase=$purchase?dirname(__DIR__).'/outputs/release-acceptance-20261119':dirname($root?:'',3);
+if(!$root||(!$purchase&&!str_contains($normalized,'/outputs/final-acceptance-'))||!in_array($mode,['record','verify'],true)||!str_starts_with(str_replace('\\','/',realpath(dirname($proof))?:''),str_replace('\\','/',$proofBase)))throw new RuntimeException('Explicit disposable fixture/proof required');
 $config=require $root.'/_storage/config.php';
-if(($config['database']['host']??'')!=='127.0.0.1'||($config['database']['port']??0)!==3319||!str_starts_with($config['database']['name'],'bypcms_final_'))throw new RuntimeException('Loopback QA database only');
+if(($config['database']['host']??'')!=='127.0.0.1'||($config['database']['port']??0)!==3319||(!str_starts_with($config['database']['name'],$purchase?'bypcms_purchase_':'bypcms_final_')||empty($config['app']['debug'])))throw new RuntimeException('Loopback QA database only');
 require_once __DIR__.'/../server/_core/Database.php';require_once __DIR__.'/../server/_core/Shop.php';
 $db=new BYPCMS\Core\Database($config);$snapshot=['tables'=>[],'files'=>[]];
 $tables=['byp_pages','byp_page_revisions','byp_content_meta','byp_content_terms','byp_content_redirects','byp_settings','byp_media'];

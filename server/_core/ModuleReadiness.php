@@ -6,7 +6,7 @@ namespace BYPCMS\Core;
 final class ModuleReadiness {
     public static function all():array {
         static $modules=null;
-        if($modules===null){$data=json_decode((string)file_get_contents(__DIR__.'/module-readiness.json'),true,32,JSON_THROW_ON_ERROR);if(($data['schema']??0)!==1)throw new \RuntimeException('Матрица модулей недоступна.');$modules=array_column($data['modules'],null,'slug');}
+        if($modules===null){$data=is_file(__DIR__.'/module-readiness.json')?json_decode((string)file_get_contents(__DIR__.'/module-readiness.json'),true,32,JSON_THROW_ON_ERROR):require __DIR__.'/ModuleReadinessData.php';if(($data['schema']??0)!==1)throw new \RuntimeException('Матрица модулей недоступна.');$modules=array_column($data['modules'],null,'slug');}
         return $modules;
     }
     public static function allowed(string $key,string $edition):bool {

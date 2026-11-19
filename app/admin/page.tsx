@@ -13,6 +13,7 @@ import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import ConceptManager from "./ConceptManager";
 import LicenseSettings, {licenseStateLabels} from "../components/LicenseSettings";
+import ClientReleaseNotice from "../components/ClientReleaseNotice";
 import UpdateSettings from "../components/UpdateSettings";
 import "./admin.css";
 import "./readable.css";
@@ -26,7 +27,7 @@ type DashboardData = {
   recent_pages: PageItem[];
   modules: ModuleItem[];
   license: { edition: string; domain: string; status: string; valid_until: string | null } | null;
-  health: { score: number; core: string; environment: string };
+  health: { score: number; core: string; environment: string;installation_type?:string;edition?:string };
 };
 
 const navigation = [
@@ -59,6 +60,8 @@ export default function AdminPage() {
   const createOpen=active==="content"&&route?.get("editor")==="new-page";
   const editingPage=active==="content"?pages.find(item=>String(item.id)===route?.get("page"))||null:null;
   const editingModule=active==="modules"?modules.find(item=>item.module_key===route?.get("module"))||null:null;
+  const clientInstallation=!!user?.content_admin||dashboard?.health.installation_type==="client";
+  const editionLabel=dashboard?.health.edition?dashboard.health.edition[0].toUpperCase()+dashboard.health.edition.slice(1):"";
   const waitingForRoute=!route||(route.has("page")&&!pagesReady)||(route.has("module")&&!configurationReady);
   useEffect(() => { if (session.phase === "active") setError(""); }, [session.phase]);
   useEffect(() => {
@@ -279,9 +282,9 @@ export default function AdminPage() {
 
       <section className="cmsMain">
         <header className="cmsTopbar">
-          <div><span className="projectBadge">B</span><p><strong>BYPCMS Platform</strong><small>production · core {dashboard?.health.core ?? "2.0.0"}</small></p></div>
+          <div><span className="projectBadge">B</span><p><strong>{clientInstallation?`BYPCMS ${editionLabel}`:"BYPCMS Platform"}</strong><small>{clientInstallation?"Клиентская CMS":"Платформа"} · версия {dashboard?.health.core || "…"}</small></p></div>
           <div><NotificationDropdown /><a href="/" target="_blank">Открыть сайт <WorkspaceIcon symbol="↗"/></a></div>
-        </header>
+        </header>{user?.role==="owner"&&user.content_admin&&active!=="updates"&&<ClientReleaseNotice csrf={csrf}/>}
 
         <div className={`cmsContent ${createOpen||editingPage||editingModule?"editorRouteOpen":""}`}>
           <div className="cmsHeading">

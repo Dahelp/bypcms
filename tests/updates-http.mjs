@@ -19,9 +19,9 @@ const published=(await call(f.platform,'publish',{})).release;
 check((await call(f.platform,'publish',{})).release.id===published.id,'publication retry is idempotent');
 let state=await call(f.client,'check',{});const baseline=state.current.version;
 const release=state.releases.find(r=>r.id===published.id);check(release.compatible,'signed release is compatible');
-await call(f.client,'begin',{package:release.id,operation_id:op()},403,false);
-const operation=op();let job=(await call(f.client,'begin',{package:release.id,operation_id:operation})).job;
-check((await call(f.client,'begin',{package:release.id,operation_id:operation})).job.id===job.id,'begin retry returns same durable job');
+await call(f.client,'begin',{confirmed:true,package:release.id,operation_id:op()},403,false);
+const operation=op();let job=(await call(f.client,'begin',{confirmed:true,package:release.id,operation_id:operation})).job;
+check((await call(f.client,'begin',{confirmed:true,package:release.id,operation_id:operation})).job.id===job.id,'begin retry returns same durable job');
 let sawMaintenance=false;
 for(let i=0;i<300;i++){
  job=(await call(f.client,'step',{id:job.id})).job;
@@ -29,7 +29,7 @@ for(let i=0;i<300;i++){
    sawMaintenance=true;check((await fetch(f.client.origin+'/')).status===503,'site enters maintenance before snapshot');
    check((await fetch(f.client.origin+'/api/index.php?action=pages.list',{headers:{Cookie:f.client.cookie}})).status===503,'API writes/reads cannot bypass maintenance');
    check((await fetch(f.client.origin+'/api/app.php',{headers:{Cookie:f.client.cookie}})).status===403,'raw API application cannot bypass bootstrap');
-   await call(f.client,'begin',{package:release.id,operation_id:op()},422);
+   await call(f.client,'begin',{confirmed:true,package:release.id,operation_id:op()},422);
  }
  if(['completed','rolled_back','failed','recovery_required'].includes(job.state))break;
 }

@@ -7,6 +7,8 @@ const endpoints=[
  ['/api/index.php?action=licensing.challenge',{key:'BYP-DEPLOYMENT-CHECK-INVALID-KEY',installation_id:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',site_url:'https://example.invalid',edition:'content'},403,'license_invalid'],
  ['/_core/LicensePolicy.php',undefined,403],
  ['/_storage/config.php',undefined,403],
+ ['/api/index.php?action=client.updates.status',undefined,401],
+ ['/_core/client-release-worker.php',undefined,403],
  ['/updates/index.php?action=status',undefined,401],
  ['/updates/index.php?action=publish',{},403],
  ['/api/app.php',undefined,403],

@@ -28,6 +28,7 @@ final class UpdatePackage {
     }
     public static function manifest(array $m):void {
         if(($m['schema']??'')!=='bypcms.release/v1'||!preg_match('/^\d+\.\d+\.\d+$/D',$m['version']??'')||!is_array($m['from']??null)||!$m['from']||!is_array($m['editions']??null)||!$m['editions']||!is_array($m['modules']??null)||!is_array($m['files']??null)||count($m['files'])>3000||!preg_match('/^\d+\.\d+\.\d+$/D',$m['php_min']??''))throw new RuntimeException('Некорректные параметры выпуска.');
+        if(isset($m['notes'])){if(!is_array($m['notes'])||count($m['notes'])>20)throw new RuntimeException('Некорректное описание выпуска.');foreach($m['notes']as $note)if(!is_string($note)||mb_strlen($note)>1000)throw new RuntimeException('Некорректное описание выпуска.');}
         foreach($m['from']as $version)if(!is_string($version)||!preg_match('/^\d+\.\d+\.\d+$/D',$version)||version_compare($version,$m['version'],'>='))throw new RuntimeException('Некорректная исходная версия.');
         foreach($m['editions']as $edition)if(!in_array($edition,['content','business','commerce'],true))throw new RuntimeException('Неизвестная редакция.');
         foreach($m['modules']as $module)if(!is_string($module)||!preg_match('/^[a-z0-9_-]{1,120}$/D',$module))throw new RuntimeException('Некорректный модуль.');

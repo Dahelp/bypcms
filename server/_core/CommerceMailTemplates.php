@@ -49,6 +49,9 @@ final class CommerceMailTemplates {
     }
     private static function money(int $minor):string{return number_format($minor/100,2,',',' ').' ₽';}
     public static function samples(string $origin):array {
-        $samples=[];foreach(['customer','owner']as $audience)foreach(['purchase','renewal','service','mixed','test']as $kind)foreach(self::EVENTS as $event){if($kind==='service'&&in_array($event,['ready','fulfillment_error'],true))continue;$o=['id'=>123,'edition'=>$kind==='service'?'services':'content','kind'=>$kind==='renewal'?'renewal':($kind==='service'?'service':'purchase'),'amount_minor'=>790000,'domain'=>'example.test','mode'=>$kind==='test'?'test':'live','services'=>$kind==='mixed'?['launch']:[],'renewed_until'=>$kind==='renewal'?'2028-11-13':null];$invoice=['id'=>1,'number'=>'BYP-123-1','amount_minor'=>790000,'expires_on'=>'2026-11-27','accepted_at'=>null];$samples[]=self::render($o,$event,$audience,$origin,$invoice)+['sample'=>$kind.':'.$audience.':'.$event,'kind'=>$kind];}return $samples;
+        $samples=[];foreach(['customer','owner']as $audience)foreach(['purchase','renewal','service','mixed','test']as $kind)foreach(self::EVENTS as $event){if($kind==='service'&&in_array($event,['ready','fulfillment_error'],true))continue;$o=['id'=>123,'edition'=>$kind==='service'?'services':'content','kind'=>$kind==='renewal'?'renewal':($kind==='service'?'service':'purchase'),'amount_minor'=>790000,'domain'=>'example.test','mode'=>$kind==='test'?'test':'live','services'=>$kind==='mixed'?['launch']:[],'renewed_until'=>$kind==='renewal'?'2028-11-13':null];$invoice=['id'=>1,'number'=>'BYP-123-1','amount_minor'=>790000,'expires_on'=>'2026-11-27','accepted_at'=>null];$samples[]=self::render($o,$event,$audience,$origin,$invoice)+['sample'=>$kind.':'.$audience.':'.$event,'kind'=>$kind];}
+        require_once __DIR__.'/ReleaseAnnouncements.php';require_once __DIR__.'/Content.php';
+        $samples[]=ReleaseAnnouncements::message(['version'=>Content::VERSION,'notes'=>['Пример уведомления о совместимом выпуске CMS.']],$origin)+['sample'=>'release:customer:release_available','kind'=>'release'];
+        return $samples;
     }
 }

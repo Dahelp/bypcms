@@ -9,6 +9,7 @@ require_once __DIR__.'/LicensePolicy.php';
 
 final class CommerceSettings {
     private string $directory;
+    public function root():string{return $this->root;}
     public function __construct(private string $root,private array $config){$this->directory=UpdateRuntime::storage($root,true).'/commerce';if(!is_dir($this->directory)&&!mkdir($this->directory,0750,true))throw new RuntimeException('Нет приватного каталога настроек оплаты.');}
     public static function defaults():array{return ['payments_enabled'=>false,'mode'=>'test','shop_id'=>'','receipt_mode'=>'npd_manual','npd_manual_confirmed'=>false,'vat_code'=>0,'tax_system_code'=>0,'payment_subject'=>'','payment_mode'=>'','smtp_enabled'=>false,'smtp_host'=>'','smtp_port'=>587,'smtp_security'=>'starttls','smtp_user'=>'','from_email'=>'','from_name'=>'BYPCMS','owner_email'=>''];}
     public function get():array {

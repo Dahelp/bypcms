@@ -87,7 +87,8 @@ final class LicenseClient
             $state=$this->read();if(empty($state['credential']))throw new LicenseException('Сначала активируйте лицензию.',409,'not_activated');
             $state['attempted_at']=time();
             try{
-                $result=$this->post('check',['installation_id'=>$this->installation(),'activation_token'=>LicenseCrypto::decrypt($state['credential'],$this->config['app']['key'])]);
+                $version=class_exists(UpdateRuntime::class)?(UpdateRuntime::pointer($this->root)['version']??$this->config['app']['version']):$this->config['app']['version'];
+                $result=$this->post('check',['installation_id'=>$this->installation(),'activation_token'=>LicenseCrypto::decrypt($state['credential'],$this->config['app']['key']),'installed_version'=>$version]);
                 if(!is_array($result['receipt']??null))throw new LicenseException('Некорректное подтверждение лицензии.',503,'invalid_response');
                 try{$this->verify($result['receipt'],time());}catch(Throwable $error){$state['blocked']='invalid';throw $error;}
                 $state['receipt']=$result['receipt'];$state['checked_at']=time();$state['error']='';unset($state['blocked']);

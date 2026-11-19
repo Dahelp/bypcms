@@ -19,6 +19,18 @@ if ($method === 'OPTIONS') {
 
 try {
     byp_license_route($action,$method,$input,$db,$config,null);
+    if(str_starts_with($action,'client.updates.')){
+        $who=$auth->requireUser();if($who['role']!=='owner')Response::error('Доступно только владельцу установки.',403);
+        if(($config['app']['installation_type']??'platform')!=='client')Response::error('Раздел предназначен для клиентской CMS.',403);
+        require_once __DIR__.'/../_core/ReleaseDiscovery.php';$discovery=new \BYPCMS\Core\ReleaseDiscovery(BYPCMS_ROOT,$db->pdo(),$config);
+        if($action==='client.updates.status'&&$method==='GET')Response::ok($discovery->status());
+        if($method!=='POST')Response::error('Требуется POST.',405);$auth->verifyCsrf();session_write_close();
+        if($action==='client.updates.discover')Response::ok($discovery->discover(!empty($input['force'])));
+        if($action==='client.updates.preferences'){if(!isset($input['auto_check'])||!is_bool($input['auto_check']))Response::error('Укажите, включена ли автоматическая проверка.',422);Response::ok($discovery->preference($input['auto_check']));}
+        if($action==='client.updates.read')Response::ok($discovery->acknowledge((string)($input['id']??'')));
+        Response::error('Действие не найдено.',404);
+    }
+
     if (($config['app']['installation_type'] ?? 'platform') === 'client') {
         if($method!=='GET' && (str_starts_with($action,'settings.')||str_starts_with($action,'modules.')) && !in_array($auth->requireUser()['role'],['owner','admin'],true))Response::error('Настройки доступны администратору.',403);
         $coreModules=strtolower($config['app']['edition']??'')==='commerce'?['content','seo','commerce','payments']:['content','seo'];
@@ -629,7 +641,7 @@ try {
             'recent_pages' => $recentPages,
             'license' => $license,
             'modules' => $modules,
-            'health' => ['score' => 100, 'core' => (string)($config['app']['version'] ?? '2.0.0'), 'environment' => 'production'],
+            'health' => ['score'=>100,'core'=>(string)($config['app']['version']??''),'environment'=>'production','installation_type'=>$config['app']['installation_type']??'platform','edition'=>$config['app']['edition']??''],
         ]);
     }
 

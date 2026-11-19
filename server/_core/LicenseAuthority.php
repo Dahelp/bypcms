@@ -143,6 +143,7 @@ final class LicenseAuthority
     {
         $installation = LicensePolicy::installation((string)($input['installation_id'] ?? '')); $token = (string)($input['activation_token'] ?? '');
         if (!preg_match('/^[a-f0-9]{64}$/D', $token)) throw new LicenseException('Привязка установки не подтверждена.',403,'activation_revoked');
+        if(isset($input['installed_version'])&&(!is_string($input['installed_version'])||!preg_match('/^\d+\.\d+\.\d+$/D',$input['installed_version'])))throw new LicenseException('Некорректная версия установки.');
         $this->trust(); $this->pdo->beginTransaction();
         try {
             $activation = $this->one('SELECT * FROM byp_license_activations WHERE installation_id=? AND active=1 FOR UPDATE',[$installation]);
@@ -152,6 +153,7 @@ final class LicenseAuthority
             if (!$release && LicensePolicy::domain($license['domain'], (bool)($this->config['app']['debug'] ?? false)) !== LicensePolicy::site($activation['site_url'], (bool)($this->config['app']['debug'] ?? false))['domain']) throw new LicenseException('Домен лицензии изменён.',403,'domain_mismatch');
             $this->execute('UPDATE byp_license_activations SET active=?,last_seen_at=UTC_TIMESTAMP() WHERE id=?',[$release?0:1,$activation['id']]);
             $this->execute('UPDATE byp_license_registry SET last_seen_at=UTC_TIMESTAMP(),activated_at=IF(?=1,NULL,activated_at) WHERE id=?',[$release?1:0,$license['id']]);
+            if(!$release&&isset($input['installed_version']))$this->execute('UPDATE byp_license_registry SET installed_version=? WHERE id=?',[$input['installed_version'],$license['id']]);
             $result = $release ? ['released'=>true] : ['receipt'=>$this->receipt($license,$activation,$now)];
             if ($release) $this->audit('license.release',(int)$license['id'],['installation_id'=>$installation]); $this->pdo->commit(); return $result;
         } catch (Throwable $error) { if ($this->pdo->inTransaction()) $this->pdo->rollBack(); throw $error; }

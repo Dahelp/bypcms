@@ -18,9 +18,9 @@ for(const edition of ['content','business','commerce']){
  await update({origin:t.origin},'status',undefined,401);await update(t,'publish',{},403);
  const baseline=(await update(t,'check',{})).current.version;const release=(await update(t,'status')).releases.find(r=>r.id===published.id);check(release?.compatible,'signed compatible release');
  const proof=qa+'/preservation-'+edition+'.json';fingerprint(f.client_root,'record',proof);
- const operation=op();await update(t,'begin',{package:release.id,operation_id:operation},403,false);
- let job=(await update(t,'begin',{package:release.id,operation_id:operation})).job;check((await update(t,'begin',{package:release.id,operation_id:operation})).job.id===job.id,'begin retry');let maintenance=false;
- for(let i=0;i<500;i++){job=(await update(t,'step',{id:job.id})).job;if(job.phase==='backup_files'&&!maintenance){maintenance=true;check((await fetch(t.origin+'/')).status===503,'maintenance protects snapshot');check((await fetch(t.origin+'/api/index.php?action=content.list',{headers:{Cookie:t.cookie}})).status===503,'API cannot bypass backup lock');await update(t,'begin',{package:release.id,operation_id:op()},422);}if(['completed','failed','rolled_back','recovery_required'].includes(job.state))break;}
+ const operation=op();await update(t,'begin',{confirmed:true,package:release.id,operation_id:operation},403,false);
+ let job=(await update(t,'begin',{confirmed:true,package:release.id,operation_id:operation})).job;check((await update(t,'begin',{confirmed:true,package:release.id,operation_id:operation})).job.id===job.id,'begin retry');let maintenance=false;
+ for(let i=0;i<500;i++){job=(await update(t,'step',{id:job.id})).job;if(job.phase==='backup_files'&&!maintenance){maintenance=true;check((await fetch(t.origin+'/')).status===503,'maintenance protects snapshot');check((await fetch(t.origin+'/api/index.php?action=content.list',{headers:{Cookie:t.cookie}})).status===503,'API cannot bypass backup lock');await update(t,'begin',{confirmed:true,package:release.id,operation_id:op()},422);}if(['completed','failed','rolled_back','recovery_required'].includes(job.state))break;}
  check(job.state==='completed',JSON.stringify(job));check(maintenance,'backup protected by maintenance');check((await api(t,'status')).version===release.version,'new actual runtime');
  fingerprint(f.client_root,'verify',proof);
  const themes={content:['journal','chronicle','focus'],business:['atelier','corporate','mono'],commerce:['gallery','market','luxe']}[edition];

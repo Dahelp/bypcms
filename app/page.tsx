@@ -1,92 +1,50 @@
 "use client";
-
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { LocaleLink as Link, useLocale, usePublicText } from "./components/PublicLocale";
+import { PublicHeader, PublicFooter, BackToTop, DEMO_URL } from "./components/PublicChrome";
 import { publicEditions, publicModules, publicServices, moduleAvailable } from "./modules/data";
-import { BackToTop, DEMO_URL, PublicFooter, PublicHeader } from "./components/PublicChrome";
+import { portfolioProjects } from "./portfolio/data";
+import "./home.css";
+import BuildEstimate from "./components/BuildEstimate";
 
 export default function Home() {
-  const [selected, setSelected] = useState(1);
-  const [term, setTerm] = useState<"annual"|"lifetime">("annual");
-  const [extrasSelected, setExtrasSelected] = useState<string[]>([]);
-  const [servicesSelected, setServicesSelected] = useState<string[]>([]);
-  const selectedEdition=publicEditions[selected];
-  const compatibleExtras=publicModules.filter(module=>moduleAvailable(module.slug,selectedEdition.name)&&!(selectedEdition.modules as readonly string[]).includes(module.slug));
-  const total = useMemo(() => selectedEdition[term] + compatibleExtras.filter(module=>extrasSelected.includes(module.slug)).reduce((sum,module)=>sum+module.price,0) + publicServices.filter(service=>servicesSelected.includes(service.slug)).reduce((sum,service)=>sum+service.price,0), [selectedEdition,term,compatibleExtras,extrasSelected,servicesSelected]);
-
-  return (
-    <main>
-      <PublicHeader />
-
-      <section className="hero shell" id="platform">
-        <div className="heroCopy">
-          <div className="statusPill"><i /> Платформа для сильных веб-проектов</div>
-          <h1>Управляйте сайтом.<span>Развивайте бизнес.</span></h1>
-          <p>BYPCMS объединяет удобное управление контентом, мощные модули и индивидуальный дизайн. Вы получаете готовую систему, которую можно расширять вместе с вашим проектом.</p>
-          <div className="heroActions">
-            <a className="primaryButton" href="#builder">Рассчитать сборку <span>→</span></a>
-            <a className="textButton" href={DEMO_URL}>Посмотреть демо <span>↗</span></a>
-          </div>
-          <div className="heroProof">
-            <div><strong>15+</strong><span>лет веб-разработки</span></div>
-            <div><strong>6</strong><span>готовых модулей</span></div>
-            <div><strong>24/7</strong><span>контроль лицензий</span></div>
-          </div>
-        </div>
-        <div className="productStage" aria-label="Интерфейс BYPCMS">
-          <div className="stageGlow" />
-          <div className="browserCard">
-            <div className="browserTop"><div className="traffic"><i /><i /><i /></div><span>bypcms / workspace</span><b>•••</b></div>
-            <div className="miniApp">
-              <aside><div className="miniLogo">B</div>{["⌂","▤","◇","◎","⚙"].map((item,index)=><span className={index===0?"active":""} key={item}>{item}</span>)}</aside>
-              <div className="miniContent">
-                <header><div><small>Рабочее пространство</small><strong>Обзор проекта</strong></div><div className="avatar">ДА</div></header>
-                <div className="metricGrid"><div><span>Посетители</span><strong>24 892</strong><em>+18.4%</em></div><div><span>Заявки</span><strong>1 248</strong><em>+7.2%</em></div><div><span>Конверсия</span><strong>5.01%</strong><em>+1.6%</em></div></div>
-                <div className="chartCard"><div className="chartHeading"><span>Активность</span><small>30 дней</small></div><div className="chartBars">{[36,53,46,72,58,80,68,91,73,88,62,96].map((height,index)=><i key={index} style={{height:`${height}%`}} />)}</div></div>
-                <div className="updateToast"><span>✓</span><div><strong>Система актуальна</strong><small>Все компоненты готовы</small></div><b>2.1</b></div>
-              </div>
-            </div>
-          </div>
-          <div className="floatingTag tagOne"><b>∞</b><span>возможностей</span></div><div className="floatingTag tagTwo"><i>✓</i><span>Лицензия активна</span></div>
-        </div>
-      </section>
-
-      <section className="editions shell" id="products">
-        <div className="sectionIntro"><p className="sectionLabel">01 / РЕДАКЦИИ</p><h2>Готовая основа.<br />Ваши возможности.</h2><p>Выберите редакцию и дополните её модулями, дизайном и услугами разработки.</p></div>
-        <div className="editionCards">
-          {publicEditions.map((product,index)=><article className={`editionCard ${["violet","lime","blue"][index]} ${selected===index?"selected":""}`} key={product.name} onClick={()=>setSelected(index)}>
-            <span className="cardIndex">0{index+1}</span><p>BYPCMS</p><h3>{product.name}</h3><div className="editionVisual"><i/><i/><i/><strong>{product.name[0]}</strong></div>
-            <p className="editionText">{product.note}</p><ul>{product.modules.map(item=><li key={item}>✓ {publicModules.find(module=>module.slug===item)?.name}</li>)}</ul>
-            <div className="editionPrice"><span>{product[term].toLocaleString("ru-RU")} ₽</span><small> / {term==="annual"?"год":"пожизненно"}</small></div>
-          </article>)}
-        </div>
-      </section>
-
-      <section className="modules" id="builder"><div className="shell">
-        <div className="sectionIntro light"><p className="sectionLabel">02 / КОНСТРУКТОР</p><h2>Соберите свою BYPCMS.</h2><p>Итоговая стоимость прозрачна: редакция, выбранные модули и услуги.</p></div>
-        <div className="publicTermSelect"><button className={term==="annual"?"active":""} onClick={()=>setTerm("annual")}><b>Лицензия на 1 год</b><span>Доступная цена и ежегодное продление</span></button><button className={term==="lifetime"?"active":""} onClick={()=>setTerm("lifetime")}><b>Пожизненная лицензия</b><span>Без обязательного ежегодного платежа</span></button></div>
-        <div className="priceBuilder">
-          <div><div className="builderOptions">{compatibleExtras.length===0&&<p>Проверенные модули входят в выбранную редакцию. Отдельные дополнения сейчас не предлагаются.</p>}{compatibleExtras.map(module=><label key={module.slug}><input type="checkbox" checked={extrasSelected.includes(module.slug)} onChange={()=>setExtrasSelected(list=>list.includes(module.slug)?list.filter(x=>x!==module.slug):[...list,module.slug])}/><span><strong>{module.name}</strong><small>+{module.price.toLocaleString("ru-RU")} ₽ · <Link href={`/modules/${module.slug}`}>подробнее</Link></small></span></label>)}</div><div className="optionalServices"><header><span>ДОПОЛНИТЕЛЬНЫЕ УСЛУГИ</span><Link href="/services">Все услуги →</Link></header>{publicServices.map(service=><label key={service.slug}><input type="checkbox" checked={servicesSelected.includes(service.slug)} onChange={()=>setServicesSelected(list=>list.includes(service.slug)?list.filter(x=>x!==service.slug):[...list,service.slug])}/><span><strong>{service.name}</strong><small>+ от {service.price.toLocaleString("ru-RU")} ₽ / {service.unit}</small></span></label>)}</div></div>
-          <aside><small>ВАША СБОРКА</small><h3>BYPCMS {selectedEdition.name}</h3><p>{selectedEdition.modules.map(key=>publicModules.find(module=>module.slug===key)?.name).concat(extrasSelected.map(key=>publicModules.find(module=>module.slug===key)?.name)).filter(Boolean).join(" · ")}</p>{servicesSelected.length>0&&<p>Услуги: {servicesSelected.map(key=>publicServices.find(service=>service.slug===key)?.name).join(" · ")}</p>}<strong>{servicesSelected.length>0?"от ":""}{total.toLocaleString("ru-RU")} ₽</strong><small>{servicesSelected.length>0?"Предварительная оценка. Точную цену и сроки услуг согласуем в счёте; сопровождение оплачивается за выбранный период.":"Фиксированная цена лицензии и модулей. Банковский перевод по счёту."}</small><Link href={`/order?edition=${selectedEdition.name}&term=${term}&modules=${extrasSelected.join(",")}&services=${servicesSelected.join(",")}`}>{servicesSelected.length?"Согласовать и получить счёт →":"Получить счёт →"}</Link></aside>
-        </div>
-      </div></section>
-
-      <section className="publicModuleCatalog shell"><div className="sectionIntro"><p className="sectionLabel">03 / МОДУЛИ</p><h2>Каждая возможность<br/>описана подробно.</h2></div><div>{publicModules.map(module=><Link href={`/modules/${module.slug}`} key={module.slug}><small>{module.category}</small><h3>{module.name}</h3><p>{module.lead}</p><span>{module.readiness==="planned"?"В разработке · не продаётся":"В составе редакции"} →</span></Link>)}</div></section>
-
-      <section className="architecture shell" id="services">
-        <div className="architectureCopy"><p className="sectionLabel">04 / УСЛУГИ</p><h2>Проект под ключ<br />на одной платформе.</h2><p>Помимо лицензии можно заказать прототипирование, уникальный UX/UI, адаптивный frontend, интеграции, перенос данных, запуск и сопровождение.</p><Link className="primaryButton dark" href="/services">Смотреть все услуги <span>→</span></Link></div>
-        <div className="layerStack">
-          <div className="layer projectLayer"><span>04</span><div><strong>Разработка и запуск</strong><small>Frontend · интеграции · перенос · обучение</small></div><b>Под ключ</b></div>
-          <div className="layer moduleLayer"><span>03</span><div><strong>Индивидуальный дизайн</strong><small>UX-исследование · UI-kit · адаптивный шаблон</small></div><b>Уникально</b></div>
-          <div className="layer moduleLayer"><span>02</span><div><strong>Модули</strong><small>Каталог · продажи · CRM в Business</small></div><b>По редакции</b></div>
-          <div className="layer coreLayer"><span>01</span><div><strong>BYPCMS Core</strong><small>Управление · API · обновления · лицензия</small></div><b>Основа</b></div>
-        </div>
-      </section>
-
-      <section className="conceptOffer shell"><div><p className="sectionLabel">05 / ПЕРЕД РАЗРАБОТКОЙ</p><h2>Сначала увидите идею.<br/>Потом примете решение.</h2><p>Для будущего сайта подготовим персональную концепцию: изучим задачу и аудиторию, предложим структуру, визуальное направление, ключевые сценарии и варианты реализации. Презентацию и условия проекта получите по закрытой ссылке. Состав, сроки и стоимость разработки согласуем после обсуждения концепции.</p><div><Link className="primaryButton dark" href="/concept-example/">Посмотреть пример <span>↗</span></Link><Link className="textButton" href="/order">Обсудить свой проект <span>→</span></Link></div></div><aside><span>КОНЦЕПЦИЯ / ПРИМЕР</span><strong>Тихий берег</strong><p>Как сайт камерного пространства отдыха помогает выбрать поездку ещё до первого звонка.</p><ul><li>Исследование и идея</li><li>Сценарий посетителя</li><li>Визуальное направление</li><li>План реализации</li></ul><Link href="/concept-example/">Открыть презентацию →</Link></aside></section>
-
-      <section className="cta"><div className="shell ctaInner"><div><span className="ctaMark">B</span><p className="sectionLabel">ВАШ НОВЫЙ ВЕБ-ПРОЕКТ</p><h2>Соберём систему,<br />которая подходит именно вам.</h2></div><a className="ctaButton" href={DEMO_URL}>Открыть демо <span>↗</span></a></div></section>
-      <PublicFooter /><BackToTop />
-    </main>
-  );
+  const locale=useLocale(), t=usePublicText(), tx=(ru:string,en:string)=>locale==="en"?en:ru;
+  const [edition,setEdition]=useState("Business"), [term,setTerm]=useState<"annual"|"lifetime">("annual");
+  const [extras,setExtras]=useState<string[]>([]), [services,setServices]=useState<string[]>([]), [ready,setReady]=useState(false);
+  const selected=publicEditions.find(item=>item.name===edition)??publicEditions[0];
+  const compatible=publicModules.filter(item=>moduleAvailable(item.slug,selected.name)&&!(selected.modules as readonly string[]).includes(item.slug));
+  const selectedExtras=extras.filter(key=>compatible.some(item=>item.slug===key));
+  const total=selected[term]+compatible.filter(item=>selectedExtras.includes(item.slug)).reduce((sum,item)=>sum+item.price,0);
+  const estimateServices=publicServices.map(service=>({slug:service.slug,amountMinor:service.price*100,billing:service.billing}));
+  const params=new URLSearchParams({edition:selected.name,term,modules:selectedExtras.join(","),services:services.join(",")});
+  const money=(value:number)=>value.toLocaleString(locale==="en"?"en-US":"ru-RU")+" ₽";
+  useEffect(()=>{void Promise.resolve().then(()=>{const query=new URLSearchParams(window.location.search);const item=publicEditions.find(item=>item.name.toLowerCase()===(query.get("edition")||"").toLowerCase());if(item)setEdition(item.name);if(query.get("term")==="lifetime")setTerm("lifetime");setExtras((query.get("modules")||"").split(",").filter(key=>publicModules.some(item=>item.slug===key&&item.readiness!=="planned")));setServices((query.get("services")||"").split(",").filter(key=>publicServices.some(item=>item.slug===key)));setReady(true);});},[]);
+  const extraKey=selectedExtras.join(","), serviceKey=services.join(",");
+  useEffect(()=>{if(!ready)return;const url=new URL(window.location.href);url.searchParams.set("edition",selected.name);url.searchParams.set("term",term);if(extraKey)url.searchParams.set("modules",extraKey);else url.searchParams.delete("modules");if(serviceKey)url.searchParams.set("services",serviceKey);else url.searchParams.delete("services");window.history.replaceState(null,"",url.pathname+url.search+url.hash);window.dispatchEvent(new Event("bypcms:configuration"));},[ready,selected.name,term,extraKey,serviceKey]);
+  function choose(name:string) {setEdition(name);setExtras([]);}
+  const featured=portfolioProjects.filter(item=>item.featured);
+  const faq=locale==="en"?[
+    ["What is included in a build?","The CMS archive, a license key and the modules included in your edition. Website content, custom design, migration and launch services are agreed separately."],
+    ["Can I try it before buying?","Yes. Open the demo to explore the website and its control panel. Demo projects use illustrative content; they are not customer case studies."],
+    ["Annual or lifetime license?","An annual license is valid for one year and can be renewed. A lifetime license has no mandatory annual license payment. Scope and update terms are set out in the purchase terms."],
+    ["How do I receive my build?","Create an order in your account. The seller prepares an invoice; after payment is verified, your CMS archive, license key and installation instructions become available in the order."],
+    ["Can my website have multiple languages?","We can plan language versions, translated content and navigation as part of a custom project. Requirements, content, scope and cost are agreed before development."],
+  ]:[
+    ["Что входит в сборку?","Архив CMS, ключ лицензии и модули выбранной редакции. Наполнение сайта, индивидуальный дизайн, перенос данных и запуск согласуются отдельно."],
+    ["Можно посмотреть до покупки?","Да. Откройте демо, чтобы изучить сайт и панель управления. В демонстрационных проектах используются иллюстративные материалы — это не клиентские кейсы."],
+    ["На год или пожизненно?","Годовая лицензия действует один год и может быть продлена. Пожизненная не требует обязательного ежегодного платежа за лицензию. Состав поставки и условия обновлений указаны в условиях покупки."],
+    ["Как получить свою сборку?","Создайте заказ в кабинете. Продавец подготовит счёт; после проверки поступления оплаты в заказе появятся архив CMS, ключ лицензии и инструкция по установке."],
+    ["Можно сделать сайт на нескольких языках?","В индивидуальном проекте можно предусмотреть языковые версии, переводы контента и навигацию. Требования, материалы, объём и стоимость согласуются до разработки."],
+  ];
+  return <main className="salesHome"><PublicHeader/>
+    <section className="salesHero publicContainer" aria-labelledby="home-title"><div className="salesHeroCopy"><p className="salesEyebrow">{tx("BYPCMS / ПЛАТФОРМА ДЛЯ ВАШЕГО ПРОЕКТА","BYPCMS / A PLATFORM FOR YOUR NEXT PROJECT")}</p><h1 id="home-title">{tx("Сильный сайт.","A stronger website.")}<br/>{tx("Уверенный рост.","Room to grow.")}</h1><p>{tx("Готовая CMS, продуманный дизайн и возможности под задачи вашего бизнеса. Выберите сборку — развивайте проект на своей платформе.","A ready-to-use CMS, considered design and features that fit your business. Choose a build and develop your project on your own platform.")}</p><div className="salesActions"><a className="salesButton" href="#products">{tx("Выбрать сборку","Choose your build")} →</a><a className="salesButton secondary" href={DEMO_URL}>{tx("Посмотреть демо","Explore the demo")}</a></div><p className="salesHeroNote">{tx("Компания · Интернет-магазин · Медиа","Company website · Online store · Publication")}</p></div><figure className="salesHeroVisual"><figcaption><b>ATELIER</b><span>{tx("Демонстрационный сайт / Business","Demo website / Business")}</span></figcaption><a href={`${DEMO_URL}atelier/`} aria-label={tx("Открыть демонстрационный сайт Atelier","Open the Atelier demo website")}><img src="/showcase/atelier-clean.jpg" width="1440" height="1000" alt={tx("Архитектурный сайт Atelier на BYPCMS","Atelier architecture website on BYPCMS")} fetchPriority="high"/></a></figure></section>
+    <ol className="salesSteps publicContainer">{[[tx("Выберите решение","Find your fit"),tx("Сборку под задачи вашего проекта.","A build that fits your project.")],[tx("Проверьте в демо","Try the demo"),tx("Дизайн, структуру и управление.","Explore design, content and controls.")],[tx("Получите свою сборку","Make it yours"),tx("Лицензию и готовую основу сайта.","Your license and website foundation.")]].map(([title,body],index)=><li key={title}><span>{index+1}</span><div><b>{title}</b><p>{body}</p></div></li>)}</ol>
+    <section className="salesPortfolio publicContainer" id="portfolio"><div className="salesSectionHeading"><div><p className="salesEyebrow">{tx("ПОРТФОЛИО / НАШИ ПРОЕКТЫ","SHOWCASE / OUR PROJECTS")}</p><h2>{tx("Разные задачи.","Different ambitions.")}<br/>{tx("Одинаково высокий уровень.","The same attention to detail.")}</h2></div><Link className="salesTextLink" href="/portfolio/">{tx("Смотреть все проекты","View all projects")} →</Link></div><div className="salesProjectGrid">{featured.slice(0,3).map(project=><article key={project.slug}><Link className="salesProjectImage" href={`/portfolio/${project.slug}/`}><img src={project.image} alt={tx(`Сайт ${project.title}`,`${project.title} website`)} width="1440" height="1000" loading="lazy"/></Link><div className="salesProjectMeta"><b>{tx(project.title,project.en?.title||project.title)}</b><span>{project.kind==="client"?tx("Полная разработка","Full website development"):tx("Демонстрационный сайт","Demo website")}</span></div><h3>{tx(project.category,project.en?.category||project.category)}</h3><p>{tx(project.lead,project.en?.lead||project.lead)}</p><div className="salesProjectFooter"><span>{project.edition?`BYPCMS ${project.edition}`:tx("Индивидуальный проект","Custom website")}</span><Link href={`/portfolio/${project.slug}/`}>{tx("Смотреть проект","View project")} →</Link></div></article>)}</div><div className="salesLanguages"><span>RU / EN</span><div><b>{tx("Ваш проект — без языковых границ.","Your project, across languages.")}</b><p>{tx("Этот сайт доступен на русском и английском. Для вашего проекта спланируем нужные языковые версии, контент и сценарии.","This website is available in Russian and English. We can plan the language versions, content and journeys your project needs.")}</p></div><Link href="/portfolio/bypcms-platform/">{tx("О проекте BYPCMS","About the BYPCMS project")} →</Link></div></section>
+    <section className="salesEditions publicContainer" id="products"><p className="salesEyebrow">{tx("РЕШЕНИЯ BYPCMS","BYPCMS EDITIONS")}</p><h2>{tx("Основа для вашего проекта","Your project's foundation")}</h2><p className="salesSectionLead">{tx("Три редакции для разных задач. Выберите основу, а дизайн, запуск и развитие добавьте по необходимости.","Three editions for different needs. Choose your foundation, then add design, launch or development services if you need them.")}</p><div className="salesEditionGrid">{publicEditions.map((item,index)=><article key={item.name} className={`salesEdition edition-${index} ${selected.name===item.name?"isSelected":""}`}><h3>{item.name}</h3><p>{t(item.note)}</p><ul>{item.modules.map(key=><li key={key}>{t(publicModules.find(module=>module.slug===key)?.name||key)}</li>)}</ul><div className="salesEditionPrice"><strong>{money(item[term])}</strong><span>{term==="annual"?tx("/ год","/ year"):tx("один раз","one time")}</span></div><a className={`salesButton ${selected.name===item.name?"":"secondary"}`} href="#builder" onClick={()=>choose(item.name)}>{`${tx("Выбрать","Choose")} ${item.name}`} →</a></article>)}</div></section>
+    <section className="salesBuilder publicContainer" id="builder" aria-labelledby="build-title"><div><p className="salesEyebrow">{tx("ВАША КОНФИГУРАЦИЯ","YOUR CONFIGURATION")}</p><h2 id="build-title">{tx("Ваша сборка.","Your build.")}<br/>{tx("Всё прозрачно.","Every detail clear.")}</h2><p>{tx("Выберите редакцию и срок лицензии. Услуги по дизайну, запуску и развитию — по отдельному согласованию.","Choose your edition and license term. Design, launch and development services are agreed separately.")}</p><Link href="/modules/" className="salesTextLink">{tx("Подробнее о модулях","Explore the modules")} →</Link></div><div className="salesBuilderForm"><fieldset className="salesTerm"><legend>{tx("Срок лицензии","License term")}</legend>{(["annual","lifetime"] as const).map(value=><label key={value}><input type="radio" name="license-term" checked={term===value} onChange={()=>setTerm(value)}/><span>{value==="annual"?tx("На 1 год","One year"):tx("Пожизненно","Lifetime")}</span></label>)}</fieldset><label className="salesEditionSelect">{tx("Редакция","Edition")}<select value={selected.name} onChange={event=>choose(event.target.value)}>{publicEditions.map(item=><option key={item.name}>{item.name}</option>)}</select></label><div className="salesIncluded"><small>{tx("ВКЛЮЧЕНО В РЕДАКЦИЮ","INCLUDED IN YOUR EDITION")}</small><p>{selected.modules.map(key=>t(publicModules.find(module=>module.slug===key)?.name||key)).join(" · ")}</p></div>{compatible.length>0&&<fieldset className="salesExtras"><legend>{tx("Дополнительные модули","Additional modules")}</legend>{compatible.map(item=><label key={item.slug}><input type="checkbox" checked={selectedExtras.includes(item.slug)} onChange={()=>setExtras(old=>old.includes(item.slug)?old.filter(key=>key!==item.slug):[...old,item.slug])}/><span>{t(item.name)} +{money(item.price)}</span></label>)}</fieldset>}<details className="salesServices"><summary>{tx("Добавить услуги по согласованию","Add services by agreement")} {services.length>0&&`(${services.length})`}</summary><p>{tx("Ориентировочные цены услуг добавляются к расчёту сборки. Точную стоимость и сроки согласуем в счёте до оплаты.","Indicative service prices are added to the build estimate. Exact scope, price and timing will be agreed before payment.")}</p>{publicServices.map(item=><label key={item.slug}><input type="checkbox" checked={services.includes(item.slug)} onChange={()=>setServices(old=>old.includes(item.slug)?old.filter(key=>key!==item.slug):[...old,item.slug])}/><span>{t(item.name)}<small>{tx("от","from")} {money(item.price)} / {t(item.unit)}</small></span></label>)}</details><BuildEstimate licenseMinor={total*100} catalog={estimateServices} selected={services} tone="dark"/><Link className="salesButton" href={`/order/?${params}`}>{tx("Перейти к заказу","Continue to order")} →</Link><small className="salesNoPayment">{tx("На следующем шаге проверите состав. Деньги не списываются.","Review your selection next. No payment is taken at this step.")}</small></div></section>
+    <section className="salesProcess publicContainer" id="process"><div><p className="salesEyebrow">{tx("ОТ ВЫБОРА ДО ЗАПУСКА","FROM SELECTION TO LAUNCH")}</p><h2>{tx("Понятный путь.","A clear path.")}<br/>{tx("Ваш результат.","Your next chapter.")}</h2></div><ol>{(locale==="en"?[["Choose and explore","Compare editions and open a demo. Check how the website and CMS fit your needs."],["Confirm your order","Review the configuration, sign in and create an order. Agree any additional services before payment."],["Receive your build","After payment verification, download your archive, license key and installation guide from your account."],["Launch and develop","Install the CMS on your hosting and activate the license. Launch assistance and ongoing support are available separately."]]:[["Выберите и проверьте","Сравните редакции и откройте демо. Оцените, как сайт и управление подходят вашей задаче."],["Оформите заказ","Проверьте комплектацию, войдите в кабинет и создайте заказ. Дополнительные услуги согласуем до оплаты."],["Получите сборку","После проверки оплаты скачайте архив, ключ лицензии и инструкцию по установке из кабинета."],["Запустите и развивайте","Установите CMS на своём хостинге и активируйте лицензию. Помощь с запуском и сопровождение можно заказать отдельно."]]).map(([title,description],index)=><li key={title}><span>0{index+1}</span><div><h3>{title}</h3><p>{description}</p></div></li>)}</ol></section>
+    <section className="salesCustom publicContainer"><div><p className="salesEyebrow">{tx("ИНДИВИДУАЛЬНЫЙ ПРОЕКТ","A PROJECT OF YOUR OWN")}</p><h2>{tx("Больше, чем готовая основа.","More than a starting point.")}</h2><p>{tx("Исследуем задачу, предложим концепцию, разработаем дизайн и настроим сайт на BYPCMS. Объём, сроки и стоимость — до начала работ.","We explore your brief, propose a concept, design and build your website on BYPCMS. Scope, schedule and cost are agreed before work begins.")}</p></div><Link className="salesButton secondary" href="/services/">{tx("Услуги разработки","Development services")} →</Link></section>
+    <section className="salesFaq publicContainer"><div><p className="salesEyebrow">{tx("ПЕРЕД ПОКУПКОЙ","BEFORE YOU BUY")}</p><h2>{tx("Остались вопросы?","A few useful answers.")}</h2><Link className="salesTextLink" href="/contacts/">{tx("Связаться с нами","Contact us")} →</Link></div><div>{faq.map(([question,answer])=><details key={question}><summary>{question}</summary><p>{answer}</p></details>)}</div></section>
+    <section className="salesFinal publicContainer"><p className="salesEyebrow">{tx("ВАШ СЛЕДУЮЩИЙ ШАГ","YOUR NEXT STEP")}</p><h2>{tx("Начните с правильной основы.","Start with the right foundation.")}</h2><a className="salesButton" href="#products">{tx("Выбрать свою сборку","Find your build")} →</a></section><PublicFooter/><BackToTop/>
+  </main>;
 }

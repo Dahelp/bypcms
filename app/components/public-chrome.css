@@ -1,0 +1,15 @@
+@font-face{font-family:"BYPCMS Sans";src:url('/fonts/manrope.ttf') format('truetype');font-weight:200 800;font-display:swap}
+.salesHome,.servicesPage,.modulesCatalog,.modulePage,.portfolioPage,.orderPage,.contactsPage,.legalPage,.examplePage,.publicHeader,.publicFooter{font-family:"BYPCMS Sans","Segoe UI",Arial,sans-serif}
+.publicHeader{height:90px;background:var(--paper)}
+.publicHeaderInner{gap:28px}.publicHeader .brand{grid-template-columns:32px auto}.publicHeader .brand small{display:none}.publicHeader .brandMark{width:32px;height:32px}
+.publicHeader .publicNavigation{gap:26px}.publicHeader .publicHeaderActions{gap:20px}
+.publicHeader .publicHeaderActions .action{background:var(--acid);color:var(--ink);border:0;border-radius:6px;padding:14px 19px}
+.publicHeader .publicDemoLink{border:1px solid var(--ink);border-radius:6px;padding:12px 20px}
+.publicHeader .languageSwitch{display:flex!important;gap:10px;height:auto!important}.publicHeader .languageSwitch a{padding:0;border:0;height:auto;color:#73716b;font-weight:500}.publicHeader .languageSwitch a[aria-current]{color:var(--ink);font-weight:800}
+.publicMenuToggle,.publicHeader .mobileAccount{display:none}
+.publicHeader a:focus-visible,.publicHeader button:focus-visible,.publicFooter a:focus-visible{outline:3px solid #7558df;outline-offset:5px}
+@media(max-width:1150px){.publicHeaderInner{grid-template-columns:auto 1fr}.publicHeader .publicHeaderActions{justify-self:end}.publicMenuToggle{display:block;border:1px solid var(--line);border-radius:6px;background:none;padding:11px;cursor:pointer}.publicHeader .publicNavigation{display:none!important}.publicHeader .publicNavigation.isOpen{display:flex!important;position:absolute;top:100%;left:0;right:0;height:auto!important;padding:24px var(--public-pad)!important;background:var(--paper);border-bottom:1px solid var(--line)!important;align-items:stretch;flex-direction:column;gap:0;box-shadow:0 15px 20px #10100f0a}.publicHeader .publicNavigation a{padding:14px 0;border-bottom:1px solid var(--line)}.publicHeader .mobileAccount{display:block}}
+@media(max-width:650px){:root{--public-pad:20px}.publicHeader{height:76px}.publicHeader .publicHeaderActions{gap:12px}.publicHeader .publicHeaderActions .action{display:none}.publicHeader .languageSwitch{gap:8px}.publicHeader .publicHeaderInner{width:calc(100% - 40px)}.publicHeader .publicDemoLink{display:none}.publicHeader .brand{font-size:15px}.publicMenuToggle{font-size:14px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important}}
+.publicHeader .publicAccountLink{font-size:13px!important}@media(max-width:1300px){.publicHeader .publicAccountLink{display:none}}
+@media(min-width:1301px){.publicHeader .publicAccountLink{font-size:14px!important}}

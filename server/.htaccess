@@ -9,7 +9,10 @@ DirectoryIndex index.html index.php
   RewriteRule ^(nuovi-spazi-proposal|ballettschule-salzburg-konzept|ballet-salzburg-proposal)/index\.html$ concepts/index.html?slug=$1 [L,QSA]
   # Every portfolio case has a clean permanent URL while its content is loaded
   # from MySQL by the shared portfolio application.
+  RewriteCond %{REQUEST_FILENAME}/index.html !-f
   RewriteRule ^portfolio/([^/]+)/?$ portfolio/index.html?project=$1 [L,QSA]
+  RewriteCond %{REQUEST_FILENAME}/index.html !-f
+  RewriteRule ^en/portfolio/([^/]+)/?$ en/portfolio/index.html?project=$1 [L,QSA]
   RewriteCond %{HTTP_HOST} ^(?:www\.)?bypcms\.ru$ [NC]
   RewriteRule ^demo(?:/.*)?$ https://demo.bypcms.ru/ [R=301,L]
   RewriteCond %{HTTP_HOST} ^demo\.bypcms\.ru$ [NC]

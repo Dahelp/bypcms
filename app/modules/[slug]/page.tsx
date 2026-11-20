@@ -1,10 +1,7 @@
-import Link from "next/link";
 import {notFound} from "next/navigation";
 import {publicModules} from "../data";
-import {BackToTop,DEMO_URL,PublicFooter,PublicHeader} from "../../components/PublicChrome";
-import "./module.css";
-export function generateStaticParams(){return publicModules.map(m=>({slug:m.slug}));}
-export default async function ModulePage({params}:{params:Promise<{slug:string}>}){
- const {slug}=await params;const item=publicModules.find(m=>m.slug===slug);if(!item)notFound();const planned=item.readiness==="planned";
- return <main className="modulePage"><PublicHeader active="modules"/><section className="moduleHero"><div className="moduleHeroCopy"><p>{item.category} / BYPCMS</p><h1>{item.name}</h1><span>{item.lead}</span><div className="modulePrice"><strong>{planned?"В разработке · не продаётся":"В составе редакции"}</strong><small>{planned?"Покупка и включение в новые сборки недоступны":`Доступно: ${item.editions.map(e=>e[0].toUpperCase()+e.slice(1)).join(", ")}`}</small></div></div><aside className="modulePreview"><h2>{planned?"Статус модуля":"Что получает покупатель"}</h2><p>{planned?"Подключение модуля пока недоступно. Вы можете выбрать готовую редакцию BYPCMS.":"Перечисленные функции входят в совместимую редакцию. Обновления поставляются вместе с выпуском CMS."}</p>{!planned&&<div className="previewActions"><a href={`${DEMO_URL}?edition=${item.editions[0]}`}>Посмотреть редакцию ↗</a><Link href="/#products">Выбрать редакцию</Link></div>}</aside></section>{!planned&&<section className="moduleFeatures"><div><p>ПРОВЕРЕННЫЙ СОСТАВ</p><h2>Что входит в поставку</h2><span>Условия и ограничения указаны рядом с функцией.</span></div><div>{item.features.map(([title,description],index)=><article key={title}><span>{String(index+1).padStart(2,"0")}</span><h3>{title}</h3><p>{description}</p></article>)}</div></section>}<section className="moduleCta"><h2>{planned?"Выберите готовую редакцию BYPCMS":"Выбрать совместимую редакцию"}</h2><Link href="/#products">Состав редакций →</Link></section><PublicFooter/><BackToTop/></main>;
-}
+import ModuleContent from "../ModuleContent";
+import {publicMetadata} from "../../../lib/public-locale";
+export function generateStaticParams(){return publicModules.map(item=>({slug:item.slug}));}
+export async function generateMetadata({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const item=publicModules.find(item=>item.slug===slug);return item?publicMetadata(`/modules/${slug}/`,item.name+" — BYPCMS",item.lead,"ru"):{};}
+export default async function Page({params}:{params:Promise<{slug:string}>}){const {slug}=await params;const item=publicModules.find(item=>item.slug===slug);if(!item)notFound();return <ModuleContent item={item}/>;}

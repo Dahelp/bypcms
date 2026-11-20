@@ -10,6 +10,7 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://bypcms.ru",
   ),
   title: "BYPCMS — CMS, модули и разработка сайтов",
+  alternates: {canonical:"/",languages:{ru:"/",en:"/en/","x-default":"/"}},
   description:
     "Удобная CMS для бизнеса, интернет-магазинов и контентных проектов. Лицензии, модули, индивидуальный дизайн и разработка.",
   openGraph: {
@@ -37,7 +38,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru">
+    <html lang="ru" suppressHydrationWarning data-scroll-behavior="smooth">
       <body>{children}</body>
     </html>
   );

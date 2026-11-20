@@ -1,6 +1,7 @@
 import { cp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { execFileSync } from "node:child_process";
+import { finalizePublicExport } from "./finalize-public-export.mjs";
 
 const root = process.cwd();
 const source = resolve(root, "server");
@@ -8,6 +9,7 @@ const target = resolve(root, "out");
 
 await mkdir(target, { recursive: true });
 await cp(source, target, { recursive: true, force: true });
+await finalizePublicExport(target);
 // Some hosting panels point the demo vhost directly at the primary site's
 // /demo directory. Keep that document root self-contained as well.
 await cp(resolve(target, "_next"), resolve(target, "demo", "_next"), { recursive: true, force: true });

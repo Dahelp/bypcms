@@ -17,7 +17,7 @@ final class CustomerAccounts {
         } finally {flock($lock,LOCK_UN);fclose($lock);}
     }
     public static function returnTo(string $next):string {
-        return strlen($next)>2500||strpbrk($next,"\r\n\0\\")!==false||!preg_match('~^/(?:order/?|account/(?:(?:order|purchase)\.php)?)(?:\?[^#]*)?$~D',$next)?'/account/':$next;
+        return strlen($next)>2500||strpbrk($next,"\r\n\0\\")!==false||!preg_match('~^/(?:(?:en/)?order/?|account/(?:(?:order|purchase)\.php)?)(?:\?[^#]*)?$~D',$next)?'/account/':$next;
     }
     /** Existing sessions remain valid until the first password reset; no staff session is revoked. */
     public static function validateSession(Database $db,string $root):void {

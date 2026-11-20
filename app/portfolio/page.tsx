@@ -1,74 +1,37 @@
 "use client";
-
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { BackToTop, Breadcrumbs, PublicFooter, PublicHeader } from "../components/PublicChrome";
-import { portfolioProjects } from "./data";
+import {LocaleLink as Link,usePublicText,useLocale} from "../components/PublicLocale";
+import {useEffect,useState} from "react";
+import {BackToTop,Breadcrumbs,PublicFooter,PublicHeader} from "../components/PublicChrome";
+import {portfolioProjects,type PortfolioProject} from "./data";
+import PortfolioCase from "./PortfolioCase";
 import "./portfolio.css";
-
-export default function PortfolioPage() {
-  const [projects,setProjects]=useState(portfolioProjects);
-  const [selectedSlug,setSelectedSlug]=useState("");
-  useEffect(()=>{
-    const querySlug=new URLSearchParams(window.location.search).get("project")||"";
-    const pathParts=window.location.pathname.split("/").filter(Boolean);
-    setSelectedSlug(querySlug||(pathParts[0]==="portfolio"&&pathParts[1]?decodeURIComponent(pathParts[1]):""));
-  },[]);
-  useEffect(()=>{fetch("/api/index.php?action=portfolio.public").then(response=>response.ok?response.json():null).then(payload=>{
-    if(!payload?.projects?.length)return;
-    setProjects(payload.projects.map((item:Record<string,unknown>)=>({
-      slug:String(item.slug),title:String(item.title),category:String(item.category||""),edition:String(item.edition||"Business"),
-      year:String(item.project_year||""),lead:String(item.lead||""),description:String(item.description||""),result:String(item.result_text||""),
-      image:String(item.cover_image||"/og.png"),accent:"#caff3d",features:Array.isArray(item.features)?item.features.map(String):[],
-      modules:Array.isArray(item.modules)?item.modules.map(String):[],services:Array.isArray(item.services)?item.services.map(String):[],
-    })));
-  }).catch(()=>undefined)},[]);
-  const selected=projects.find(project=>project.slug===selectedSlug);
-  if(selectedSlug&&selected)return <PortfolioCase project={selected}/>;
-  return <main className="portfolioPage">
-    <PublicHeader active="portfolio" />
-    <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Портфолио"}]}/>
-    <section className="portfolioHero publicContainer">
-      <p>ПРОЕКТЫ НА BYPCMS</p>
-      <h1>Портфолио</h1>
-      <div><span>Сайты, интерфейсы и платформенные решения — от исследования и дизайна до запуска и развития.</span><b>{projects.length}<small>проекта в подборке</small></b></div>
-    </section>
-    <section className="portfolioGrid publicContainer">
-      {projects.map((project, index) => <Link href={`/portfolio/${encodeURIComponent(project.slug)}/`} className="portfolioCard" key={project.slug}>
-        <div className="portfolioVisual" style={{"--project-accent":project.accent} as React.CSSProperties}>
-          <span>{String(index + 1).padStart(2, "0")}</span><img src={project.image} alt={`Макет проекта ${project.title}`} />
-        </div>
-        <div className="portfolioCardCopy"><small>{project.category} · {project.year}</small><h2>{project.title}</h2><p>{project.lead}</p><footer><span>{project.edition}</span><b>Смотреть кейс →</b></footer></div>
-      </Link>)}
-    </section>
-    <section className="portfolioCta"><div className="publicContainer"><p>НУЖЕН ИНДИВИДУАЛЬНЫЙ ПРОЕКТ?</p><h2>Создадим сайт, который работает на задачи вашего бизнеса.</h2><Link href="/order">Обсудить проект →</Link></div></section>
-    <PublicFooter /><BackToTop />
-  </main>;
-}
-
-function PortfolioCase({project}:{project:(typeof portfolioProjects)[number]}) {
-  return <main className="portfolioPage">
-    <PublicHeader active="portfolio"/>
-    <Breadcrumbs items={[{label:"Главная",href:"/"},{label:"Портфолио",href:"/portfolio/"},{label:project.title}]}/>
-    <section className="caseHero publicContainer">
-      <div><p>{project.category} · {project.year}</p><h1>{project.title}</h1><span>{project.lead}</span></div>
-      <aside><small>РЕДАКЦИЯ</small><b>BYPCMS {project.edition}</b><Link href="/order">Хочу похожий проект →</Link></aside>
-    </section>
-    <section className="caseCover publicContainer" style={{"--project-accent":project.accent} as React.CSSProperties}><img src={project.image} alt={`Интерфейс проекта ${project.title}`}/></section>
-    <section className="caseStory publicContainer">
-      <article><small>О ПРОЕКТЕ</small><h2>Задача и решение</h2><p>{project.description}</p></article>
-      <article><small>РЕЗУЛЬТАТ</small><h2>Что получил проект</h2><p>{project.result}</p></article>
-    </section>
-    <section className="caseScope"><div className="publicContainer">
-      <CaseList number="01" title="Возможности" items={project.features}/>
-      <CaseList number="02" title="Модули BYPCMS" items={project.modules}/>
-      <CaseList number="03" title="Выполненные услуги" items={project.services}/>
-    </div></section>
-    <section className="caseNext publicContainer"><p>СЛЕДУЮЩИЙ ШАГ</p><h2>Обсудим ваш будущий сайт?</h2><Link href="/order">Оставить заявку →</Link></section>
-    <PublicFooter/><BackToTop/>
-  </main>;
-}
-
-function CaseList({number,title,items}:{number:string;title:string;items:string[]}) {
-  return <article><span>{number}</span><h3>{title}</h3><ul>{items.map(item=><li key={item}>{item}</li>)}</ul></article>;
+const publicUrl=(value:unknown)=>{const url=typeof value==="string"?value.trim():"";return /^(?:\/(?!\/)|https:\/\/)/i.test(url)?url:undefined;};
+export default function PortfolioPage(){
+ const t=usePublicText(),locale=useLocale(),tx=(ru:string,en:string)=>locale==="en"?en:ru;
+ const[projects,setProjects]=useState<PortfolioProject[]>(portfolioProjects),[selectedSlug,setSelectedSlug]=useState(""),[loaded,setLoaded]=useState(false);
+ useEffect(()=>{const querySlug=new URLSearchParams(window.location.search).get("project")||"";void Promise.resolve().then(()=>setSelectedSlug(querySlug));const controller=new AbortController();fetch("/api/index.php?action=portfolio.public",{signal:controller.signal}).then(response=>response.ok?response.json():null).then(payload=>{
+  if(!Array.isArray(payload?.projects))return;
+  const additional:PortfolioProject[]=payload.projects.filter((item:Record<string,unknown>)=>item.slug&&item.title&&!portfolioProjects.some(project=>project.slug===String(item.slug))).map((item:Record<string,unknown>)=>({
+   slug:String(item.slug),title:String(item.title),category:String(item.category||""),edition:["Business","Commerce","Content"].includes(String(item.edition))?item.edition as PortfolioProject["edition"]:undefined,
+   year:String(item.project_year||""),lead:String(item.lead||""),description:String(item.description||""),result:String(item.result_text||""),
+   image:publicUrl(item.cover_image)||"/og.png",accent:"#caff3d",gallery:Array.isArray(item.gallery)?item.gallery.map(publicUrl).filter((url):url is string=>!!url):[],
+   features:Array.isArray(item.features)?item.features.map(String):[],modules:Array.isArray(item.modules)?item.modules.map(String):[],services:Array.isArray(item.services)?item.services.map(String):[],demoUrl:publicUrl(item.project_url),
+  }));setProjects([...portfolioProjects,...additional]);
+ }).catch(()=>undefined).finally(()=>{if(!controller.signal.aborted)setLoaded(true)});return()=>controller.abort();},[]);
+ const selected=projects.find(project=>project.slug===selectedSlug);
+ if(selected)return <PortfolioCase project={selected}/>;
+ if(selectedSlug)return <main className="portfolioPage"><PublicHeader active="portfolio"/><section className="portfolioMissing publicContainer"><h1>{loaded?tx("Кейс не найден","Case not found"):tx("Загружаем кейс…","Loading case…")}</h1>{loaded&&<Link className="portfolioButton" href="/portfolio/">{tx("Вернуться к проектам","Back to projects")}</Link>}</section><PublicFooter/></main>;
+ const ordered=[...projects].sort((a,b)=>{const priority=(p:PortfolioProject)=>p.kind==="client"?0:p.kind==="platform"?1:2;return priority(a)-priority(b)});
+ return <main className="portfolioPage"><PublicHeader active="portfolio"/><Breadcrumbs items={[{label:t("Главная"),href:"/"},{label:t("Портфолио")}]}/>
+  <section className="portfolioHero publicContainer"><h1>{tx("Проекты в деталях.","Projects, in detail.")}</h1><div><p>{tx("Сайты производителей, магазины, сервисы и мультиязычные проекты. Изучите задачи, решения и реальные экраны.","Manufacturer websites, stores, services and multilingual projects. Explore the briefs, design decisions and actual website screens.")}</p><p className="portfolioDisclosure">{tx("Реализованные проекты, собственный продукт и демонстрационные темы отмечены отдельно.","Delivered projects, our own product and demo themes are clearly labeled.")}</p></div></section>
+  <section className="portfolioGrid publicContainer" aria-label={tx("Кейсы проектов","Project case studies")}>{ordered.map((source,index)=>{
+   const project=locale==="en"?{...source,...source.en}:source;
+   const builtin=portfolioProjects.some(item=>item.slug===source.slug),href=builtin?`/portfolio/${encodeURIComponent(project.slug)}/`:`/portfolio/?project=${encodeURIComponent(project.slug)}`;
+   const image=source.kind==="platform"&&locale==="en"?"/showcase/platform-en.jpg":project.image;
+   return <Link href={href} className={`portfolioCard${source.kind==="client"&&index===0?" portfolioCard--featured":""}`} key={project.slug}><div className="portfolioVisual"><img src={image} width={1251} height={712} alt={tx(`Экран сайта ${project.title}`,`${project.title} website screenshot`)} loading={index===0?"eager":"lazy"}/></div><div className="portfolioCardCopy"><div className="portfolioCardMeta"><span>{source.kind==="client"?tx("Реализованный проект","Delivered project"):source.kind==="platform"?tx("Собственный продукт","Our product"):source.kind==="demo"?tx("Демонстрационная тема","Demo theme"):tx("Веб-проект","Website project")}</span>{!!project.languages?.length&&<span>{project.languages.join(" / ")}</span>}</div><h2>{project.title}</h2><p className="portfolioCategory">{project.category}</p><p>{project.lead}</p><footer><span>{project.edition?`BYPCMS ${project.edition}`:source.kind==="client"?tx("Полная разработка","Full website development"):tx("Веб-проект","Website project")}</span><b>{tx("Изучить кейс","Explore case")} →</b></footer></div></Link>;
+  })}</section>
+  <section className="portfolioLanguageFeature publicContainer"><div><h2>{tx("Посмотрите проект на двух языках.","See one project in two languages.")}</h2><p>{tx("В кейсе BYPCMS можно переключить русскую и английскую версии и открыть одинаковую конфигурацию сборки.","The BYPCMS case lets you switch between Russian and English previews and open the same build configuration in either language.")}</p></div><Link className="portfolioButton" href="/portfolio/bypcms-platform/#languages">{tx("Сравнить RU / EN","Compare RU / EN")} →</Link></section>
+  <section className="portfolioCta"><div className="publicContainer"><h2>{tx("Какая задача у вашего проекта?","What does your project need?")}</h2><p>{tx("Подберём редакцию BYPCMS или обсудим индивидуальную разработку.","Choose a BYPCMS edition or discuss a custom website.")}</p><div className="caseActions"><Link className="portfolioButton" href="/#builder">{tx("Выбрать сборку","Choose a build")} →</Link><Link className="portfolioTextLink" href="/order/?services_only=1&services=ux-ui,frontend,launch">{tx("Обсудить разработку","Discuss development")} →</Link></div></div></section>
+  <PublicFooter/><BackToTop/>
+ </main>;
 }

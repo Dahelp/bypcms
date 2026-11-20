@@ -10,7 +10,7 @@ export default function PortfolioCase({project:source}:{project:PortfolioProject
  const project=locale==="en"?{...source,...source.en}:source,study=source.study;
  const tx=(ru:string,en:string)=>locale==="en"?en:ru;
  const demo=source.kind==="demo";
- const configure=project.edition?`/?edition=${project.edition}#builder`:"/order/?services_only=1&services=ux-ui,frontend,launch";
+ const configure=project.edition==="Commerce"?"/solutions/commerce/":project.edition?`/?edition=${project.edition}#builder`:"/order/?services_only=1&services=ux-ui,frontend,launch";
  const nextProject=portfolioProjects[(portfolioProjects.findIndex(item=>item.slug===source.slug)+1)%portfolioProjects.length];
  return <main className="portfolioPage">
   <PublicHeader active="portfolio"/>

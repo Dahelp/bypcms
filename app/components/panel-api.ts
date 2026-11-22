@@ -2,10 +2,10 @@ export class PanelRequestError extends Error {
   constructor(message: string, public status: number) { super(message); this.name = "PanelRequestError"; }
 }
 
-export async function panelRequest<T = Record<string, unknown>>(action: string, options: RequestInit = {}, csrf = "", notify = true): Promise<T> {
+export async function panelRequest<T = Record<string, unknown>>(action: string, options: RequestInit = {}, csrf = "", notify = true, query:Record<string,string|number> = {}): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(`/api/index.php?action=${encodeURIComponent(action)}`, {
+    response = await fetch(`/api/index.php?${new URLSearchParams({action,...Object.fromEntries(Object.entries(query).map(([key,value])=>[key,String(value)]))})}`, {
       ...options, credentials: "same-origin", cache: "no-store",
       headers: { ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }), ...(csrf ? { "X-CSRF-Token": csrf } : {}), ...options.headers },
       signal: options.signal ?? AbortSignal.timeout(20000),

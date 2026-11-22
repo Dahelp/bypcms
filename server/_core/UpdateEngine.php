@@ -68,6 +68,18 @@ final class UpdateEngine {
             if(!$file->isFile())continue;$real=$file->getRealPath();if(!$real||!str_starts_with($real,$prefix))throw new RuntimeException('Файл находится вне каталога установки.');$result[]=['path'=>$relative,'size'=>$file->getSize()];
         }return $result;
     }
+    /** A project adapter is private application code, not another public PHP entry. */
+    private function privateProject(array $job):bool {
+        if(!is_file($this->root.'/project/workspace.php'))return false;
+        $name='bypcms-private-check-'.bin2hex(random_bytes(12)).'.php';$file=$this->root.'/project/'.$name;
+        try{
+            if(file_put_contents($file,'<?php http_response_code(409); echo "Project code must be private";')===false)throw new RuntimeException('Не удалось проверить защиту каталога project.');
+            $maintenance=UpdateRuntime::json($this->base.'/maintenance.json');
+            try{$this->http()->request(rtrim($this->config['app']['url'],'/').'/project/'.$name,null,null,65536,['X-Update-Health: '.($maintenance['token']??'')]);}
+            catch(LicenseException $error){if($error->httpStatus===403)return true;throw new RuntimeException('Каталог project должен возвращать HTTP 403. Проверьте правила сервера перед обновлением.',0,$error);}
+            throw new RuntimeException('PHP-файлы project доступны снаружи. Обновление остановлено до резервирования.');
+        }finally{if(is_file($file))unlink($file);}
+    }
     private function maintenance(array &$s):void { $s['token']??=bin2hex(random_bytes(32));UpdateRuntime::atomic($this->base.'/maintenance.json',['job'=>$s['id'],'token'=>$s['token']]); }
     private function clearMaintenance():void {if(is_file($this->base.'/maintenance.json')&&!unlink($this->base.'/maintenance.json'))throw new RuntimeException('Не удалось снять режим обслуживания.');}
     private function checkpoint(string $phase):void {if($this->fault)($this->fault)($phase);}
@@ -99,8 +111,8 @@ final class UpdateEngine {
                     if($this->current()['version']!==$s['previous_version'])throw new RuntimeException('Версия сайта изменилась. Повторите проверку.');
                     if(stat($this->root)['dev']!==stat($this->base)['dev'])throw new RuntimeException('Приватное хранилище и сайт должны быть на одном файловом разделе.');
                     foreach([$this->root,$this->root.'/_releases',$this->root.'/_update-assets']as $directory)if(is_dir($directory)&&!is_writable($directory))throw new RuntimeException('PHP не может записывать каталоги версий и ресурсов. Изменения БД не начаты.');
-                    $this->maintenance($s);$s['inventory']=$this->inventory();
-                    foreach($s['inventory']as $item)if(str_ends_with(strtolower($item['path']),'.php')&&!preg_match('#^(?:_core|_storage|_private|_releases)/#',$item['path'])&&!in_array($item['path'],['index.php','api/index.php','api/app.php','admin/index.php','install/index.php','updates/index.php','updates/recovery.php'],true))throw new RuntimeException('Публичный PHP-вход не подключён к режиму обслуживания: '.$item['path'].'. Нужна интеграция до обновления.');
+                    $this->maintenance($s);$privateProject=$this->privateProject($s);$s['inventory']=$this->inventory();
+                    foreach($s['inventory']as $item)if(str_ends_with(strtolower($item['path']),'.php')&&!preg_match('#^(?:_core|_storage|_private|_releases)/#',$item['path'])&&!($privateProject&&str_starts_with($item['path'],'project/'))&&!in_array($item['path'],['index.php','api/index.php','api/app.php','admin/index.php','install/index.php','updates/index.php','updates/recovery.php'],true))throw new RuntimeException('Публичный PHP-вход не подключён к режиму обслуживания: '.$item['path'].'. Нужна интеграция до обновления.');
                     $s['tables']=$this->database->inventory();
                     $bytes=array_sum(array_column($s['inventory'],'size'));$dbBytes=array_sum(array_column($s['tables'],'bytes'));$free=disk_free_space($this->root);
                     if($bytes>536870912||$dbBytes>268435456||$free===false||$free<($bytes+$dbBytes)*2+250000000)throw new RuntimeException('Недостаточно места для проверяемой копии или превышен лимит: файлы 512 МБ, БД 256 МБ. Изменения не начаты.');
@@ -141,8 +153,14 @@ final class UpdateEngine {
                     $headers=['X-Update-Health: '.$s['token']];$base=rtrim($this->config['app']['url'],'/');
                     $health=$this->http()->request($base.'/api/index.php?action=status',null,null,65536,$headers);
                     if(($health['version']??'')!==$s['version']||($health['database']??'')!=='connected')throw new RuntimeException('Новая версия не прошла проверку API.');
-                    $sample=$this->pdo->query('SELECT slug FROM byp_pages WHERE status="published" ORDER BY id LIMIT 1')->fetchColumn();
-                    if($sample!==false){$url=$base.($sample==='home'?'/':'/'.implode('/',array_map('rawurlencode',explode('/',trim($sample,'/')))).'/');$this->http()->request($url,null,$work.'/health.html',2000000,$headers);}
+                    $sample=$this->pdo->query('SELECT id,slug FROM byp_pages WHERE status="published" ORDER BY id LIMIT 1')->fetch(PDO::FETCH_ASSOC);
+                    if($sample){
+                        $path=$sample['slug']==='home'?'/':'/'.implode('/',array_map('rawurlencode',explode('/',trim($sample['slug'],'/')))).'/';
+                        // Project slugs are internal IDs; its root renderer owns the public route.
+                        // Do not load replaceable project classes into the stable updater process.
+                        if(is_file($this->root.'/project/workspace.php'))$path='/';
+                        $this->http()->request($base.$path,null,$work.'/health.html',2000000,$headers);
+                    }
                     $this->http()->request($base.'/admin/',null,$work.'/admin.html',2000000,$headers);
                     preg_match_all('/(?:src|href)="([^"]+\.(js|css))"/',(string)file_get_contents($work.'/admin.html'),$resources,PREG_SET_ORDER);$checked=[];
                     foreach($resources as $resource){$kind=$resource[2];if(isset($checked[$kind]))continue;if(!str_starts_with($resource[1],'/_update-assets/'.$id.'/_next/'))throw new RuntimeException('Панель ссылается на ресурсы другой версии.');$asset=$this->http()->request($base.$resource[1],null,$work.'/asset-'.$kind,20000000,$headers);if(!$asset['bytes']||!preg_match($kind==='css'?'#text/css#i':'#(?:javascript|ecmascript)#i',$asset['content_type']))throw new RuntimeException('Неверный тип ресурса панели.');$checked[$kind]=true;}

@@ -11,6 +11,9 @@ try{
  if($zip->numFiles!==10)throw new RuntimeException('Unexpected archive entries');$checks++;
  foreach(['_core/LicenseHttp.php','updates/index.php']as $path){if($zip->getFromName('site/'.$path)!==$files[$path])throw new RuntimeException('New client must receive the exact repaired root loader: '.$path);$checks++;}
  $zip->close();
+ mkdir($root.'/client');$workspace='<meta name="bypcms-client-workspace" content="1"><main>Business workspace</main>';file_put_contents($root.'/client/index.html',$workspace);
+ foreach(['business','content','commerce']as $edition){$zip->open($root.'/payload.zip',ZipArchive::CREATE|ZipArchive::OVERWRITE);BYPCMS\Core\ClientPackage::addFiles($zip,$root,$edition);$zip->close();$zip->open($root.'/payload.zip');if($zip->getFromName('site/admin/index.html')!==($edition==='business'?$workspace:$files['admin/index.html']))throw new RuntimeException('Incorrect edition workspace: '.$edition);$checks++;if($zip->locateName('site/client/index.html')!==false)throw new RuntimeException('Build input must not become a second customer panel');$checks++;$zip->close();}
+ unlink($root.'/client/index.html');$zip->open($root.'/payload.zip',ZipArchive::CREATE|ZipArchive::OVERWRITE);$refused=false;try{BYPCMS\Core\ClientPackage::addFiles($zip,$root,'business');}catch(RuntimeException $error){$refused=true;}finally{$zip->close();}if(!$refused)throw new RuntimeException('Missing compiled Business workspace was silently shipped');$checks++;
 }finally{
  $actual=realpath($root);if($actual&&realpath(dirname($actual))===realpath(sys_get_temp_dir())&&str_starts_with(basename($actual),'bypcms-client-payload-')){foreach(new RecursiveIteratorIterator(new RecursiveDirectoryIterator($actual,FilesystemIterator::SKIP_DOTS),RecursiveIteratorIterator::CHILD_FIRST)as $file){if($file->isDir())rmdir($file->getPathname());else unlink($file->getPathname());}rmdir($actual);}
 }

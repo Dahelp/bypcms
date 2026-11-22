@@ -4,10 +4,11 @@ import {LocaleLink as Link,usePublicText,useLocale} from "../components/PublicLo
 import {BackToTop,Breadcrumbs,PublicHeader,PublicFooter} from "../components/PublicChrome";
 import {portfolioProjects,type PortfolioProject} from "./data";
 import type {CaseScreen,CaseText} from "./case-studies";
+import {localizePortfolioProject} from "../../lib/portfolio-locale";
 import "./portfolio.css";
 export default function PortfolioCase({project:source}:{project:PortfolioProject}) {
  const t=usePublicText(),locale=useLocale(),copy=(value:CaseText)=>value[locale];
- const project=locale==="en"?{...source,...source.en}:source,study=source.study;
+ const project=localizePortfolioProject(source,locale,t),study=source.study;
  const tx=(ru:string,en:string)=>locale==="en"?en:ru;
  const demo=source.kind==="demo";
  const configure=project.edition==="Commerce"?"/solutions/commerce/":project.edition?`/?edition=${project.edition}#builder`:"/order/?services_only=1&services=ux-ui,frontend,launch";

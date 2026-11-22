@@ -586,5 +586,20 @@
   "После отправки откроется заказ в личном кабинете. Деньги на этом шаге не списываются.": "After submission, your order will open in your account. No payment is taken at this step.",
   "Что будет дальше": "What happens next",
   "Получите сборку": "Receive your build",
-  "Лицензия BYPCMS": "BYPCMS license"
+  "Лицензия BYPCMS": "BYPCMS license",
+  "Магазин шин для спецтехники": "Specialist equipment tire store",
+  "Полноценный магазин по продаже шин, дисков, камер и фильтров для спецтехники.": "An online store selling tires, rims, tubes and filters for specialist equipment.",
+  "Личный кабинет покупателя.\nПродажи товаров по cross-номерам (самогенерируемые страницы по каждому. каталажному номеру).\nРаздел подбора товаров по типу техники.": "A customer account.\nProduct sales by cross-reference numbers, with automatically generated pages for each catalog number.\nProduct selection by equipment type.",
+  "Выполнена админ панель с возможность управления всеми разделами.\nВнедрение модулей под задачи проекта.\nНастройка SEO на всех страницах (ручной SEO -> плагин INSEO -> Feedback).\nКаталог товаров с возможностью отбора по выбранным фильтрам.": "An admin panel for managing every section.\nModules integrated to meet project requirements.\nSEO configured across all pages, from manual settings to the InSEO plugin and feedback.\nA product catalog with filters.",
+  "Подбор товаров по технике": "Product selection by equipment",
+  "Поиск по cross номерам и аналогам": "Search by cross-reference numbers and equivalents",
+  "Управление контентом": "Content management",
+  "Настройка SEO шаблонов": "SEO template configuration",
+  "Баннеры на сайт": "Website banners",
+  "Комплекты из товаров": "Product bundles",
+  "Кросс-номера": "Cross-reference numbers",
+  "Промокоды": "Promo codes",
+  "Скелет тигра: Модель бизнес": "Tiger Frame: Business Model",
+  "Бизнес": "Business",
+  "Архитектура CMS": "CMS architecture"
 }

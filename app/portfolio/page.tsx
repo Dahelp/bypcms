@@ -4,6 +4,7 @@ import {useEffect,useState} from "react";
 import {BackToTop,Breadcrumbs,PublicFooter,PublicHeader} from "../components/PublicChrome";
 import {portfolioProjects,type PortfolioProject} from "./data";
 import PortfolioCase from "./PortfolioCase";
+import {localizePortfolioProject} from "../../lib/portfolio-locale";
 import "./portfolio.css";
 const publicUrl=(value:unknown)=>{const url=typeof value==="string"?value.trim():"";return /^(?:\/(?!\/)|https:\/\/)/i.test(url)?url:undefined;};
 export default function PortfolioPage(){
@@ -25,7 +26,7 @@ export default function PortfolioPage(){
  return <main className="portfolioPage"><PublicHeader active="portfolio"/><Breadcrumbs items={[{label:t("Главная"),href:"/"},{label:t("Портфолио")}]}/>
   <section className="portfolioHero publicContainer"><h1>{tx("Проекты в деталях.","Projects, in detail.")}</h1><div><p>{tx("Сайты производителей, магазины, сервисы и мультиязычные проекты. Изучите задачи, решения и реальные экраны.","Manufacturer websites, stores, services and multilingual projects. Explore the briefs, design decisions and actual website screens.")}</p><p className="portfolioDisclosure">{tx("Реализованные проекты, собственный продукт и демонстрационные темы отмечены отдельно.","Delivered projects, our own product and demo themes are clearly labeled.")}</p></div></section>
   <section className="portfolioGrid publicContainer" aria-label={tx("Кейсы проектов","Project case studies")}>{ordered.map((source,index)=>{
-   const project=locale==="en"?{...source,...source.en}:source;
+   const project=localizePortfolioProject(source,locale,t);
    const builtin=portfolioProjects.some(item=>item.slug===source.slug),href=builtin?`/portfolio/${encodeURIComponent(project.slug)}/`:`/portfolio/?project=${encodeURIComponent(project.slug)}`;
    const image=source.kind==="platform"&&locale==="en"?"/showcase/platform-en.jpg":project.image;
    return <Link href={href} className={`portfolioCard${source.kind==="client"&&index===0?" portfolioCard--featured":""}`} key={project.slug}><div className="portfolioVisual"><img src={image} width={1251} height={712} alt={tx(`Экран сайта ${project.title}`,`${project.title} website screenshot`)} loading={index===0?"eager":"lazy"}/></div><div className="portfolioCardCopy"><div className="portfolioCardMeta"><span>{source.kind==="client"?tx("Реализованный проект","Delivered project"):source.kind==="platform"?tx("Собственный продукт","Our product"):source.kind==="demo"?tx("Демонстрационная тема","Demo theme"):tx("Веб-проект","Website project")}</span>{!!project.languages?.length&&<span>{project.languages.join(" / ")}</span>}</div><h2>{project.title}</h2><p className="portfolioCategory">{project.category}</p><p>{project.lead}</p><footer><span>{project.edition?`BYPCMS ${project.edition}`:source.kind==="client"?tx("Полная разработка","Full website development"):tx("Веб-проект","Website project")}</span><b>{tx("Изучить кейс","Explore case")} →</b></footer></div></Link>;

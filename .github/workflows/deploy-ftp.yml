@@ -36,6 +36,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Verify public languages and portfolio content
+        run: node tests/public-locale.test.mjs && node tests/portfolio-locale.test.mjs
+
       - name: Validate PHP runtime
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l
 

@@ -504,20 +504,23 @@ export const clientProjects:PortfolioProject[] = [
     "kind": "client",
     "category": "Юридические и наследственные услуги",
     "year": "",
-    "lead": "Сайт консультационной компании с выбором сценария по ситуации посетителя.",
-    "description": "Первый экран разделяет обращения по местонахождению наследства и статусу заявителя, затем помогает выбрать услугу.",
-    "result": "Первый экран разделяет обращения по местонахождению наследства и статусу заявителя, затем помогает выбрать услугу.",
+    "lead": "Сайт наследственной практики: два направления услуг и три языка — RU, EN, DE.",
+    "description": "Два направления — наследство в России и наследство за рубежом. Русская, английская и немецкая версии знакомят с услугами, командой, порядком работы и контактами.",
+    "result": "Наследственные услуги в России и за рубежом представлены на одном сайте с версиями на русском, английском и немецком языках.",
     "image": "/showcase/3vconsulting-home.jpg",
     "accent": "#caff3d",
     "demoUrl": "https://3vconsulting.ru/",
     "languages": [
-      "RU"
+      "RU",
+      "EN",
+      "DE"
     ],
     "featured": false,
     "features": [
-      "Три сценария обращения",
-      "Выбор услуги",
-      "Информация о компании",
+      "Наследство в России",
+      "Наследство за рубежом",
+      "Три языка: RU, EN, DE",
+      "Команда и порядок работы",
       "Контакты"
     ],
     "modules": [],
@@ -527,13 +530,14 @@ export const clientProjects:PortfolioProject[] = [
     "en": {
       "title": "3V Consulting",
       "category": "Legal and inheritance services",
-      "lead": "A consultancy website that organizes service selection around the visitor’s situation.",
-      "description": "The opening separates inquiries by estate location and applicant status, then guides visitors to a service.",
-      "result": "The opening separates inquiries by estate location and applicant status, then guides visitors to a service.",
+      "lead": "An inheritance practice website with two service areas and three languages: RU, EN and DE.",
+      "description": "Two service areas cover inheritance in Russia and inheritance abroad. Russian, English and German versions introduce the services, team, working process and contact details.",
+      "result": "Inheritance services in Russia and abroad are presented on one website, available in Russian, English and German.",
       "features": [
-        "Three inquiry paths",
-        "Service selection",
-        "Company information",
+        "Inheritance in Russia",
+        "Inheritance abroad",
+        "Three languages: RU, EN, DE",
+        "Team and working process",
         "Contact details"
       ],
       "services": [
@@ -542,34 +546,44 @@ export const clientProjects:PortfolioProject[] = [
     },
     "study": {
       "task": {
-        "ru": "Помочь посетителю определить подходящее направление обращения без изучения всего перечня услуг.",
-        "en": "Help visitors find a relevant inquiry path without first reading the entire service list."
+        "ru": "Помочь посетителю выбрать наследственные услуги по стране, где находится наследство, и получить информацию на удобном языке.",
+        "en": "Help visitors choose inheritance services based on the country where the estate is located and find information in their preferred language."
       },
       "decisions": [
         {
           "title": {
-            "ru": "Начало с ситуации клиента",
-            "en": "Start with the visitor’s situation"
+            "ru": "Два направления услуг",
+            "en": "Two service areas"
           },
           "body": {
-            "ru": "Три направления на главной отличаются расположением наследства и статусом резидентства.",
-            "en": "Three homepage paths distinguish estate location and residency status."
+            "ru": "Наследство в России и наследство за рубежом вынесены в отдельные направления. Для наследников, которые живут за границей, предусмотрена отдельная страница о работе с наследством в России.",
+            "en": "Inheritance in Russia and inheritance abroad have dedicated service pages. A separate page explains working with a Russian estate when the heir lives abroad."
           }
         },
         {
           "title": {
-            "ru": "Выбор услуги по шагам",
-            "en": "Step-by-step service selection"
+            "ru": "Русский, английский и немецкий",
+            "en": "Russian, English and German"
           },
           "body": {
-            "ru": "После выбора направления открываются варианты необходимой помощи и переход к дальнейшему обращению.",
-            "en": "Choosing a path reveals relevant types of assistance and the next inquiry step."
+            "ru": "Три языковые версии охватывают основные разделы сайта. Переключение языка ведёт к соответствующей странице на RU, EN или DE.",
+            "en": "Three language versions cover the main website sections. Language switching opens the corresponding page in Russian, English or German."
+          }
+        },
+        {
+          "title": {
+            "ru": "Информация перед обращением",
+            "en": "Information before an inquiry"
+          },
+          "body": {
+            "ru": "Разделы о команде, порядке работы, стоимости и частых вопросах помогают подготовиться к обращению. Контакты доступны с любой страницы.",
+            "en": "Team, working process, fees and FAQ pages help visitors prepare for an inquiry. Contact details are accessible from every page."
           }
         }
       ],
       "outcome": {
-        "ru": "Разработан сайт 3vconsulting.ru. Первый экран разделяет обращения по местонахождению наследства и статусу заявителя, затем помогает выбрать услугу.",
-        "en": "Developed 3vconsulting.ru. The opening separates inquiries by estate location and applicant status, then guides visitors to a service."
+        "ru": "Разработан сайт 3vconsulting.ru с двумя направлениями наследственных услуг и тремя языковыми версиями: RU, EN, DE.",
+        "en": "Developed 3vconsulting.ru with two inheritance service areas and three language versions: RU, EN and DE."
       },
       "screens": [
         {
@@ -577,12 +591,12 @@ export const clientProjects:PortfolioProject[] = [
           "width": 1251,
           "height": 712,
           "title": {
-            "ru": "Выбор формата помощи",
-            "en": "Choosing a type of assistance"
+            "ru": "Наследство в России и за рубежом",
+            "en": "Inheritance in Russia and abroad"
           },
           "description": {
-            "ru": "Страница продолжает сценарий, выбранный на главной.",
-            "en": "The page continues the journey selected on the homepage."
+            "ru": "Страница направлений объясняет, как выбор услуги связан со страной, где находится наследство.",
+            "en": "The services page explains how the appropriate service depends on the country where the estate is located."
           }
         }
       ]

@@ -6,13 +6,25 @@ use RuntimeException;
 
 /** Portable streaming backup, including DDL; DDL is not transactionally reversible in MySQL. */
 final class UpdateDatabase {
+    public const REQUIRED=['SELECT','INSERT','UPDATE','DELETE','CREATE','DROP','ALTER','INDEX','REFERENCES'];
+    /** SHOW GRANTS escapes literal '_'/'%' in database identifiers. Do not expand wildcard scopes. */
+    public static function privileges(array $grants,string $schema):array {
+        $matches=static function(string $scope)use($schema):bool {
+            $scope=trim($scope);if($scope==='*.*')return true;if(!str_ends_with($scope,'.*'))return false;
+            $name=substr($scope,0,-2);if(str_starts_with($name,'`')&&str_ends_with($name,'`'))$name=substr($name,1,-1);
+            $name=strtr($name,[chr(92).'_'=>'_',chr(92).'%'=>'%',chr(92).chr(92)=>chr(92),'``'=>'`']);return $name===$schema;
+        };
+        $result=[];
+        foreach($grants as $grant)if(preg_match('/^GRANT (.*?) ON (.*?) TO /i',$grant,$m)&&$matches($m[2]))foreach(explode(',',$m[1])as $privilege){$key=strtoupper(trim($privilege));foreach($key==='ALL PRIVILEGES'?self::REQUIRED:[$key]as $key)$result[$key]=true;}
+        foreach($grants as $grant)if(preg_match('/^REVOKE (.*?) ON (.*?) FROM /i',$grant,$m)&&$matches($m[2]))foreach(explode(',',$m[1])as $privilege){$key=strtoupper(trim($privilege));foreach($key==='ALL PRIVILEGES'?self::REQUIRED:[$key]as $key)unset($result[$key]);}
+        return $result;
+    }
     public function __construct(private PDO $pdo){}
     private function identifier(string $name):string{return '`'.str_replace('`','``',$name).'`';}
     private function line($out,array $data):void {$line=json_encode($data,JSON_THROW_ON_ERROR)."\n";if(strlen($line)>32000000||gzwrite($out,$line)!==strlen($line))throw new RuntimeException('Не удалось записать резервную копию или строка превышает 32 МБ.');}
     public function inventory():array {
-        $schema=(string)$this->pdo->query('SELECT DATABASE()')->fetchColumn();$privileges=[];
-        foreach($this->pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_COLUMN)as $grant)if(preg_match('/^GRANT (.*?) ON (.*?) TO /i',$grant,$match)&&in_array(str_replace('`','',$match[2]),['*.*',$schema.'.*'],true))foreach(explode(',',$match[1])as $privilege)$privileges[strtoupper(trim($privilege))]=true;
-        if(!isset($privileges['ALL PRIVILEGES']))foreach(['SELECT','INSERT','UPDATE','DELETE','CREATE','DROP','ALTER','INDEX','REFERENCES']as $required)if(!isset($privileges[$required]))throw new RuntimeException('Не подтверждены права БД для безопасного восстановления: '.$required.'. Нужны прямые права на всю БД.');
+        $schema=(string)$this->pdo->query('SELECT DATABASE()')->fetchColumn();$privileges=self::privileges($this->pdo->query('SHOW GRANTS')->fetchAll(PDO::FETCH_COLUMN),$schema);
+        foreach(self::REQUIRED as $required)if(!isset($privileges[$required]))throw new RuntimeException('Не подтверждены права БД для безопасного восстановления: '.$required.'. Нужны прямые права на всю БД.');
         $rows=$this->pdo->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);$result=[];
         if($this->pdo->query('SHOW TRIGGERS')->fetch())throw new RuntimeException('Обновление остановлено: для БД с триггерами требуется отдельная процедура резервирования.');
         foreach(['PROCEDURE','FUNCTION']as $kind)if($this->pdo->query('SHOW '.$kind.' STATUS WHERE Db='.$this->pdo->quote($schema))->fetch())throw new RuntimeException('Обновление остановлено: БД содержит хранимые программы.');

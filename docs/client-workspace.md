@@ -32,3 +32,15 @@ Before reserving any customer data, the repaired engine writes a harmless random
 Acceptance includes: empty-database ZIP install and repeat import; real translated edits and public previews; stale revisions; CSRF/role/record boundaries; partial bulk failure; actual menu/appearance/contact/branding changes; shared licence/update endpoints; signed 2.7.2 → 2.8.0 update; versioned assets; full customer-data fingerprints and rollback. Check desktop and narrow layouts plus keyboard search and row menus in the browser.
 
 Project health checks request its public root through HTTP. Internal content slugs are not interpreted as URLs, and replaceable project classes are never loaded into the stable updater process.
+
+Auxiliary public PHP entrypoints must use the exact guarded wrapper below (adjust dirname depth and the private controller basename). The updater accepts only this complete template, a real private target, and an HTTP-verified protected project directory; appended PHP, traversal, wrong depth and unguarded controllers remain rejected. The private controller may close the session for read-only responses. The stable runtime holds its lock until request shutdown, including on older active releases.
+
+```php
+<?php
+declare(strict_types=1);
+$root=dirname(__DIR__,1);
+header('X-Robots-Tag: noindex, nofollow, noarchive, noimageindex');
+require_once $root.'/_core/UpdateRuntime.php';
+\BYPCMS\Core\UpdateRuntime::serve($root,'_core/bootstrap.php');
+require $root.'/project/Archive.php';
+```

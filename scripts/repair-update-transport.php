@@ -15,7 +15,7 @@ function byp_repair_update_transport(string $directory,bool $apply=false,?callab
     if($profile==='project'){
         if(($config['app']['edition']??'')!=='business'||!is_file($root.'/project/workspace.php'))throw new RuntimeException('Сначала подключите проектный адаптер клиентской Business.');
         $sources=['_core/UpdateEngine.php'=>file_get_contents(__DIR__.'/../server/_core/UpdateEngine.php')];
-        $known=['_core/UpdateEngine.php'=>['b42e631c54c27ca67d843b443d57df6c76124c76043d2cffb92c41e298d40643']];
+        $known=['_core/UpdateEngine.php'=>['b42e631c54c27ca67d843b443d57df6c76124c76043d2cffb92c41e298d40643','352533afc4aaae753e33a395c7f8cdc745cb4744e3dc68fef4ae327c79f5b2f0']];
     }elseif($profile!=='transport')throw new RuntimeException('Неизвестное исправление загрузчика.');
     $private=UpdateRuntime::storage($root,true);$base=$private.'/updates';$handle=fopen($root.'/_storage/update-runtime.lock','c');
     if(!$handle)throw new RuntimeException('Не удалось открыть блокировку установки.');

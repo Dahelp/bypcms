@@ -80,6 +80,16 @@ final class UpdateEngine {
             throw new RuntimeException('PHP-файлы project доступны снаружи. Обновление остановлено до резервирования.');
         }finally{if(is_file($file))unlink($file);}
     }
+    /** Only a byte-exact runtime-gated wrapper may expose private project code. */
+    public static function projectEntrypoint(string $root,string $path):bool {
+        $depth=substr_count($path,'/');if($depth<1||$depth>4||!is_file($root.'/'.$path)||is_link($root.'/'.$path)||filesize($root.'/'.$path)>1000)return false;
+        $body=str_replace("\r\n","\n",(string)file_get_contents($root.'/'.$path));
+        $lines=explode("\n",trim($body));$line=end($lines);$prefix="require \$root.'/project/";
+        if(!str_starts_with($line,$prefix)||!str_ends_with($line,"';"))return false;$entry=substr($line,strlen($prefix),-2);
+        if(!preg_match('/^[A-Za-z][A-Za-z0-9_-]*\.php$/D',$entry))return false;
+        $expected="<?php\ndeclare(strict_types=1);\n\$root=dirname(__DIR__,$depth);\nheader('X-Robots-Tag: noindex, nofollow, noarchive, noimageindex');\nrequire_once \$root.'/_core/UpdateRuntime.php';\n\\BYPCMS\\Core\\UpdateRuntime::serve(\$root,'_core/bootstrap.php');\nrequire \$root.'/project/$entry';\n";
+        return hash_equals(hash('sha256',$expected),hash('sha256',$body))&&is_file($root.'/project/'.$entry)&&!is_link($root.'/project/'.$entry);
+    }
     private function maintenance(array &$s):void { $s['token']??=bin2hex(random_bytes(32));UpdateRuntime::atomic($this->base.'/maintenance.json',['job'=>$s['id'],'token'=>$s['token']]); }
     private function clearMaintenance():void {if(is_file($this->base.'/maintenance.json')&&!unlink($this->base.'/maintenance.json'))throw new RuntimeException('Не удалось снять режим обслуживания.');}
     private function checkpoint(string $phase):void {if($this->fault)($this->fault)($phase);}
@@ -112,7 +122,7 @@ final class UpdateEngine {
                     if(stat($this->root)['dev']!==stat($this->base)['dev'])throw new RuntimeException('Приватное хранилище и сайт должны быть на одном файловом разделе.');
                     foreach([$this->root,$this->root.'/_releases',$this->root.'/_update-assets']as $directory)if(is_dir($directory)&&!is_writable($directory))throw new RuntimeException('PHP не может записывать каталоги версий и ресурсов. Изменения БД не начаты.');
                     $this->maintenance($s);$privateProject=$this->privateProject($s);$s['inventory']=$this->inventory();
-                    foreach($s['inventory']as $item)if(str_ends_with(strtolower($item['path']),'.php')&&!preg_match('#^(?:_core|_storage|_private|_releases)/#',$item['path'])&&!($privateProject&&str_starts_with($item['path'],'project/'))&&!in_array($item['path'],['index.php','api/index.php','api/app.php','admin/index.php','install/index.php','updates/index.php','updates/recovery.php'],true))throw new RuntimeException('Публичный PHP-вход не подключён к режиму обслуживания: '.$item['path'].'. Нужна интеграция до обновления.');
+                    foreach($s['inventory']as $item)if(str_ends_with(strtolower($item['path']),'.php')&&!preg_match('#^(?:_core|_storage|_private|_releases)/#',$item['path'])&&!($privateProject&&(str_starts_with($item['path'],'project/')||self::projectEntrypoint($this->root,$item['path'])))&&!in_array($item['path'],['index.php','api/index.php','api/app.php','admin/index.php','install/index.php','updates/index.php','updates/recovery.php'],true))throw new RuntimeException('Публичный PHP-вход не подключён к режиму обслуживания: '.$item['path'].'. Нужна интеграция до обновления.');
                     $s['tables']=$this->database->inventory();
                     $bytes=array_sum(array_column($s['inventory'],'size'));$dbBytes=array_sum(array_column($s['tables'],'bytes'));$free=disk_free_space($this->root);
                     if($bytes>536870912||$dbBytes>268435456||$free===false||$free<($bytes+$dbBytes)*2+250000000)throw new RuntimeException('Недостаточно места для проверяемой копии или превышен лимит: файлы 512 МБ, БД 256 МБ. Изменения не начаты.');

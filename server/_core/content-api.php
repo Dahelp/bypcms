@@ -6,6 +6,10 @@ $user=$auth->requireUser();
 if(!in_array($user['role'],['owner','admin','editor'],true))Response::error('Нет прав для работы с контентом.',403);
 if($method!=='GET')$auth->verifyCsrf();
 $content=new Content($db,$config,BYPCMS_ROOT);
+if($method!=='GET'&&is_file(BYPCMS_ROOT.'/project/workspace.php')&&in_array($action,['content.save','pages.create','pages.update','content.restore','content.preview','content.configure','content.term'],true)){
+    require_once __DIR__.'/ClientWorkspace.php';
+    if(\BYPCMS\Core\ClientWorkspace::available(BYPCMS_ROOT))Response::error('Используйте единую панель сайта: она сохраняет структуру и переводы установленного макета.',409);
+}
 try {
     if(in_array($action,['content.list','pages.list'],true))Response::ok(['pages'=>$content->records(false,true,50,(max(1,(int)($_GET['page']??1))-1)*50),'terms'=>$content->terms(),'settings'=>strtolower($config['app']['edition']??'')==='business'?(new \BYPCMS\Core\Business($db,$config,BYPCMS_ROOT))->settings():$content->settings()]);
     if(in_array($action,['content.save','pages.create','pages.update'],true)&&$method==='POST')Response::ok(['id'=>$content->save($input,(int)$user['id'])]);

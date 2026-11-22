@@ -4,7 +4,7 @@ require_once __DIR__.'/../server/_core/UpdateRuntime.php';
 use BYPCMS\Core\UpdateRuntime;
 
 /** Explicit CLI maintenance only; never called by discovery, cron or an HTTP route. */
-function byp_repair_update_transport(string $directory,bool $apply=false,?callable $checkpoint=null):array {
+function byp_repair_update_transport(string $directory,bool $apply=false,?callable $checkpoint=null,string $profile="transport"):array {
     $root=realpath($directory);if(!$root||!is_file($root.'/_storage/config.php'))throw new RuntimeException('Укажите корень установленной клиентской CMS.');
     $config=require $root.'/_storage/config.php';if(($config['app']['installation_type']??'')!=='client')throw new RuntimeException('Исправление предназначено только для клиентской CMS.');
     $normalize=static fn(string $text)=>str_replace("\r\n","\n",$text);
@@ -12,6 +12,11 @@ function byp_repair_update_transport(string $directory,bool $apply=false,?callab
     $known=['_core/LicenseHttp.php'=>['bee77722b635e7c616fc94c2e1ebd6caaa8182fd77ef4ef7e1dbb71f61589928'],'updates/index.php'=>['ee93b178075d82d4f09227aad9e977ae85b672ac4443e950d5e85379772742e3']];
     // Also accept the immediately preceding endpoint with explicit confirmation and a 60s PHP budget.
     $known['updates/index.php'][]=hash('sha256',$normalize(str_replace('@set_time_limit(150)','@set_time_limit(60)',$sources['updates/index.php'])));
+    if($profile==='project'){
+        if(($config['app']['edition']??'')!=='business'||!is_file($root.'/project/workspace.php'))throw new RuntimeException('Сначала подключите проектный адаптер клиентской Business.');
+        $sources=['_core/UpdateEngine.php'=>file_get_contents(__DIR__.'/../server/_core/UpdateEngine.php')];
+        $known=['_core/UpdateEngine.php'=>['b42e631c54c27ca67d843b443d57df6c76124c76043d2cffb92c41e298d40643']];
+    }elseif($profile!=='transport')throw new RuntimeException('Неизвестное исправление загрузчика.');
     $private=UpdateRuntime::storage($root,true);$base=$private.'/updates';$handle=fopen($root.'/_storage/update-runtime.lock','c');
     if(!$handle)throw new RuntimeException('Не удалось открыть блокировку установки.');
     if(!flock($handle,LOCK_EX|LOCK_NB)){fclose($handle);throw new RuntimeException('CMS или обновление выполняет запрос. Повторите исправление позже.');}

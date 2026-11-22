@@ -1,6 +1,7 @@
 "use client";
 import {moduleAvailable, publicModules} from "../modules/data";
 import PanelRouteLoading from "../components/PanelRouteLoading";
+import WorkspaceFrame from "../components/WorkspaceFrame";
 
 import PanelTable, { type PanelBulkAction } from "../components/PanelTable";
 import { deleteBulkAction, statusBulkActions } from "../components/panel-bulk";
@@ -204,19 +205,11 @@ function DemoWorkspace() {
   if (!auth.logged && !publicSnapshot) return <Login onLogin={() => { try{auth.login();}catch{flash("Не удалось сохранить демо-сессию. Проверьте доступ браузера к хранилищу сайта и повторите вход.");} }} notice={notice || auth.error} flash={flash} />;
   if (preview) return <main className="realDemo previewDocument"><PublicPreview entities={entities} siteView={publicSnapshot} entity={preview} edition={edition} theme={theme} settings={settings} unsaved={Boolean(editing && !editingSaved)} closeHref={panelHref({ edition, section: view, record: editingSaved?editing?.id:undefined, editor:editing && !editingSaved?"new":undefined, draft:editing && !editingSaved?editing.id:undefined, tab: editing ? editorTab : undefined })} /></main>;
 
-  return <main className="realDemo" style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}>
-    <aside className="realSidebar workspaceMenu">
-      <a href="https://bypcms.ru/" className="demoBrand workspaceMenuBrand"><b>B</b><span>BYPCMS</span><i>{current.name}</i></a>
-      <ProjectBadge edition={edition} project={settings.siteName} />
-      <nav>{currentMenu.map((item, index) => {
-        const showGroup = item.group && currentMenu[index - 1]?.group !== item.group;
-        return <div key={item.id}>{showGroup && <small className="workspaceMenuGroup">{item.group}</small>}<a href={sectionHref(item.id)} aria-label={item.label} title={item.label} aria-current={view === item.id ? "page" : undefined} className={view === item.id ? "active" : ""}><i><PanelIcon name={iconByMenu[item.id] || "file"} /></i><span>{item.label}</span>{item.badge && <em>{item.badge}</em>}</a></div>;
-      })}</nav>
-      <div className="demoSafety workspaceMenuStatus"><b>● Демо-сессия</b><span>Данные изолированы и не отправляются наружу</span></div>
-      <button className="demoLogout workspaceMenuExit" onClick={() => {try{auth.logout();}catch{flash("Не удалось завершить демо-сессию. Проверьте доступ к хранилищу браузера и повторите выход.");}}}>Выйти из демо</button>
-    </aside>
-    <section className="realWorkspace">
-      <header className="realTopbar">
+  return <WorkspaceFrame brandHref="https://bypcms.ru/" edition={current.name} project={settings.siteName} active={view} items={currentMenu} href={sectionHref}
+    style={{ "--demo-accent": theme.accent, "--demo-radius": `${theme.radius}px` } as React.CSSProperties}
+    status={<><b>Демо-сессия</b><span>Изменения сохраняются только в этом браузере</span></>}
+    logout={<button className="demoLogout workspaceMenuExit" onClick={() => {try{auth.logout();}catch{flash("Не удалось завершить демо-сессию. Повторите выход.");}}}>Выйти из демо</button>}
+    topbar={<>
         <div className="editionTabs">{(Object.keys(editions) as EditionKey[]).map(key => <a href={panelHref({ edition: key, section: "overview" })} className={edition === key ? "active" : ""} key={key}>{editions[key].name}<small>{editions[key].note}</small></a>)}</div>
         <PanelSearch onOpen={() => setSearchOpen(true)} />
         <NotificationDropdown items={[
@@ -225,8 +218,7 @@ function DemoWorkspace() {
           { id: 3, title: "Доступны обновления", message: "2 модуля готовы", created_at: "", is_read: 0, icon: "modules" },
         ]} hrefForItem={item => sectionHref(item.id === 1 ? (edition === "commerce" ? "orders" : edition === "business" ? "leads" : "articles") : item.id === 2 ? "seo" : "extensions")} />
         {siteHref ? <a className="openSite panelLinkButton" href={siteHref} onClick={event=>{try{writeSiteSnapshot(localStorage,sitePreviewToken,{entities,theme,settings,installedModules});}catch{event.preventDefault();flash("Не удалось открыть сайт: браузер не подготовил снимок сохранённых данных. Данные редактора остаются на странице.");}}} target="_blank" rel="noopener" title="Открыть сохранённый сайт в новой вкладке">Открыть сайт <PanelIcon name="external" /></a> : <button className="openSite" disabled title="Сначала сохраните содержимое сайта">Открыть сайт <PanelIcon name="external" /></button>}
-      </header>
-      <div className="realContent">
+</>} overlay={<>{searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <a key={item.id} href={sectionHref(item.id)}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></a>)}{searchQuery && entities.filter(item => currentMenu.some(menu => menu.kind === item.kind) && item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <a key={`entity-${item.id}`} href={entityHref(item)}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></a>)}</div></section></div>}</>}>
         {notice && <div className="demoNotice">{notice}<button onClick={() => setNotice("")}><PanelIcon name="close" /></button></div>}
         {routeError && <p role="alert">{routeError} <a href={sectionHref(currentKind?view:"overview")}>{currentKind?"К списку":"Обзор панели"}</a></p>}
         {view === "overview" && <Dashboard edition={edition} entities={entities} modules={moduleRegistry.filter(module => activeModules.includes(module.key))} sectionHref={sectionHref} entityHref={entityHref} bulkActionsForKind={entityBulkActions} />}
@@ -239,10 +231,8 @@ function DemoWorkspace() {
         {view === "extensions" && <ExtensionCenterV2 edition={edition} installed={activeModules} setInstalled={keys => setInstalledModules(value => ({ ...value, [edition]: keys }))} flash={flash} />}
         {moduleRegistry.some(module => module.key === view && module.menu) && <InjectedModulePage edition={edition} module={moduleRegistry.find(module => module.key === view)!} />}
         {view === "settings" && <SettingsPanelV2 edition={edition} settings={settings} setSettings={setSettings} modules={moduleRegistry.filter(module => activeModules.includes(module.key) && module.slots.includes("settings.section"))} flash={flash} />}
-      </div>
-    </section>
-    {searchOpen && <div className="commandOverlay" onMouseDown={() => setSearchOpen(false)}><section className="commandPalette" onMouseDown={event => event.stopPropagation()}><header><PanelIcon name="search" /><input autoFocus value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="Раздел, товар, заказ или настройка…"/><button type="button" aria-label="Закрыть поиск" onClick={() => setSearchOpen(false)}><PanelIcon name="close" /></button></header><small>БЫСТРЫЙ ПЕРЕХОД</small><div>{currentMenu.filter(item => `${item.label} ${item.group || ""}`.toLowerCase().includes(searchQuery.toLowerCase())).map(item => <a key={item.id} href={sectionHref(item.id)}><i><PanelIcon name={iconByMenu[item.id] || "file"}/></i><span><b>{item.label}</b><small>{item.group || "Панель управления"}</small></span><PanelIcon name="chevron" /></a>)}{searchQuery && entities.filter(item => currentMenu.some(menu => menu.kind === item.kind) && item.title.toLowerCase().includes(searchQuery.toLowerCase())).slice(0,5).map(item => <a key={`entity-${item.id}`} href={entityHref(item)}><i><PanelIcon name="file"/></i><span><b>{item.title}</b><small>{entityTitles[item.kind].singular}</small></span><PanelIcon name="chevron"/></a>)}</div></section></div>}
-  </main>;
+
+  </WorkspaceFrame>;
 }
 
 function Login({ onLogin, notice, flash }: { onLogin: () => void; notice: string; flash: (message: string) => void }) {

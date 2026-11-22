@@ -12,7 +12,7 @@ final class ClientPackage {
         if(!is_writable($directory))throw new \RuntimeException('Приватный каталог сборок недоступен для записи.');
         return $directory.'/'.bin2hex(random_bytes(20)).'.zip';
     }
-    public static function addFiles(\ZipArchive $zip,string $source):void {
+    public static function addFiles(\ZipArchive $zip,string $source,string $edition=''):void {
         $root=realpath($source);if(!$root)throw new \RuntimeException('Исходная сборка недоступна.');
         foreach(['_core','api','install','admin','_next','themes','updates']as $directory){
             $path=$root.'/'.$directory;if(!is_dir($path)||is_link($path))continue;
@@ -23,6 +23,11 @@ final class ClientPackage {
                 if(str_contains($relative,'.env')||str_ends_with($relative,'.log'))continue;
                 if(!$zip->addFile($full,'site/'.$relative))throw new \RuntimeException('Не удалось добавить файл клиентской сборки.');
             }
+        }
+        if(strtolower($edition)==='business'){
+            $workspace=$root.'/client/index.html';
+            if(!is_file($workspace)||!str_contains((string)file_get_contents($workspace),'bypcms-client-workspace'))throw new \RuntimeException('Клиентская панель Business не собрана. Повторите production-сборку платформы.');
+            if(!$zip->addFile($workspace,'site/admin/index.html'))throw new \RuntimeException('Не удалось включить клиентскую панель в архив.');
         }
     }
 }

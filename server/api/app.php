@@ -18,6 +18,7 @@ if ($method === 'OPTIONS') {
 }
 
 try {
+    if(str_starts_with($action,'client.workspace.'))require __DIR__.'/../_core/client-workspace-api.php';
     byp_license_route($action,$method,$input,$db,$config,null);
     if(str_starts_with($action,'client.updates.')){
         $who=$auth->requireUser();if($who['role']!=='owner')Response::error('Доступно только владельцу установки.',403);
@@ -121,6 +122,9 @@ try {
     byp_license_route($action,$method,$input,$db,$config,$user);
 
     if ($action === 'panel.bulk' && $method === 'POST') {
+        if(($config['app']['installation_type']??'')==='client'&&is_file(BYPCMS_ROOT.'/project/workspace.php')&&($input['collection']??'')==='pages'){
+            require_once __DIR__.'/../_core/ClientWorkspace.php';if(\BYPCMS\Core\ClientWorkspace::available(BYPCMS_ROOT))Response::error('Используйте массовые действия единой панели сайта.',409);
+        }
         require_once __DIR__ . '/../_core/PanelBulk.php';
         try {
             $spec = \BYPCMS\Core\PanelBulk::validate($input, $user);
@@ -576,7 +580,7 @@ try {
         require_once __DIR__.'/../_core/Content.php';
         $packageVersion=in_array(strtolower($edition),['content','business','commerce'],true)?\BYPCMS\Core\Content::VERSION:(string)($config['app']['version']??'2.1.0');
         require_once __DIR__.'/../_core/ClientPackage.php';
-        \BYPCMS\Core\ClientPackage::addFiles($zip,BYPCMS_ROOT);
+        \BYPCMS\Core\ClientPackage::addFiles($zip,BYPCMS_ROOT,$edition);
         $zip->addFromString('site/_core/license-trust.json',json_encode(byp_license_authority($db,$config,$user)->trust(),JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT));
         $schema = require BYPCMS_ROOT . '/_core/schema.php';
         $zip->addFromString('site/index.php', "<?php\nrequire_once __DIR__ . '/_core/UpdateRuntime.php';\n\\BYPCMS\\Core\\UpdateRuntime::serve(__DIR__, '_core/client-front.php');\n");

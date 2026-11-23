@@ -1,5 +1,7 @@
 # Business client workspace, 2.8.1
 
+The publisher returns the catalogue in descending numeric version order, so existing clients receive the latest release at the top after a catalogue check. This is a server-side presentation fix: stored publication history, signed release packages and their IDs remain unchanged. It does not require a new client version or re-publishing2.8.1. Small subsequent client fixes remain patch releases in2.8.x; minor versions are reserved for larger product changes.
+
 2.8.1 keeps section navigation inside one authenticated document, including search/row-menu links and GET filters. URL query routing remains bookmarkable; Back/Forward and direct links work. Dirty forms show an app-owned leave dialog, and active writes block navigation. Shared inline pending states are delayed by350ms to avoid flashing startup copy. Media and image fields use one upload surface with server-backed results, validation, retry and duplicate prevention.
 
 All Business delivery paths call ClientPackage with the edition: owner ZIP generation, purchase fulfillment, and refresh of previously issued customer archives. A cached Business archive from an older core is refreshed on download while its project, manifest and licence trust are retained. A missing compiled client shell fails delivery rather than falling back to platform Admin.

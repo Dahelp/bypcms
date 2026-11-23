@@ -12,7 +12,12 @@ final class UpdatePublisher {
     public function candidate(string $source):array {
         $file=$this->base.'/inspect-'.bin2hex(random_bytes(6)).'.zip';try{UpdatePackage::payload($source,$file);return UpdatePackage::inspect($file,null);}finally{if(is_file($file))unlink($file);}
     }
-    public function catalog():array{return UpdateRuntime::json($this->base.'/catalog.json',['schema'=>'bypcms.catalog/v1','issued_at'=>time(),'releases'=>[]]);}
+    public function catalog():array {
+        $catalog=UpdateRuntime::json($this->base.'/catalog.json',['schema'=>'bypcms.catalog/v1','issued_at'=>time(),'releases'=>[]]);
+        // Presentation order is independent of immutable package contents and publication history.
+        usort($catalog['releases'],static fn(array $a,array $b):int=>version_compare($b['version'],$a['version']));
+        return $catalog;
+    }
     private function signed(array $data):array{$trust=$this->authority->trust();return UpdatePackage::sign($data,(string)file_get_contents($this->root.'/_storage/license-authority.pem'),$trust['public_key']);}
     public function publicCatalog():array{$catalog=$this->catalog();$catalog['issued_at']=time();return $this->signed($catalog);}
     public function publish(string $candidate):array {

@@ -1,4 +1,10 @@
-# Business client workspace, 2.8.0
+# Business client workspace, 2.8.1
+
+2.8.1 keeps section navigation inside one authenticated document, including search/row-menu links and GET filters. URL query routing remains bookmarkable; Back/Forward and direct links work. Dirty forms show an app-owned leave dialog, and active writes block navigation. Shared inline pending states are delayed by350ms to avoid flashing startup copy. Media and image fields use one upload surface with server-backed results, validation, retry and duplicate prevention.
+
+All Business delivery paths call ClientPackage with the edition: owner ZIP generation, purchase fulfillment, and refresh of previously issued customer archives. A cached Business archive from an older core is refreshed on download while its project, manifest and licence trust are retained. A missing compiled client shell fails delivery rather than falling back to platform Admin.
+
+Native Atelier/Corporate/Mono design controls read Business settings, identify the active theme and apply its actual color, fonts and menus. The fallback custom HTML template exposes its supported common settings; a developer-owned ClientProject supplies site-specific controls. The shared client has no ThreeV-specific labels or fixed menu locales. A separate example project withEN/FR is included in the installation acceptance matrix alongside the three native renderers.
 
 Business customer builds serve the same WorkspaceFrame, navigation, PanelTable and PanelSearch owners as the public demo. The demo keeps its isolated data and edition switcher; installations use authenticated server APIs and actual capabilities. The platform Admin is not a customer menu. Content and Commerce retain their existing panels in this release.
 

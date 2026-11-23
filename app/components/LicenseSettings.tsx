@@ -2,13 +2,15 @@
 import {FormEvent,useCallback,useEffect,useRef,useState} from "react";
 import {panelRequest} from "./panel-api";
 import "./license.css";
+import PanelPending from "./PanelPending";
 
 export const licenseStateLabels:Record<string,string>={platform:"Платформа BYPCMS",unactivated:"Не активирована",active:"Активна",grace:"Временная работа без связи",offline:"Нужна проверка связи",expired:"Срок обновлений истёк",suspended:"Приостановлена",invalid:"Подтверждение повреждено",activation_revoked:"Привязка отозвана",license_suspended:"Приостановлена",domain_mismatch:"Изменился домен",modules_mismatch:"Состав сборки не совпадает"};
 type Status={state:string;edition:string;domain:string;installation_id?:string;can_update:boolean;license_term?:string;valid_until?:string|null;modules?:string[];checked_at?:number|null;error?:string};
 export function licenseOperationId(){return crypto.randomUUID().replaceAll("-","");}
-export default function LicenseSettings({csrf,owner}:{csrf:string;owner:boolean}){
+export default function LicenseSettings({csrf,owner,onBusyChange}:{csrf:string;owner:boolean;onBusyChange?:(busy:boolean)=>void}){
   const[license,setLicense]=useState<Status|null>(null),[loading,setLoading]=useState(true),[key,setKey]=useState(""),[busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState(""),[confirm,setConfirm]=useState(false);
   const running=useRef(false),operation=useRef("");
+  useEffect(()=>{onBusyChange?.(busy);return()=>onBusyChange?.(false)},[busy,onBusyChange]);
   const load=useCallback(async()=>{try{const result=await panelRequest<{license:Status}>("license.status");setLicense(result.license);}finally{setLoading(false);}},[]);
   useEffect(()=>{void load().catch(e=>setError(e.message));},[load]);
   async function run(action:string){
@@ -23,7 +25,7 @@ export default function LicenseSettings({csrf,owner}:{csrf:string;owner:boolean}
   }
   return <section className="licenseWorkspace" aria-busy={busy}>
     {error&&<p className="licenseError" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
-    {!license?loading?<p role="status">Загрузка лицензии…</p>:<button disabled={busy} onClick={()=>{setLoading(true);void load().catch(e=>setError(e.message));}}>Повторить загрузку</button>:<>
+    {!license?loading?<PanelPending label="Загрузка лицензии…"/>:<button disabled={busy} onClick={()=>{setLoading(true);void load().catch(e=>setError(e.message));}}>Повторить загрузку</button>:<>
       <header><div><small>ЛИЦЕНЗИЯ УСТАНОВКИ</small><h2>{licenseStateLabels[license.state]||license.state}</h2></div><span>BYPCMS {license.edition}</span></header>
       {license.state==="platform"?<p>Управление выданными лицензиями находится в <a href="/owner/?section=licenses">Owner Center</a>.</p>:<>
         <dl><div><dt>Домен</dt><dd>{license.domain}</dd></div><div><dt>Установка</dt><dd><code>{license.installation_id}</code></dd></div><div><dt>Право получать обновления</dt><dd>{license.can_update?"Подтверждено лицензией":"Требуется действующая лицензия и проверка"}</dd></div><div><dt>Срок</dt><dd>{license.license_term==="lifetime"?"Пожизненно":license.valid_until?new Date(license.valid_until).toLocaleDateString("ru-RU"):"Не подтверждён"}</dd></div><div><dt>Последняя проверка</dt><dd>{license.checked_at?new Date(license.checked_at*1000).toLocaleString("ru-RU"):"Ещё не выполнялась"}</dd></div></dl>

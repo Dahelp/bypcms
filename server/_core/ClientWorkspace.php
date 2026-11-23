@@ -97,11 +97,15 @@ final class ClientWorkspace {
         $this->assertSection($section);if(!$this->administrator())throw new \DomainException('Настройки доступны администратору.');
         if($this->project&&($section==='design'||isset($this->project->manifest()['sections'][$section])))return $this->project->settings($section);
         if($section==='design'){
-            $s=$this->content->settings();$edition=strtolower($this->config['app']['edition']);$themes=$edition==='business'?['atelier','corporate','mono']:['journal','chronicle','focus'];
+            $edition=strtolower($this->config['app']['edition']);$s=$edition==='business'?(new Business($this->db,$this->config,$this->root))->settings():$this->content->settings();$themes=$edition==='business'?['atelier','corporate','mono']:['journal','chronicle','focus'];
+            if(is_file($this->root.'/themes/custom/page.html'))$themes[]='custom';
+            if(($s['theme']??'')==='custom')return ['title'=>'Дизайн и меню · Индивидуальный макет','description'=>'Индивидуальный HTML-макет. Его специальные настройки подключаются разработчиком через интеграцию проекта. Вы можете выбрать одну из установленных стандартных тем.','fields'=>[self::field('site_name','Название сайта',$s['site_name']),self::field('theme','Тема сайта','custom','select',array_combine($themes,array_map('ucfirst',$themes)))]];
             $fields=[];foreach(['site_name'=>'Название сайта','tagline'=>'Подпись сайта','email'=>'Контактный email','phone'=>'Телефон','logo'=>'Адрес логотипа','accent'=>'Акцентный цвет']as $key=>$label)$fields[]=self::field($key,$label,$s[$key]??'',$key==='accent'?'color':'text');
+            $fields[]=self::field('font','Шрифт текста',$s['font']??'manrope','select',['manrope'=>'Manrope','system'=>'Системный']);
+            $fields[]=self::field('heading_font','Шрифт заголовков',$s['heading_font']??'manrope','select',['manrope'=>'Manrope','georgia'=>'Georgia']);
             $fields[]=self::field('theme','Тема сайта',$s['theme']??$themes[0],'select',array_combine($themes,array_map('ucfirst',$themes)));
             foreach(['menu'=>'Меню в шапке','footer_menu'=>'Меню в подвале']as $key=>$label)$fields[]=self::field($key,$label,$s[$key]??[],'menu');
-            return ['title'=>'Дизайн и меню','fields'=>$fields];
+            return ['title'=>'Дизайн и меню · '.ucfirst($s['theme']),'description'=>'Настройки активного макета сайта. Изменения применяются после сохранения.','fields'=>$fields];
         }
         if($section==='forms')return ['title'=>'Форма заявки','description'=>'Отключение приёма не удаляет заявки и историю писем.','fields'=>[self::field('forms_enabled','Принимать заявки через сайт',$this->module('forms'),'checkbox')]];
         if($section==='mail'){

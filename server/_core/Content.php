@@ -8,7 +8,7 @@ use Throwable;
 
 /** Content data contract shared by installed themes, the editor and previews. */
 final class Content {
-    public const VERSION='2.8.0';
+    public const VERSION='2.8.1';
     public static array $images=[];
     public static function imageSet(string $url,string $sizes='(max-width: 650px) calc(100vw - 40px), (max-width: 1000px) 50vw, 720px'): string {
         $image=self::$images[$url]??null;if(!$image)return '';$sources=[];foreach($image['variants']??[]as $v)if(self::url('/'.$v['path'])&&($v['width']??0)>0)$sources[(int)$v['width']]=self::asset('/'.$v['path']).' '.(int)$v['width'].'w';if(($image['width']??0)>0)$sources[(int)$image['width']]=self::asset($url).' '.(int)$image['width'].'w';ksort($sources);return $sources?' srcset="'.self::e(implode(', ',$sources)).'" sizes="'.self::e($sizes).'"':'';
@@ -83,7 +83,12 @@ final class Content {
         if(isset($data['focus_heading_font'])&&!in_array($data['focus_heading_font'],['manrope','georgia'],true))throw new RuntimeException('Некорректный шрифт Focus.');
         if(isset($data['font'])&&!in_array($data['font'],['manrope','system'],true))throw new RuntimeException('Некорректный шрифт.');
         if(isset($data['heading_font'])&&!in_array($data['heading_font'],strtolower($this->config['app']['edition']??'')==='business'?['manrope','georgia']:(strtolower($this->config['app']['edition']??'')==='commerce'?['manrope','cormorant','georgia']:['cormorant','georgia']),true))throw new RuntimeException('Некорректный шрифт заголовков.');
-        $pdo=$this->db->pdo();$pdo->beginTransaction();try{foreach($data as $k=>$v)$this->db->execute('INSERT INTO byp_settings(setting_group,setting_key,setting_value,value_type,is_public,updated_at) VALUES("journal",?,?,"string",1,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()',[$k,is_array($v)?json_encode($v,JSON_UNESCAPED_UNICODE):mb_substr((string)$v,0,1000)]);$pdo->commit();}catch(Throwable $e){$pdo->rollBack();throw $e;}
+        $pdo=$this->db->pdo();$ownsTransaction=!$pdo->inTransaction();
+        if($ownsTransaction)$pdo->beginTransaction();
+        try{
+            foreach($data as $k=>$v)$this->db->execute('INSERT INTO byp_settings(setting_group,setting_key,setting_value,value_type,is_public,updated_at) VALUES("journal",?,?,"string",1,NOW()) ON DUPLICATE KEY UPDATE setting_value=VALUES(setting_value),updated_at=NOW()',[$k,is_array($v)?json_encode($v,JSON_UNESCAPED_UNICODE):mb_substr((string)$v,0,1000)]);
+            if($ownsTransaction)$pdo->commit();
+        }catch(Throwable $e){if($ownsTransaction&&$pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
     public function records(bool $public=false,bool $full=true,int $limit=0,int $offset=0): array {
         $fields=$full?'p.*':'p.id,p.parent_id,p.slug,p.title,p.excerpt,p.status,p.published_at,p.updated_at,p.created_at,\'\' AS content,\'[]\' AS blocks';

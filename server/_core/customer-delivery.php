@@ -48,6 +48,7 @@ function customer_package_trust($db,array $config,string $path): void {
             foreach(['Journal'=>'journal','Chronicle'=>'chronicle','Focus'=>'focus','Atelier'=>'atelier','Corporate'=>'corporate','Mono'=>'mono','Gallery'=>'gallery']as $renderer=>$theme)if($current->locateName('site/_core/'.$renderer.'.php')!==false&&$current->locateName('site/themes/'.$theme.'/'.$theme.'.css')===false)$bootstrap=false;
             $manifest=json_decode((string)$current->getFromName('site/build-manifest.json'),true);$edition=strtolower((string)($manifest['edition']??''));
             if($edition==='business'&&!str_contains((string)$current->getFromName('site/admin/index.html'),'bypcms-client-workspace'))$bootstrap=false;
+            if($edition==='business'&&($manifest['core_version']??'')!==\BYPCMS\Core\Content::VERSION)$bootstrap=false;
             $current->close();if($existing===$trust&&$bootstrap)return;}
         if(!copy($path,$temporary))throw new RuntimeException('Не удалось подготовить архив');
         $zip=new ZipArchive();if($zip->open($temporary)!==true)throw new RuntimeException('Архив недоступен');

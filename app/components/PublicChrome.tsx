@@ -24,13 +24,13 @@ export function PublicHeader({ active = "" }: { active?: "services" | "modules" 
   </header>;
 }
 
-export function PublicFooter() {
+export function PublicFooter({orderHref="/order"}:{orderHref?:string}={}) {
   const t = usePublicText();
   return <footer className="publicFooter">
     <div className="publicFooterInner publicContainer">
       <div className="publicFooterBrand"><Link className="brand" href="/"><span className="brandMark">B</span><span>BYPCMS</span></Link><p>{t("Модульная CMS и разработка индивидуальных веб‑проектов.")}</p></div>
       <nav aria-label={t("Разделы сайта")}><Link href="/#products">{t("Редакции")}</Link><Link href="/#builder">{t("Калькулятор")}</Link><Link href="/portfolio">{t("Портфолио")}</Link><Link href="/modules">{t("Модули")}</Link><Link href="/services">{t("Услуги")}</Link><Link href="/contacts/">{t("Контакты и реквизиты")}</Link><Link href="/legal/offer/">{t("Условия покупки")}</Link><Link href="/legal/privacy/">{t("Персональные данные")}</Link><Link href="/legal/refunds/">{t("Оплата и возвраты")}</Link><a href={DEMO_URL}>{t("Демо")}</a></nav>
-      <div className="publicFooterContact"><span>{t("ОБСУДИТЬ ПРОЕКТ")}</span><a href="mailto:hello@bypcms.ru">hello@bypcms.ru</a><Link href="/order">{t("Оформить заказ")}{" "}<b>↗</b></Link></div>
+      <div className="publicFooterContact"><span>{t("ОБСУДИТЬ ПРОЕКТ")}</span><a href="mailto:hello@bypcms.ru">hello@bypcms.ru</a><Link href={orderHref}>{t("Оформить заказ")}{" "}<b>↗</b></Link></div>
       <div className="publicFooterBottom"><span>© {new Date().getFullYear()} BYPCMS</span><p>{t("Платформа развивается и обновляется независимо от проектов клиентов.")}</p><a href="mailto:hello@bypcms.ru">{t("Связаться с нами")}</a></div>
     </div>
   </footer>;

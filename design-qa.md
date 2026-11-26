@@ -118,3 +118,25 @@ Implemented `/solutions/commerce/` and `/en/solutions/commerce/` in the existing
 - Desktop and mobile visual inspection: images loaded, no horizontal overflow. English layout checked at 320, 768, 1024 and 1440 CSS pixels; Russian mobile checked at 390 pixels. Section links have 44px targets. Native radio ArrowLeft selection updates price, URL and order link; focus is visible. FAQ and limitation disclosures open with Enter.
 - Final screenshots inspected: `outputs/commerce-page/desktop-en.jpg`, `desktop-ru-final.jpg`, `mobile-ru-final.jpg` and the focused `commerce-preview.jpg`. An early mobile capture was replaced after confirming all lazy-loaded images had finished loading. Browser error logs were empty.
 - The verified page is retained in the local in-app preview. This addition has not been published to the production site.
+
+
+## Business and Content product pages — final verification, 2026-11-21
+
+Added Russian and English Business and Content pages alongside Commerce. All three editions now use `app/solutions/EditionPage.tsx` for layout, license selection, URL preservation and checkout links, with edition-specific copy. Existing Commerce copy and screenshots were retained. Product-page footer order links now carry the current edition and license term as well. Other public footers retain their default destination.
+
+- Business scope: Atelier, Corporate and Mono; Content, Forms & CRM and SEO Pro. Actual Atelier desktop, project and mobile screenshots are used. Standard inquiry and CRM limits and SMTP setup are disclosed.
+- Content scope: Journal, Chronicle and Focus; Content and SEO Pro. Actual Chronicle homepage, article and mobile screenshots are used. The page does not imply that store, payments or CRM capabilities are included. Demo content is labeled as illustrative; public English copy does not imply translated demo themes.
+- Final `pnpm build:ftp` passed with 73 static pages, TypeScript, PHP copy and update candidate preparation. ESLint passed with zero errors and seven established static-image recommendations. Six locale and four estimate tests passed; diff whitespace check passed.
+- Final HTTP checks: six RU/EN product pages, matching canonical/language metadata, no untranslated visible Russian copy on English pages, all nine screenshot references, 49 distinct internal destinations, six portfolio case entry points, all three homepage detail links and six sitemap entries. `outputs/edition-pages/http-results.json` contains the results. Both actual demo destinations returned HTTP 200.
+- Real local browser checkout handoffs passed: Business annual 9,900 RUB and lifetime 24,900; Content annual 7,900 and lifetime 19,900; Commerce annual 19,900 and lifetime 49,900. The actual checkout edition and term were checked. Language switching retained the lifetime term. The Business footer checkout link also retained the selected annual term. No order, email or payment was submitted.
+- Homepage detail links lead to the correct editions and preserve the selected term. All three homepage edition prices remain aligned on the same baseline. The matching portfolio case links lead to the respective product pages.
+- Responsive testing initially found overflow in the Russian Business hero at 320px. A fluid small-screen heading size and zero minimum width on hero columns resolved it. Final verification covered Business, Content and Commerce in RU/EN at 320, 768, 1024 and 1440 CSS pixels: all 24 combinations have no horizontal overflow. `outputs/edition-pages/responsive-results.json` records the results. Russian mobile pages were visually checked at 390px, and Business at 320px.
+- Native keyboard license selection shows focus and updates price and checkout links. The Content long-story FAQ opens with Enter. Final browser error logs were empty; all screenshots were loaded before final captures.
+- Final local evidence: `outputs/edition-pages/business-desktop-ru.jpg`, `content-desktop-ru.jpg`, `content-desktop-en.jpg`, `business-mobile-final.jpg`, `content-mobile-final.jpg`, `business-mobile-320.jpg`, `business-preview.jpg` and `content-preview.jpg`. The Russian Business and Content tabs are retained for review.
+- This is a verified local build; Business and Content have not been deployed to the production site.
+
+## Business and Content publication preparation — 2026-11-26
+
+Prepared from current production branch 4117941 in an isolated worktree. Only the reviewed product-page implementation and related entry links are included; unrelated local work is excluded. Publication verification is recorded after deployment.
+
+Pre-publication checks passed on 2026-11-26: 13 locale, portfolio and estimate tests; a fresh production export of 74 static pages with TypeScript and PHP package preparation; all six product HTML documents have the correct language, canonical address, one H1 and edition-specific checkout. Existing installed dependencies were reused without changing dependency files.

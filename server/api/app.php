@@ -231,6 +231,13 @@ try {
             Response::error('Доступ разрешён только владельцу платформы', 403);
         }
 
+        if ($action === 'owner.public-funnel' && $method === 'GET') {
+            require_once __DIR__.'/../_core/PublicFunnel.php';
+            $days=filter_var($_GET['days']??30,FILTER_VALIDATE_INT);
+            if(!in_array($days,[7,30,90],true))Response::error('Выберите период 7, 30 или 90 дней.',422);
+            Response::ok(['report'=>(new \BYPCMS\Core\PublicFunnel($db))->report($days)]);
+        }
+
         if ($action === 'owner.bootstrap' && $method === 'GET') {
             require_once __DIR__.'/../_core/Content.php';
             if ((int)($db->one('SELECT COUNT(*) AS total FROM byp_module_catalog')['total'] ?? 0) === 0) {

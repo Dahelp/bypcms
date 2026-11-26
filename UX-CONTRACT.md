@@ -19,3 +19,6 @@ Routes /manage/ and client /admin/ share one workspace. Existing client license/
 The core recognizes project/workspace.php as a developer-owned adapter. Its capabilities, language fields, validation and public URLs are authoritative. ThreeV hides projects and demo material, preserves fixed template block order, stores team translations in existing Content records and applies theme appearance/menu/branding/contact changes through its public renderer. Core updates preserve project files, theme assets, runtime configuration, data and uploads.
 
 Native Atelier, Corporate and Mono settings use Business defaults and the active renderer's typography, appearance and menus. A plain custom HTML template exposes only supported common data and theme selection; project controls come from its own ClientProject adapter. Locale fields use the project's declared locales, without ThreeV-specific labels or languages in the shared shell.
+
+
+The owner overview uses SalesFunnel for a read-only aggregate comparison report. It reuses native selects, PanelPending and panelRequest/session recovery. Requests are bounded and abort on period changes/unmount; stale responses cannot overwrite newer results. Loading, error/retry and a truthful empty state stay within the report. Event counters never block public navigation or checkout and never expose individual visitors.

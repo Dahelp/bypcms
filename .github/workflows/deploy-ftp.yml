@@ -37,7 +37,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify public languages and portfolio content
-        run: node tests/public-locale.test.mjs && node tests/portfolio-locale.test.mjs
+        run: node tests/public-locale.test.mjs && node tests/portfolio-locale.test.mjs && node --experimental-strip-types tests/comparison-tracking.test.mjs && php tests/public-funnel.test.php
 
       - name: Validate PHP runtime
         run: find server -type f -name '*.php' -print0 | xargs -0 -n1 php -l

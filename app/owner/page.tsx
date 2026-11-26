@@ -13,6 +13,7 @@ import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import OwnerLicense from "./OwnerLicense";
+import SalesFunnel from "./SalesFunnel";
 import UpdateSettings from "../components/UpdateSettings";
 import CommerceCenter from "../components/CommerceCenter";
 import {licenseOperationId} from "../components/LicenseSettings";
@@ -140,6 +141,8 @@ export default function Owner(){
         {key:"status",label:"Статус",render:t=><em>{taskStatuses[t.status]||t.status}</em>},
         {key:"progress",label:"Готовность",render:t=>`${t.progress}%`},
       ]} actions={t=>[{label:"Редактировать",href:editorHref("task",t.id)}]}/></article><article className="quickActions"><small>БЫСТРЫЕ ДЕЙСТВИЯ</small><h2>Создать</h2><a href={editorHref("client")}><i><WorkspaceIcon symbol="clients"/></i><span><b>Клиента</b><small>Контакты и реквизиты</small></span><WorkspaceIcon symbol="→"/></a><a href={editorHref("task")}><i><WorkspaceIcon symbol="✓"/></i><span><b>Договорную работу</b><small>Срок, стоимость, ответственный</small></span><WorkspaceIcon symbol="→"/></a><a href={sectionHref("builder")}><i><WorkspaceIcon symbol="builder"/></i><span><b>Сборку CMS</b><small>Редакция и совместимые модули</small></span><WorkspaceIcon symbol="→"/></a></article></div></>}
+
+      {section==="overview"&&<SalesFunnel/>}
 
       {section==="clients"&&<div className="clientWorkspace">
         <section><h2>Клиенты</h2><PanelTable bulkActions={clientBulk} label="Клиенты" rows={filteredClients} rowId={c=>c.id} rowLabel={c=>c.company||c.name} columns={[

@@ -7,10 +7,10 @@ final class CommerceSchema {
     public static function ensure(Database $db, array $config, string $root): void {
         if (($config['app']['installation_type'] ?? 'platform') === 'client') throw new RuntimeException('Продажа лицензий доступна на платформе BYPCMS.');
         $marker=$root.'/_storage/commerce-schema-v3.lock';
-        if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'"))return;
+        if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_order_sources'"))return;
         $lock=fopen($marker.'.mutex','c');if(!$lock||!flock($lock,LOCK_EX))throw new RuntimeException('Не удалось подготовить заказы.');
         try {
-            if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_orders'"))return;
+            if(is_file($marker)&&$db->one("SHOW TABLES LIKE 'byp_commerce_order_sources'"))return;
             foreach([
                 'CREATE TABLE IF NOT EXISTS byp_customer_accounts (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,email VARCHAR(190) NOT NULL UNIQUE,name VARCHAR(190) NOT NULL,password_hash VARCHAR(255) NOT NULL,created_at DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',
                 'CREATE TABLE IF NOT EXISTS byp_customer_orders (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,customer_id INT UNSIGNED NOT NULL,edition VARCHAR(30) NOT NULL,modules LONGTEXT NOT NULL,domain VARCHAR(190) NOT NULL,license_term VARCHAR(20) NOT NULL,status VARCHAR(30) NOT NULL DEFAULT "pending",created_at DATETIME NOT NULL,INDEX(customer_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4',

@@ -5,22 +5,47 @@ import CommerceMailPanel,{type Mail} from "./CommerceMailPanel";
 import CommerceRefundPanel from "./CommerceRefundPanel";
 import PanelTable,{type PanelBulkResult} from "./PanelTable";
 import {refreshAfterBulk} from "./panel-bulk";
-import {commerceSettingsPayload,type CommerceView} from "./panel-route";
+import {commerceSettingsPayload,panelHref,type CommerceView} from "./panel-route";
 import CommerceWorkerStatus,{type WorkerStatus} from "./CommerceWorkerStatus";
 import "./license.css";
 type Settings=Record<string,string|number|boolean>;
-type Order={invoice:{number:string}|null;manual_payment:{source:string;paid_on:string}|null;id:number;name:string;email:string;edition:string;domain:string;kind:string;mode:string|null;amount_minor:number;payment_state:string;refunds:{amount_minor:number;pending:boolean;access_blocked:boolean;requests:{state:string}[]};fulfillment_state:string;fulfillment_error:string|null;created_at:string;attempt:{id:string;provider_id:string|null;state:string;last_error:string|null}|null};
+type Order={invoice:{number:string}|null;manual_payment:{source:string;paid_on:string}|null;id:number;name:string;email:string;edition:string;domain:string;kind:string;mode:string|null;amount_minor:number;payment_state:string;refunds:{amount_minor:number;pending:boolean;access_blocked:boolean;requests:{state:string}[]};fulfillment_state:string;fulfillment_error:string|null;created_at:string;attempt:{id:string;provider_id:string|null;state:string;last_error:string|null}|null;comparison_edition?:string|null;comparison_term?:string|null;comparison_locale?:string|null;comparison_path?:string|null};
 
-type State={mail_summary:Record<string,number>;mail_filter:string;mail_order:number;bank_settings:Bank;query:string;settings:Settings;orders:Order[];page:number;total:number;outbox:Mail[];mail_page:number;mail_total:number;worker:WorkerStatus;worker_command:string;webhook_url:string};
+type State={mail_summary:Record<string,number>;mail_filter:string;mail_order:number;bank_settings:Bank;query:string;settings:Settings;orders:Order[];page:number;total:number;outbox:Mail[];mail_page:number;mail_total:number;worker:WorkerStatus;worker_command:string;webhook_url:string;comparison_only?:boolean};
 const payments:Record<string,string>={pending:"Ожидает оплаты",paid:"Поступление подтверждено",canceled:"Отменён"},deliveries:Record<string,string>={pending:"Ожидает выдачи",ready:"Выдано",failed:"Нужен повтор выдачи",refunded:"Права по заказу возвращены",not_needed:"Заявка на согласование"};
 const money=(minor:number)=>new Intl.NumberFormat("ru-RU",{style:"currency",currency:"RUB"}).format(minor/100);
+const sourceEditions: Record<string,string> = {business:"Business", commerce:"Commerce", content:"Content"};
+const sourcePaths: Record<string,string> = {direct:"напрямую", details:"через описание", unknown:"путь не указан"};
+function comparisonDescription(order: Order) {
+  return [
+    "Сравнение сборок",
+    sourcePaths[order.comparison_path || ""],
+    sourceEditions[order.comparison_edition || ""],
+    order.comparison_term === "lifetime" ? "пожизненно" : "1 год",
+    order.comparison_locale?.toUpperCase(),
+  ].filter(Boolean).join(" · ");
+}
 export default function CommerceCenter({csrf,view}:{csrf:string;view:CommerceView}){
  const panel=view==="payment-settings"||view==="mail-settings"?"connection":view;
  const[data,setData]=useState<State|null>(null),[settings,setSettings]=useState<Settings>({}),[secrets,setSecrets]=useState({shop_secret:"",smtp_password:""}),[error,setError]=useState(""),[notice,setNotice]=useState(""),[busy,setBusy]=useState(false),[providerId,setProviderId]=useState("");
  const[testMailId,setTestMailId]=useState(0),[testTarget,setTestTarget]=useState("owner");
  const running=useRef(false),testOperation=useRef("");
  const request=useCallback(async<T,>(action:string,body?:unknown):Promise<T>=>{const r=await fetch("/commerce/index.php?action="+action,{method:body===undefined?"GET":"POST",credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf},body:body===undefined?undefined:JSON.stringify(body),signal:AbortSignal.timeout(120000)});const json=await r.json();if(!r.ok){if(r.status===401||json.details?.code==="csrf_expired")window.dispatchEvent(new CustomEvent("bypcms-panel-session",{detail:r.status===401?401:419}));throw new Error(json.error||"Сервер не подтвердил действие");}return json;},[csrf]);
- const load=useCallback(async(resetSettings=false)=>{const query=new URLSearchParams(location.search);const result=await request<State>("owner.status&page="+(Number(query.get("page"))||1)+"&q="+encodeURIComponent(query.get("q")||"")+"&mail_page="+(Number(query.get("mail_page"))||1)+"&mail_state="+encodeURIComponent(query.get("mail_state")||"")+"&mail_order="+(Number(query.get("mail_order"))||0)+(query.has("order")?"&order="+Number(query.get("order")):""));setData(result);if(resetSettings)setSettings(result.settings);},[request]);
+ const load = useCallback(async (resetSettings = false) => {
+   const query = new URLSearchParams(location.search);
+   const params = new URLSearchParams({
+     page: String(Number(query.get("page")) || 1),
+     q: query.get("q") || "",
+     mail_page: String(Number(query.get("mail_page")) || 1),
+     mail_state: query.get("mail_state") || "",
+     mail_order: String(Number(query.get("mail_order")) || 0),
+   });
+   if (query.has("order")) params.set("order", String(Number(query.get("order"))));
+   if (query.get("source") === "comparison") params.set("source", "comparison");
+   const result = await request<State>("owner.status&" + params);
+   setData(result);
+   if (resetSettings) setSettings(result.settings);
+ }, [request]);
  useEffect(()=>{void Promise.resolve().then(()=>{void load(true).catch(e=>setError(e.message));});},[load]);
 
  async function run(action:string,body:unknown,success:string){if(running.current)return;running.current=true;setBusy(true);setError("");setNotice("");try{const result=await request<{mail_id?:number;mail?:{state:string};result?:{skipped?:boolean}}>(action,body);if(action==="owner.mail.test"&&result.mail_id)setTestMailId(result.mail_id);setNotice(action==="owner.mail.test.process"?`Тестовое письмо №${testMailId}: ${result.mail?.state==="accepted"?"принято SMTP; проверьте почтовый ящик":result.mail?.state==="retry"?"временная ошибка, повтор по расписанию":result.mail?.state==="uncertain"?"приём не подтверждён — проверьте получателя перед повтором":result.mail?.state==="failed"?"ошибка SMTP; откройте историю письма":result.mail?.state||"проверьте очередь"}`:result.result?.skipped?"Другой цикл уже выполняется. Дождитесь завершения и обновите статус.":success);await load(action==="owner.settings");if(action==="owner.settings")setSecrets({shop_secret:"",smtp_password:""});if(action==="owner.mail.test")testOperation.current="";}catch(e){setError(e instanceof Error?e.message:"Не удалось завершить запрос. Повторите проверку.");}finally{running.current=false;setBusy(false);}}
@@ -30,16 +55,21 @@ export default function CommerceCenter({csrf,view}:{csrf:string;view:CommerceVie
 
  async function bulk<T extends{id:number}>(rows:T[],action:string){const result:PanelBulkResult={succeeded:[],failed:[]};for(const row of rows)try{await request(action,{id:row.id});result.succeeded.push(row.id);}catch(e){result.failed.push({id:row.id,error:e instanceof Error?e.message:"Запрос не подтверждён"});}return refreshAfterBulk(result,()=>load());}
  if(!data)return <section className="licenseWorkspace"><p role={error?"alert":"status"}>{error||"Загрузка выбранного раздела…"}</p><button onClick={()=>void load(true).catch(e=>setError(e.message))}>Повторить загрузку</button></section>;
+ const ordersHref = (page:number, query=data.query) => panelHref({
+   section:"payments", page:page>1?page:undefined, q:query||undefined,
+   source:data.comparison_only?"comparison":undefined,
+ });
  return <section className="commerceCenter" aria-busy={busy}><nav className="commerceTabs" aria-label="Связанные разделы">{panel==="orders"?<a href="?section=settings&tab=payments">Настройки оплаты</a>:panel==="mail"?<a href="?section=settings&tab=mail">Настройки почты</a>:<a href={view==="payment-settings"?"?section=payments":"?section=mail"}>{view==="payment-settings"?"К заказам и оплатам":"К почтовым уведомлениям"}</a>}</nav>{error&&<p className="licenseError" role="alert">{error}</p>}{notice&&<p className="commerceNotice" role="status">{notice}</p>}
 
- {panel!=="connection"&&<form className="commerceFilter" method="get"><input type="hidden" name="section" value={panel==="mail"?"mail":"payments"}/><label>Найти {panel==="mail"?"письмо по получателю или теме":"заказ по номеру, покупателю или домену"}<input name="q" defaultValue={data.query} maxLength={190} type="search"/></label><button>Найти</button><a href={panel==="mail"?"?section=mail":"?section=payments"}>Сбросить</a></form>}
+ {panel==="orders"&&data.comparison_only&&<p className="commerceNotice">Заказы из сравнения сборок, от ранних к новым.</p>}
+ {panel!=="connection"&&<form className="commerceFilter" method="get"><input type="hidden" name="section" value={panel==="mail"?"mail":"payments"}/>{panel==="orders"&&data.comparison_only&&<input type="hidden" name="source" value="comparison"/>}<label>Найти {panel==="mail"?"письмо по получателю или теме":"заказ по номеру, покупателю или домену"}<input name="q" defaultValue={data.query} maxLength={190} type="search"/></label><button>Найти</button><a href={panel==="mail"?"?section=mail":ordersHref(1, "")}>Сбросить</a></form>}
  {panel==="orders"&&<><PanelTable label="Заказы покупателей" rows={data.orders} rowId={o=>o.id} rowLabel={o=>`Заказ №${o.id}`} bulkActions={[{id:"check",label:"Обновить статусы выбранных",run:rows=>bulk(rows,"owner.sync")}]} columns={[
- {key:"order",label:"Заказ",render:o=><span className="panelCellText"><a href={`?section=payments&order=${o.id}`}>№{o.id} · {o.name}</a><small>{o.email}</small><small>{o.domain} · {o.edition==="services"?"Услуги":o.edition}</small></span>},
+ {key:"order",label:"Заказ",render:o=><span className="panelCellText"><a href={`?section=payments&order=${o.id}`}>№{o.id} · {o.name}</a><small>{o.email}</small><small>{o.domain} · {o.edition==="services"?"Услуги":o.edition}</small>{o.comparison_edition&&<small>{comparisonDescription(o)}</small>}</span>},
  {key:"amount",label:"Сумма",render:o=><span>{money(o.amount_minor)}<small>{o.kind==="inquiry"?"Услуги по согласованию":o.mode==="test"?"Тестовый платёж":""}</small></span>},
  {key:"status",label:"Оплата / выдача",render:o=><span className="panelCellText"><b>{payments[o.payment_state]||o.payment_state}</b><small>{o.kind==="service"?"Работы по согласованному счёту":deliveries[o.fulfillment_state]||o.fulfillment_state}</small>{o.refunds.amount_minor>0&&<small>Возвращено: {money(o.refunds.amount_minor)}</small>}{o.refunds.access_blocked&&<small>Доступ ограничен возвратом</small>}{o.refunds.requests.some(r=>r.state==="requested")&&<b>Есть заявка на возврат</b>}{o.fulfillment_error&&<small>{o.fulfillment_error}</small>}</span>},
  {key:"provider",label:"Счёт / способ оплаты",render:o=><span className="panelCellText"><code>{o.invoice?.number||o.attempt?.provider_id||"Счёт ещё готовится"}</code><small>{o.manual_payment?(o.manual_payment.source==="bank"?"Банковский перевод":"Счёт ЮKassa")+" · "+o.manual_payment.paid_on:o.attempt?"ЮKassa (API)":"По счёту, подтверждение владельцем"}</small><small>{o.attempt?.last_error}</small></span>},
- ]} actions={o=>[{label:"Открыть заказ",href:`?section=payments&order=${o.id}`},...(o.attempt?[{label:"Проверить оплату",onClick:()=>void run("owner.sync",{id:o.id},"Состояние платежа проверено.")}]:[]),...(o.payment_state==="paid"&&["pending","failed"].includes(o.fulfillment_state)?[{label:"Повторить выдачу",onClick:()=>void run("owner.fulfill",{id:o.id},"Проверка выдачи завершена.")}]:[])]} empty="Заказов покупателей пока нет."/>
- <nav className="commerceTabs" aria-label="Страницы заказов">{data.page>1&&<a href={`?section=payments&q=${encodeURIComponent(data.query)}&page=${data.page-1}`}>Назад</a>}<span>Страница {data.page} · всего заказов {data.total}</span>{data.page*20<data.total&&<a href={`?section=payments&q=${encodeURIComponent(data.query)}&page=${data.page+1}`}>Далее</a>}<a href="?section=payments">Все заказы</a></nav>
+ ]} actions={o=>[{label:"Открыть заказ",href:`?section=payments&order=${o.id}`},...(o.attempt?[{label:"Проверить оплату",onClick:()=>void run("owner.sync",{id:o.id},"Состояние платежа проверено.")}]:[]),...(o.payment_state==="paid"&&["pending","failed"].includes(o.fulfillment_state)?[{label:"Повторить выдачу",onClick:()=>void run("owner.fulfill",{id:o.id},"Проверка выдачи завершена.")}]:[])]} empty={data.comparison_only?"Заказов из сравнения по этому запросу пока нет.":"Заказов покупателей пока нет."}/>
+ <nav className="commerceTabs" aria-label="Страницы заказов">{data.page>1&&<a href={ordersHref(data.page-1)}>Назад</a>}<span>Страница {data.page} · всего заказов {data.total}</span>{data.page*20<data.total&&<a href={ordersHref(data.page+1)}>Далее</a>}<a href="?section=payments">Все заказы</a></nav>
  {data.orders.length===1&&new URLSearchParams(location.search).has("order")&&<><CommerceInvoicePanel id={Number(data.orders[0].id)} request={request} refresh={()=>load()}/><CommerceRefundPanel key={`${data.orders[0].id}:${data.orders[0].amount_minor}:${data.orders[0].payment_state}:${data.orders[0].refunds.amount_minor}`} id={Number(data.orders[0].id)} request={request} refresh={()=>load()}/></>}
  {data.orders.length===1&&data.orders[0].attempt&&!data.orders[0].attempt.provider_id&&<section className="licenseWorkspace"><h2>Сверка неопределённого платежа</h2><p>Найдите этот заказ в кабинете ЮKassa и укажите ID платежа. Сервер сам проверит магазин, сумму, режим и связь с заказом. Эта сверка относится к прежнему API-платежу. Для него требуется результат ЮKassa; произвольная отметка об оплате не используется.</p><label>ID платежа ЮKassa<input value={providerId} onChange={e=>setProviderId(e.target.value)}/></label><button disabled={busy||!providerId} onClick={()=>void run("owner.sync",{id:data.orders[0].id,provider_id:providerId},"Платёж сверен через API ЮKassa.")}>Сверить по ID</button></section>}</>}
  {panel==="connection"&&view==="payment-settings"&&<BankInvoiceSettings initial={data.bank_settings} request={request}/>}

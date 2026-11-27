@@ -97,6 +97,15 @@ const saved = await report(90);
 assert.equal(count(saved, 'order_saved', dimensions), count(before, 'order_saved', dimensions) + 1);
 assert.equal(count(saved, 'order_saved'), count(before, 'order_saved') + 1);
 assert.equal(count(saved, 'payment_confirmed'), count(before, 'payment_confirmed'));
+const ownerQuery = 'owner.status&source=comparison&q=' + encodeURIComponent(orderInput.domain);
+await commerce(ownerQuery, undefined, buyer, 401);
+const sourceBefore = (await commerce(ownerQuery, undefined, owner)).data;
+assert.equal(sourceBefore.comparison_only, true);
+assert.equal(sourceBefore.total, 1);
+const sourceFields = ({comparison_edition, comparison_term, comparison_locale, comparison_path}) =>
+  [comparison_edition, comparison_term, comparison_locale, comparison_path];
+assert.deepEqual(sourceFields(sourceBefore.orders[0]), ['business', 'annual', 'ru', 'details']);
+assert.equal(sourceBefore.orders[0].payment_state, 'pending');
 
 fixtureCommand('age-order', String(created.id));
 assert.equal(count(await report(90), 'order_saved', dimensions), count(before, 'order_saved', dimensions));
@@ -121,6 +130,11 @@ await confirmPayment();
 const confirmed = await report(90);
 assert.equal(count(confirmed, 'payment_confirmed', dimensions), count(before, 'payment_confirmed', dimensions) + 1);
 assert.equal(count(confirmed, 'payment_confirmed'), count(before, 'payment_confirmed') + 1);
+const sourceAfter = (await commerce(ownerQuery, undefined, owner)).data;
+assert.equal(sourceAfter.total, 1);
+assert.equal(sourceAfter.orders[0].id, created.id);
+assert.equal(sourceAfter.orders[0].payment_state, 'paid');
+assert.deepEqual(sourceFields(sourceAfter.orders[0]), sourceFields(sourceBefore.orders[0]));
 
 await commerce('create', {
   ...orderInput, operation_id: operation(), comparison_source: {tag: 'content.annual.en', via: 'direct'},
@@ -133,4 +147,11 @@ await commerce('create', {
 }, buyer);
 assert.equal(count(await report(90), 'order_saved', {edition: 'content', locale: 'en', path: 'direct'}),
   count(before, 'order_saved', {edition: 'content', locale: 'en', path: 'direct'}) + 1);
-console.log('Order source, login return, delayed invoice payment, repeat requests and privacy checks passed');
+const comparisonOrders = (await commerce(ownerQuery, undefined, owner)).data;
+assert.equal(comparisonOrders.total, 2);
+assert.deepEqual(comparisonOrders.orders.map(row => row.comparison_path), ['details', 'direct']);
+const allOrders = (await commerce('owner.status&q=' + encodeURIComponent(orderInput.domain), undefined, owner)).data;
+assert.equal(allOrders.total, 4);
+assert.equal(allOrders.orders.filter(row => row.comparison_path === null).length, 2);
+assert.equal((await commerce(ownerQuery + '&page=2', undefined, owner)).data.orders.length, 0);
+console.log('Order source, owner filter, login return, delayed invoice payment, repeat requests and privacy checks passed');

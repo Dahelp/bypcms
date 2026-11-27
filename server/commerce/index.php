@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../_core/bootstrap.php';
 require_once __DIR__.'/../_core/CommerceOrders.php';
-use BYPCMS\Core\{CommerceOrders,CommerceSettings,CommerceRefunds,CommerceLegal,PaymentGateway,Response};
+use BYPCMS\Core\{CheckoutEmail,CommerceOrders,CommerceSettings,CommerceRefunds,CommerceLegal,CustomerAccounts,PaymentGateway,PublicFunnel,Response};
 header('Cache-Control: no-store');
 header('X-Robots-Tag: noindex, nofollow');header('X-Frame-Options: SAMEORIGIN');
 if(($config['app']['installation_type']??'platform')==='client')Response::error('Раздел доступен на платформе BYPCMS',403);
@@ -12,7 +12,35 @@ $input=byp_input();$_SESSION['customer_csrf']??=bin2hex(random_bytes(32));
 try {
     $commerce=new CommerceOrders($db,$config,BYPCMS_ROOT);$user=$auth->user();$owner=$user&&$user['role']==='owner';$customer=empty($_SESSION['customer_id'])?null:$db->one('SELECT id,name,email FROM byp_customer_accounts WHERE id=?',[(int)$_SESSION['customer_id']]);$settings=$commerce->settings->get();$refunds=new CommerceRefunds($db,$config,$commerce);
     $allowTest=$owner||!empty($config['app']['debug']);$available=$commerce->available($allowTest);
-    if($action==='bootstrap'&&$method==='GET')Response::ok(['customer'=>$customer,'csrf'=>$_SESSION['customer_csrf'],'catalog'=>$commerce->catalog(),'bank_available'=>$commerce->invoices->bank->get()['enabled'],'payments_available'=>$available,'test_mode'=>$settings['mode']==='test','legal'=>CommerceLegal::info(),'renewal_quote'=>$customer&&!empty($_GET['renewal'])?$commerce->renewalQuote((int)$customer['id'],(int)$_GET['renewal']):null]);
+    $allowTracking=($_SERVER['HTTP_DNT']??'')!=='1'&&($_SERVER['HTTP_SEC_GPC']??'')!=='1';
+    if($action==='bootstrap'&&$method==='GET'){
+        $pending=null;
+        if(!$customer&&!empty($_GET['checkout'])&&!empty($_SESSION['checkout_email_binding'])&&$settings['smtp_enabled']){
+            $pending=(new CheckoutEmail($db,$commerce,$config,BYPCMS_ROOT))->pending((string)$_GET['checkout'],$_SESSION['checkout_email_binding']);
+        }
+        Response::ok(['customer'=>$customer,'csrf'=>$_SESSION['customer_csrf'],'catalog'=>$commerce->catalog(),'bank_available'=>$commerce->invoices->bank->get()['enabled'],'payments_available'=>$available,'test_mode'=>$settings['mode']==='test','legal'=>CommerceLegal::info(),'renewal_quote'=>$customer&&!empty($_GET['renewal'])?$commerce->renewalQuote((int)$customer['id'],(int)$_GET['renewal']):null,'checkout_email_available'=>$settings['smtp_enabled'],'checkout_email_pending'=>$pending]);
+    }
+    if(in_array($action,['checkout.email.request','checkout.email.verify'],true)){
+        if($method!=='POST')Response::error('Требуется POST',405);
+        if(!hash_equals($_SESSION['customer_csrf'],(string)($_SERVER['HTTP_X_CSRF_TOKEN']??'')))Response::error('Сессия формы истекла. Обновите данные сессии и повторите действие.',403,['code'=>'csrf_expired']);
+        if($customer)Response::ok(['customer'=>$customer,'csrf'=>$_SESSION['customer_csrf']]);
+        $binding=$_SESSION['checkout_email_binding']??=bin2hex(random_bytes(32));
+        $checkout=new CheckoutEmail($db,$commerce,$config,BYPCMS_ROOT);
+        $ip=(string)($_SERVER['REMOTE_ADDR']??'');
+        if($action==='checkout.email.request'){
+            $source=$allowTracking?PublicFunnel::orderSource($input['comparison_source']??null):null;
+            $mailId=$checkout->request($input,$binding,$ip,$source);
+            session_write_close();
+            if($mailId){
+                // Send only this code now. The existing worker handles transient retry.
+                try{$commerce->notifications->process(1,$mailId);}catch(Throwable $e){error_log('[BYPCMS checkout] verification mail remains queued');}
+            }
+            Response::ok(['pending'=>$checkout->pending((string)$input['operation_id'],$binding)]);
+        }
+        $identity=$checkout->verify($input,$binding,$ip,$allowTracking);
+        CustomerAccounts::startSession($identity['customer']['id'],$identity['version']);
+        Response::ok(['customer'=>$identity['customer'],'csrf'=>$_SESSION['customer_csrf'],'legacy_password_revoked'=>$identity['legacy_password_revoked']]);
+    }
     if($action==='quote'&&$method==='POST')Response::ok(['quote'=>$commerce->quote($input)]);
     if($action==='webhook'){
         if($method!=='POST')Response::error('Требуется POST',405);
@@ -93,7 +121,7 @@ try {
     if($action==='legal.accept'&&$method==='POST'){CommerceLegal::validate($input);$pdo=$db->pdo();$pdo->beginTransaction();try{$order=$commerce->row((int)($input['id']??0),$customerId,true);CommerceLegal::record($db,$customerId,(int)$order['id']);$pdo->commit();Response::ok();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}}
     if($action==='invoice.accept'&&$method==='POST'){$commerce->invoices->accept((int)($input['id']??0),$customerId,$input);Response::ok(['order'=>$commerce->view((int)$input['id'],$customerId)]);}
     if ($action === 'create' && $method === 'POST') {
-        if (($_SERVER['HTTP_DNT'] ?? '') === '1' || ($_SERVER['HTTP_SEC_GPC'] ?? '') === '1') {
+        if (!$allowTracking) {
             unset($input['comparison_source']);
         }
         Response::ok(['order' => $commerce->create($customerId, $input)]);

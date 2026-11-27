@@ -37,6 +37,44 @@ final class CustomerAccounts {
         if(!$row||!password_verify($password,$row['password_hash']))return null;
         return $row;
     }
+
+    public static function startSession(int $id, string $version): void {
+        if (!session_regenerate_id(true)) throw new \RuntimeException('Не удалось обновить сессию. Повторите вход.');
+        $_SESSION['customer_id']=$id;
+        $_SESSION['customer_version']=$version;
+        $_SESSION['customer_csrf']=bin2hex(random_bytes(32));
+    }
+
+    /** Called inside the checkout transaction, after proving mailbox ownership. */
+    public static function verifiedCheckout(Database $db, string $email): array {
+        $created = $db->execute('INSERT INTO byp_customer_accounts(email,name,password_hash,created_at)
+            VALUES(?,?,"!",NOW()) ON DUPLICATE KEY UPDATE id=id', [$email,$email]) === 1;
+        $customer = $db->one('SELECT c.id,c.name,c.email,c.password_hash,
+            COALESCE(s.session_version,"") AS session_version,s.password_changed_at,v.verified_at
+            FROM byp_customer_accounts c LEFT JOIN byp_customer_security s ON s.customer_id=c.id
+            LEFT JOIN byp_checkout_verified_customers v ON v.customer_id=c.id
+            WHERE c.email=? FOR UPDATE', [$email]);
+        $id = (int)$customer['id'];
+        $legacyPassword = !$created && $customer['verified_at'] === null
+            && $customer['password_changed_at'] === null && $customer['password_hash'] !== '!';
+        if ($legacyPassword) {
+            // An old registration could claim an address without owning it. Revoke that
+            // credential and its sessions before exposing the verified buyer's orders.
+            $customer['session_version'] = bin2hex(random_bytes(16));
+            $db->execute('UPDATE byp_customer_accounts SET password_hash="!" WHERE id=?', [$id]);
+            $db->execute('INSERT INTO byp_customer_security(customer_id,session_version) VALUES(?,?)
+                ON DUPLICATE KEY UPDATE session_version=VALUES(session_version)', [$id,$customer['session_version']]);
+        }
+        if ($customer['verified_at'] === null) {
+            $db->execute('INSERT INTO byp_checkout_verified_customers(customer_id,verified_at) VALUES(?,?)', [$id,time()]);
+            CommerceLegal::record($db,$id,null,false);
+        }
+        return [
+            'customer'=>['id'=>$id,'name'=>$customer['name'],'email'=>$customer['email']],
+            'version'=>$customer['session_version'],
+            'legacy_password_revoked'=>$legacyPassword,
+        ];
+    }
     public static function password(string $password,string $confirmation):void {
         // bcrypt accepts at most 72 bytes; never silently truncate a new password.
         if(mb_strlen($password)<12||strlen($password)>72||str_contains($password,"\0"))throw new \InvalidArgumentException('Используйте пароль от 12 символов. Если он слишком длинный, сократите его.');

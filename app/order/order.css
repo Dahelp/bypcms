@@ -44,6 +44,19 @@
 .checkoutPrimary:disabled{background:#e6e8e1;color:#5f6459;cursor:not-allowed}
 .checkoutForm[aria-busy=true] .checkoutPrimary{cursor:progress}
 .checkoutRetry{padding:10px 14px;min-height:44px;background:transparent;border:1px solid currentColor;border-radius:6px;cursor:pointer;font-size:14px;font-weight:700}
+.checkoutEmail{min-width:0;margin:18px 0 16px;padding:0 16px 12px;border:1px solid var(--checkout-line);border-radius:8px;background:#f2f5ed}
+.checkoutEmail legend{padding:0 6px;font-size:16px;font-weight:800}
+.checkoutEmail strong{overflow-wrap:anywhere}
+.checkoutEmail .checkoutError{margin:8px 0}
+.checkoutCode{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.checkoutCode input{font-variant-numeric:tabular-nums;letter-spacing:.15em}
+.checkoutEmailAction{margin:10px 0 0;background:#fff}
+.checkoutEmail :is(.checkoutRetry,.checkoutEmailLink):hover:not(:disabled){background:#e8ede2}
+.checkoutEmail button:disabled{opacity:.7;cursor:not-allowed}
+.checkoutEmailLinks{display:flex;flex-wrap:wrap;column-gap:14px}
+.checkoutEmailLink,.checkoutEmailAccount{min-height:44px;display:inline-flex;align-items:center;background:transparent;color:inherit;border:0;padding:4px 0;font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.checkoutEmailLink:disabled{text-decoration:none}
+.checkoutEmailAccount{display:flex;width:fit-content}
 .checkoutAfterSubmit{text-align:center;margin:12px 0 0}
 .checkoutStepsLink{display:block;width:fit-content;margin:8px auto 0;padding:8px 0;font-size:14px}
 .orderNext{grid-column:1;align-self:start;scroll-margin-top:24px;border-top:1px solid var(--checkout-line);padding-top:28px}
@@ -56,4 +69,4 @@
 .orderLayout ::selection{background:var(--acid);color:var(--ink)}
 @media(max-width:1000px){.orderLayout{width:calc(100% - 48px);gap:32px}.checkoutForm{padding:24px}.checkoutFields{grid-template-columns:1fr;gap:0}}
 @media(max-width:800px){.orderLayout{grid-template-columns:1fr;grid-template-rows:none;width:min(600px,calc(100% - 40px));margin:32px auto 64px;gap:32px}.checkoutForm,.orderNext{grid-column:auto;grid-row:auto}.orderSummary .buildEstimateTotal strong{font-size:36px}.orderOverview h1{font-size:36px}.checkoutForm{padding:24px}.orderLead{font-size:16px;margin-bottom:24px}}
-@media(max-width:400px){.checkoutForm{padding:20px}.orderLayout{width:calc(100% - 32px)}.orderSummary .buildEstimateBreakdown>div{gap:12px}}
+@media(max-width:400px){.checkoutForm{padding:20px}.orderLayout{width:calc(100% - 32px)}.orderSummary .buildEstimateBreakdown>div{gap:12px}.checkoutEmail{padding-inline:12px}.checkoutEmailAction{width:100%}}

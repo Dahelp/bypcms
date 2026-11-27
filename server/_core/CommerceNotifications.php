@@ -7,6 +7,7 @@ require_once __DIR__.'/SmtpTransport.php';
 require_once __DIR__.'/CommerceMailTemplates.php';
 require_once __DIR__.'/LicensePolicy.php';
 require_once __DIR__.'/CustomerRecovery.php';
+require_once __DIR__.'/CheckoutEmail.php';
 
 final class CommerceNotifications {
     public function __construct(private Database $db,private CommerceSettings $settings,private array $config){
@@ -60,6 +61,9 @@ final class CommerceNotifications {
             $reset=$this->db->one('SELECT used_at,expires_at FROM byp_customer_password_resets WHERE mail_id=?',[$mail['id']]);
             if(!$reset||$reset['used_at']!==null||(int)$reset['expires_at']<=time())return 'Ссылка восстановления использована или истекла. Покупатель может запросить новую.';
         }
+        if($meta['template_key']===CheckoutEmail::TEMPLATE && !CheckoutEmail::activeMail($this->db,(int)$mail['id'])) {
+            return 'Код использован, заменён или истёк. Покупатель может запросить новый.';
+        }
         if(!$mail['order_id'])return null;
         $o=$this->db->one('SELECT * FROM byp_commerce_orders WHERE order_id=?',[$mail['order_id']]);if(!$o)return 'Заказ больше недоступен.';
         $key=$meta['template_key'];
@@ -97,15 +101,23 @@ final class CommerceNotifications {
             $pdo=$this->db->pdo();$pdo->beginTransaction();try{
                 if($candidate['order_id'])$this->db->one('SELECT order_id FROM byp_commerce_orders WHERE order_id=? FOR UPDATE',[$candidate['order_id']]);
                 $mail=$this->db->one('SELECT * FROM byp_notification_outbox WHERE id=? AND state IN ("pending","retry") AND next_attempt_at<=NOW() FOR UPDATE',[$candidate['id']]);if(!$mail){$pdo->commit();continue;}$meta=$this->metadata((int)$mail['id']);
-                if($reason=$this->obsolete($mail,$meta)){$this->db->execute('UPDATE byp_notification_outbox SET state="superseded",last_error=? WHERE id=?',[$reason,$mail['id']]);$result['superseded']++;$pdo->commit();continue;}
+                if($reason=$this->obsolete($mail,$meta)){
+                    $this->db->execute('UPDATE byp_notification_outbox SET state="superseded",last_error=? WHERE id=?',[$reason,$mail['id']]);
+                    if($meta['template_key']===CheckoutEmail::TEMPLATE)CheckoutEmail::clearMail($this->db,(int)$mail['id']);
+                    $result['superseded']++;$pdo->commit();continue;
+                }
                 $token=bin2hex(random_bytes(16));$number=(int)$mail['attempts']+1;
                 $this->db->execute('UPDATE byp_notification_outbox SET state="sending",attempts=attempts+1,lease_until=DATE_ADD(NOW(),INTERVAL 5 MINUTE) WHERE id=?',[$mail['id']]);$this->db->execute('UPDATE byp_mail_metadata SET lease_token=?,cycle_attempts=cycle_attempts+1 WHERE mail_id=?',[$token,$mail['id']]);
                 $this->db->execute('INSERT INTO byp_mail_attempts(token,mail_id,attempt_number,state,started_at) VALUES(?,?,?,"sending",NOW())',[$token,$mail['id'],$number]);$pdo->commit();$sent++;
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
             $state='accepted';$code=null;$error=null;
             try{
-                $payload=$meta['template_key']==='customer_password_reset'?CustomerRecovery::mail($this->db,$this->config,$mail):null;
-                if($meta['template_key']==='customer_password_reset'&&!$payload)throw new \RuntimeException('Ссылка восстановления недоступна.');
+                $payload=match($meta['template_key']){
+                    'customer_password_reset'=>CustomerRecovery::mail($this->db,$this->config,$mail),
+                    CheckoutEmail::TEMPLATE=>CheckoutEmail::mail($this->db,$this->config,(int)$mail['id']),
+                    default=>null,
+                };
+                if(in_array($meta['template_key'],['customer_password_reset',CheckoutEmail::TEMPLATE],true)&&!$payload)throw new RuntimeException('Защищённое содержимое письма недоступно.');
                 $code=(new SmtpTransport($s,$this->config))->send(array_replace($mail,['html'=>$meta['html']],$payload??[]));
             }
             catch(MailTransportException $e){$code=$e->smtpCode;$error=$e->getMessage();$state=$e->uncertain?'uncertain':($e->permanent||(int)$meta['cycle_attempts']+1>=5?'failed':'retry');}
@@ -114,6 +126,7 @@ final class CommerceNotifications {
             $pdo->beginTransaction();try{
                 $current=$this->db->one('SELECT o.state,m.lease_token FROM byp_notification_outbox o JOIN byp_mail_metadata m ON m.mail_id=o.id WHERE o.id=? FOR UPDATE',[$mail['id']]);
                 if($current['state']!=='sending'||$current['lease_token']!==$token){$this->db->execute('UPDATE byp_mail_attempts SET state="late_result",smtp_code=?,error="Поздний ответ старого процесса; состояние очереди не изменено",finished_at=NOW() WHERE token=?',[$code,$token]);$pdo->commit();continue;}
+                if($meta['template_key']===CheckoutEmail::TEMPLATE&&$state!=='retry')CheckoutEmail::clearMail($this->db,(int)$mail['id']);
                 $this->db->execute('UPDATE byp_notification_outbox SET state=?,lease_until=NULL,last_error=?,accepted_at=IF(?="accepted",NOW(),accepted_at),next_attempt_at=DATE_ADD(NOW(),INTERVAL ? MINUTE) WHERE id=?',[$state,$error,$state,min(1440,2**min(10,(int)$meta['cycle_attempts']+1)),$mail['id']]);$this->db->execute('UPDATE byp_mail_metadata SET lease_token=NULL WHERE mail_id=?',[$mail['id']]);if($state==='accepted')$this->db->execute('UPDATE byp_owner_notifications SET is_read=1 WHERE notification_type="mail_error" AND entity_type="mail" AND entity_id=?',[$mail['id']]);$this->db->execute('UPDATE byp_mail_attempts SET state=?,smtp_code=?,error=?,finished_at=NOW() WHERE token=?',[$state,$code,$error,$token]);$pdo->commit();
                 $result[$state==='accepted'?'accepted':($state==='uncertain'?'uncertain':'failed')]++;
             }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -128,6 +141,7 @@ final class CommerceNotifications {
             $mail=$this->db->one('SELECT * FROM byp_notification_outbox WHERE id=? FOR UPDATE',[$id]);if(!$mail)throw new RuntimeException('Письмо не найдено.');
             if($old=$this->db->one('SELECT * FROM byp_mail_actions WHERE operation_id=?',[$op])){if((int)$old['mail_id']!==$id||$old['action']!==$action)throw new RuntimeException('Операция уже использована для другого действия.');$pdo->commit();return (int)$old['result_id'];}
             $meta=$this->metadata($id);$result=$id;
+            if($meta['template_key']===CheckoutEmail::TEMPLATE&&$action!=='cancel')throw new RuntimeException('Покупатель запрашивает новый код на странице заказа.');
             if($meta['template_key']==='customer_password_reset'&&$action!=='cancel')throw new RuntimeException('Для восстановления покупатель запрашивает новую ссылку в кабинете. Повтор из журнала недоступен.');
             if($action==='retry')$this->retryLocked($mail,$meta,!empty($input['acknowledge']));
             elseif($action==='cancel'){
@@ -146,6 +160,7 @@ final class CommerceNotifications {
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }
     private function retryLocked(array $mail,array $meta,bool $acknowledge):void {
+        if($meta['template_key']===CheckoutEmail::TEMPLATE)throw new RuntimeException('Покупатель запрашивает новый код на странице заказа.');
         if($meta['template_key']==='customer_password_reset')throw new RuntimeException('Покупатель должен запросить новую ссылку восстановления.');
         if(!in_array($mail['state'],['pending','retry','failed','uncertain'],true))throw new RuntimeException('Это письмо нельзя вернуть в очередь: оно принято, отправляется, отменено или устарело.');
         if($mail['state']==='uncertain'&&!$acknowledge)throw new RuntimeException('SMTP мог уже принять письмо. Проверьте получателя и подтвердите риск дубля.');

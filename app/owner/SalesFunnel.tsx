@@ -7,6 +7,8 @@ import "./sales-funnel.css";
 
 const stages = [
   ["checkout_open", "Оформление загружено"],
+  ["checkout_email_started", "Начал подтверждение email"],
+  ["checkout_email_verified", "Подтвердил email"],
   ["order_saved", "Заказ сохранён"],
   ["payment_confirmed", "Оплата подтверждена"],
 ] as const;
@@ -121,7 +123,7 @@ export default function SalesFunnel() {
               return <div key={event} className={event === "payment_confirmed" ? "funnelPayment" : undefined}>
                 <dt>{label}</dt>
                 <dd className="funnelStageValue">{number.format(total)}</dd>
-                {event !== "checkout_open" && total > 0 && <dd className="funnelPaths">
+                {(event === "order_saved" || event === "payment_confirmed") && total > 0 && <dd className="funnelPaths">
                   {paths.map(([path, name]) => {
                     const hits = count(event, undefined, path);
                     return hits > 0 && <span key={path}>{name} <b>{number.format(hits)}</b></span>;
@@ -162,6 +164,7 @@ export default function SalesFunnel() {
           <details>
             <summary>Как считаются показатели</summary>
             <p>Сборка, срок и язык берутся из исходного сравнения. Успешная загрузка расчёта учитывается и при повторном открытии оформления. Настройки приватности и блокировщики могут уменьшать показатели.</p>
+            <p>Первый запрос кода и успешное подтверждение email учитываются по одному разу на оформление из сравнения. Повторная отправка кода не увеличивает счётчик.</p>
             <p>Сохранение и подтверждение оплаты учитываются по одному разу на заказ, каждое по своей дате. Факт подтверждения остаётся после возврата. В отчёте учитываются оплаты в рабочем режиме. Границы дней рассчитываются по UTC.</p>
           </details>
           {report && <p className="funnelUpdated">Обновлено <time dateTime={report.updated_at}>{updateTime.format(new Date(report.updated_at))} МСК</time></p>}

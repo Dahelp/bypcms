@@ -46,11 +46,22 @@ final class PublicFunnel {
     }
 
     public function record(array $input):void {
-        $event=self::validate($input);
+        $this->increment(self::validate($input));
+        $this->prune();
+    }
+
+    /** Checkout milestones are written by the server, outside the public metrics API. */
+    public function recordCheckoutEmail(string $event, array $source): void {
+        if (!in_array($event, ['checkout_email_started', 'checkout_email_verified'], true)) {
+            throw new \InvalidArgumentException('Unknown checkout milestone');
+        }
+        $this->increment(['event'=>$event,'edition'=>$source['edition'],'term'=>$source['term'],'locale'=>$source['locale']]);
+    }
+
+    private function increment(array $event):void {
         $this->db->execute('INSERT INTO byp_public_funnel_daily (event_day,event_name,edition,license_term,locale,hits)
             VALUES (UTC_DATE(),:event,:edition,:term,:locale,1)
             ON DUPLICATE KEY UPDATE hits=hits+1',$event);
-        $this->prune();
     }
     private function prune():void {
         $this->db->execute('DELETE FROM byp_public_funnel_daily WHERE event_day < DATE_SUB(UTC_DATE(),INTERVAL 89 DAY)');

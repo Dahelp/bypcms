@@ -4,10 +4,11 @@ import {FormEvent,useCallback,useEffect,useRef,useState} from "react";
 import {BackToTop,PublicFooter,PublicHeader} from "../components/PublicChrome";
 import "./order.css";
 import BuildEstimate from "../components/BuildEstimate";
+import CheckoutEmail, { type CheckoutCustomer, type EmailPending } from "./CheckoutEmail";
 import {publicServices} from "../modules/data";
 import {checkoutComparisonSource,parseComparisonTag,trackComparison} from "../../lib/comparison-tracking";
 type Quote={edition:string;term:string;domain?:string;modules:string[];services:string[];items:{name:string;minor:number}[];amount_minor:number;kind:string};
-type Bootstrap={legal:{version:string};customer:{id:number;name:string;email:string}|null;csrf:string;bank_available:boolean;payments_available:boolean;test_mode:boolean;renewal_quote:Quote|null;catalog:{editions:Record<string,{name:string;annual:number;lifetime:number}>;modules:{module_key:string;name:string;minor:number}[];availability:{edition:string;module_key:string;availability:string}[];services:Record<string,[string,number]>}};
+type Bootstrap={legal:{version:string};customer:CheckoutCustomer|null;csrf:string;checkout_email_available:boolean;checkout_email_pending:EmailPending|null;bank_available:boolean;payments_available:boolean;test_mode:boolean;renewal_quote:Quote|null;catalog:{editions:Record<string,{name:string;annual:number;lifetime:number}>;modules:{module_key:string;name:string;minor:number}[];availability:{edition:string;module_key:string;availability:string}[];services:Record<string,[string,number]>}};
 type Draft={edition:string;term:string;modules:string[];services:string[];domain:string;company:string;phone:string;comment:string};
 const initial:Draft={edition:"business",term:"annual",modules:[],services:[],domain:"",company:"",phone:"",comment:""};
 async function checkoutJson(response:Response,fallback:string){try{if(!response.headers.get("content-type")?.includes("application/json"))throw new Error();return await response.json();}catch{throw new Error(fallback);}}
@@ -19,11 +20,29 @@ export default function OrderPage(){
  const selectionKey=JSON.stringify([draft.edition,draft.term,draft.modules,draft.services,renewal]);
  const quoteCurrent=!!quote&&quoteKey===selectionKey;
  const operation=useRef(""),storageKey=useRef(""),submitted=useRef(false);
- const load=useCallback(async()=>{setError("");try{const params=new URLSearchParams(location.search);const response=await fetch("/commerce/index.php?action=bootstrap"+(params.has("renewal")?`&renewal=${encodeURIComponent(params.get("renewal")!)}`:""),{credentials:"same-origin",cache:"no-store"});const result=await checkoutJson(response,t("Сервис оформления недоступен. Повторите загрузку."));if(!response.ok)throw new Error(t(result.error||"")||t("Не удалось загрузить оформление"));setData(result);if(result.renewal_quote)setDraft(old=>({...old,edition:result.renewal_quote.edition,term:"annual",domain:result.renewal_quote.domain,modules:[],services:[]}));}catch(e){setError(e instanceof Error?t(e.message):t("Сервис оформления недоступен. Повторите загрузку."));}},[t]);
+ const privacyInput=useRef<HTMLInputElement>(null),buyerStatus=useRef<HTMLParagraphElement>(null);
+ const [emailStatus,setEmailStatus]=useState<{ legacyPasswordRevoked: boolean } | null>(null);
+ const load=useCallback(async()=>{
+  setError("");
+  try {
+   const params=new URLSearchParams(location.search);
+   const request=new URLSearchParams({action:"bootstrap"});
+   if(params.has("renewal"))request.set("renewal",params.get("renewal")!);
+   else if(operation.current)request.set("checkout",operation.current);
+   const response=await fetch("/commerce/index.php?"+request,{credentials:"same-origin",cache:"no-store",signal:AbortSignal.timeout(20000)});
+   const result=await checkoutJson(response,t("Сервис оформления недоступен. Повторите загрузку."));
+   if(!response.ok)throw new Error(t(result.error||"")||t("Не удалось загрузить оформление"));
+   setData(result);
+   if(result.renewal_quote)setDraft(old=>({...old,edition:result.renewal_quote.edition,term:"annual",domain:result.renewal_quote.domain,modules:[],services:[]}));
+  }catch(e){
+   setError(e instanceof Error?t(e.message):t("Сервис оформления недоступен. Повторите загрузку."));
+  }
+ },[t]);
  useEffect(()=>{void Promise.resolve().then(()=>{const query=new URLSearchParams(location.search);setNext(location.pathname+location.search);setRenewal(Number(query.get("renewal"))||0);storageKey.current="bypcms-checkout-v1:"+location.search;let saved:{draft?:Partial<Draft>;operation?:string}|null=null;try{saved=JSON.parse(sessionStorage.getItem(storageKey.current)||"null");}catch{}const restored={...initial};if(saved?.draft){for(const key of ["domain","company","phone","comment"]as const)if(typeof saved.draft[key]==="string")restored[key]=saved.draft[key];}if(query.has("edition"))restored.edition=(query.get("edition")||"business").toLowerCase();if(query.get("services_only")==="1")restored.edition="services";if(query.has("term"))restored.term=query.get("term")==="lifetime"?"lifetime":"annual";restored.modules=(query.get("modules")||"").split(",").filter(Boolean);restored.services=(query.get("services")||"").split(",").filter(Boolean);if(saved?.draft){if(typeof saved.draft.edition==="string")restored.edition=saved.draft.edition;if(saved.draft.term)restored.term=saved.draft.term;if(Array.isArray(saved.draft.modules))restored.modules=saved.draft.modules.filter((v):v is string=>typeof v==="string");if(Array.isArray(saved.draft.services))restored.services=saved.draft.services.filter((v):v is string=>typeof v==="string");}operation.current=saved?.operation&&/^[a-f0-9]{32}$/.test(saved.operation)?saved.operation:crypto.randomUUID().replaceAll("-","");setDraft(restored);void load();});},[load]);
  useEffect(()=>{if(!data)return;try{sessionStorage.setItem(storageKey.current,JSON.stringify({draft,operation:operation.current}));}catch{/* The live form remains usable if storage is full. */}},[data,draft]);
  useEffect(()=>{if(!data)return;if(renewal){void Promise.resolve().then(()=>{setQuote(data.renewal_quote);setQuoteKey(selectionKey);});return;}const controller=new AbortController();const timer=setTimeout(()=>{void fetch("/commerce/index.php?action=quote",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({services_only:draft.edition==="services",edition:draft.edition,term:draft.term,modules:draft.modules,services:draft.services}),signal:controller.signal}).then(async response=>{const json=await checkoutJson(response,t("Сервис оформления недоступен. Повторите загрузку."));if(!response.ok)throw new Error(json.error);setQuote(json.quote);setQuoteKey(selectionKey);setQuoteError("");}).catch(e=>{if(!controller.signal.aborted){setQuote(null);setQuoteError(t(e.message)||t("Не удалось рассчитать заказ"));}});},100);return()=>{clearTimeout(timer);controller.abort();};},[data,draft.edition,draft.term,draft.modules,draft.services,renewal,selectionKey,t]);
  useEffect(()=>{if(!quoteCurrent||!quote||renewal)return;const source=parseComparisonTag(new URLSearchParams(location.search).get("cmp"));if(source)trackComparison("checkout_open",source,true);},[quoteCurrent,quote,renewal]);
+ useEffect(()=>{if(emailStatus)buyerStatus.current?.focus();},[emailStatus]);
  const update=<K extends keyof Draft>(key:K,value:Draft[K])=>setDraft(old=>({...old,[key]:value}));
  async function submit(event:FormEvent){
   event.preventDefault();
@@ -114,11 +133,24 @@ export default function OrderPage(){
      </>}
     </section>
     <div className="checkoutSubmit">
-     {data.customer?<p className="checkoutBuyer">{t("Покупатель:")}{" "}{data.customer.name}<span>{data.customer.email}</span></p>:<p className="checkoutNotice">{t("Чтобы сохранить заказ,")}{" "}<Link href={`/account/?next=${encodeURIComponent(next)}`}>{t("войдите или зарегистрируйтесь")}</Link>{t(". Заполненные данные сохраняются в этой вкладке.")}</p>}
+     {data.customer&&<p ref={buyerStatus} className="checkoutBuyer" tabIndex={-1} role={emailStatus?"status":undefined}>
+      {emailStatus?t("Email подтверждён"):t("Покупатель:")}{" "}
+      {data.customer.name!==data.customer.email&&data.customer.name}<span>{data.customer.email}</span>
+     </p>}
+     {emailStatus?.legacyPasswordRevoked&&<p className="checkoutNotice">{t("Для входа по паролю задайте новый пароль через восстановление доступа.")}</p>}
      {error&&<p className="checkoutError" role="alert">{error}</p>}
      <label className="checkoutCheck checkoutConsent"><input type="checkbox" required checked={terms} onChange={e=>setTerms(e.target.checked)}/><span>{t("Принимаю")}{" "}<Link href="/legal/offer/" target="_blank" rel="noopener">{t("условия покупки")}</Link>{" "}{t("и")}{" "}<Link href="/legal/refunds/" target="_blank" rel="noopener">{t("возврата")}</Link>.</span></label>
-     <label className="checkoutCheck checkoutConsent"><input type="checkbox" required checked={privacy} onChange={e=>setPrivacy(e.target.checked)}/><span>{t("Даю отдельное")}{" "}<Link href="/legal/consent/" target="_blank" rel="noopener">{t("согласие на обработку данных")}</Link>. <Link href="/legal/privacy/" target="_blank" rel="noopener">{t("Политика")}</Link>.</span></label>
+     <label className="checkoutCheck checkoutConsent"><input ref={privacyInput} type="checkbox" required checked={privacy} onChange={e=>setPrivacy(e.target.checked)}/><span>{t("Даю отдельное")}{" "}<Link href="/legal/consent/" target="_blank" rel="noopener">{t("согласие на обработку данных")}</Link>. <Link href="/legal/privacy/" target="_blank" rel="noopener">{t("Политика")}</Link>.</span></label>
      <p className="checkoutHelp">{t("Для отправки подтвердите оба согласия.")}</p>
+     {!data.customer&&(data.checkout_email_available&&!renewal?
+      <CheckoutEmail csrf={data.csrf} legalVersion={data.legal.version} getOperation={()=>operation.current} pending={data.checkout_email_pending}
+       returnUrl={next} privacyAccepted={privacy} focusPrivacy={()=>privacyInput.current?.focus()} refresh={()=>void load()}
+       onVerified={result=>{
+        setData(current=>current&&({...current,customer:result.customer,csrf:result.csrf,checkout_email_pending:null}));
+        setEmailStatus({legacyPasswordRevoked:!!result.legacy_password_revoked});
+       }} />:
+      <p className="checkoutNotice">{!renewal&&<>{t("Отправка кодов временно недоступна.")}{" "}</>}{t("Чтобы сохранить заказ,")}{" "}
+       <Link href={`/account/?next=${encodeURIComponent(next)}`}>{t("войдите или зарегистрируйтесь")}</Link>{t(". Заполненные данные сохраняются в этой вкладке.")}</p>)}
      <button className="checkoutPrimary" disabled={busy||!data.customer||!quoteCurrent||!terms||!privacy} aria-describedby="order-submit-help">{busy?t("Сохраняем…"):quote?.kind==="inquiry"?t("Отправить заявку"):t("Сохранить заказ")}</button>
      <p className="checkoutHelp checkoutAfterSubmit" id="order-submit-help">{t("После отправки откроется заказ в личном кабинете. Деньги на этом шаге не списываются.")}</p>
      <a className="checkoutStepsLink" href="#order-next">{t("Что будет дальше")}</a>

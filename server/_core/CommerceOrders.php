@@ -13,6 +13,7 @@ require_once __DIR__.'/CommerceRefunds.php';
 require_once __DIR__.'/CommerceLegal.php';
 require_once __DIR__.'/CommerceInvoices.php';
 require_once __DIR__.'/ModuleReadiness.php';
+require_once __DIR__.'/PublicFunnel.php';
 
 final class CommerceOrders {
     public CommerceSettings $settings;
@@ -61,6 +62,9 @@ final class CommerceOrders {
         if($existing){if(!hash_equals($existing['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');$this->invoices->automatic((int)$existing['order_id']);return $this->view((int)$existing['order_id'],$customer);}
         CommerceLegal::validate($input);
         $quote=$renew?$this->renewal($customer,$renew):$this->quote($input);
+        $source = $renew || $quote['edition'] === 'services'
+            ? null
+            : PublicFunnel::orderSource($input['comparison_source'] ?? null);
         $domain=trim((string)($quote['domain']??$input['domain']??''));$domain=$quote['kind']==='inquiry'&&$domain===''?'Домен не указан':LicensePolicy::domain($domain);
 
         $pdo=$this->db->pdo();$pdo->beginTransaction();
@@ -71,6 +75,12 @@ final class CommerceOrders {
             if($old){if(!hash_equals($old['request_hash'],$hash))throw new RuntimeException('Этот запрос уже создал другой заказ. Откройте его в кабинете или начните новый.');$pdo->commit();$this->invoices->automatic((int)$old['order_id']);return $this->view((int)$old['order_id'],$customer);}
             $id=$this->db->insert('INSERT INTO byp_customer_orders(customer_id,edition,modules,domain,license_term,status,created_at) VALUES(?,?,?,?,?,"pending",NOW())',[$customer,$quote['edition'],json_encode($quote['modules']),$domain,$quote['term']]);
             $this->db->execute('INSERT INTO byp_commerce_orders(order_id,public_id,customer_id,operation_id,request_hash,kind,amount_minor,items_json,contact_json,renewal_license_id,fulfillment_state,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,NOW(),NOW())',[$id,bin2hex(random_bytes(16)),$customer,$operation,$hash,$quote['kind'],$quote['amount_minor'],json_encode(['billing'=>'invoice','items'=>$quote['items'],'services'=>$quote['services']],JSON_UNESCAPED_UNICODE),json_encode($contact,JSON_UNESCAPED_UNICODE),$renew?:null,$quote['kind']==='inquiry'?'not_needed':'pending']);
+            if ($source !== null) {
+                $this->db->execute(
+                    'INSERT INTO byp_commerce_order_sources (order_id,edition,license_term,locale,comparison_path) VALUES (?,?,?,?,?)',
+                    [$id, $source['edition'], $source['term'], $source['locale'], $source['path']]
+                );
+            }
             CommerceLegal::record($this->db,$customer,$id);$order=$this->row($id);$this->notifications->event($order,'created');$pdo->commit();$this->invoices->automatic($id);return $this->view($id,$customer);
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
     }

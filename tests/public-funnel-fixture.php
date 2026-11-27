@@ -43,4 +43,15 @@ if($mode==='retention'){
     if((int)$db->one('SELECT hits FROM byp_public_funnel_daily WHERE event_day=DATE_SUB(UTC_DATE(),INTERVAL 89 DAY)')['hits']!==5)throw new RuntimeException('Boundary day removed');
     echo "90-day retention and inclusive period boundary passed\n";exit;
 }
+if ($mode === 'age-order') {
+    $orderId = filter_var($argv[3] ?? '', FILTER_VALIDATE_INT);
+    $order = $db->one('SELECT a.email FROM byp_commerce_orders o
+        JOIN byp_customer_accounts a ON a.id=o.customer_id WHERE o.order_id=?', [$orderId]);
+    if (!$order || !preg_match('/^funnel-order-[a-f0-9]+@example\.test$/D', $order['email'])) {
+        throw new RuntimeException('Only a synthetic funnel order may be aged');
+    }
+    // Simulate a later confirmation beyond the public-counter retention window.
+    $db->execute('UPDATE byp_commerce_orders SET created_at=DATE_SUB(NOW(),INTERVAL 100 DAY) WHERE order_id=?', [$orderId]);
+    exit;
+}
 throw new RuntimeException('Unknown fixture operation');

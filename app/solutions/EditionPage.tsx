@@ -29,7 +29,7 @@ export default function EditionPage({editionName}:{editionName:EditionName}) {
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
     window.dispatchEvent(new Event("bypcms:configuration"));
   }, [term, ready]);
-  const order = withComparisonSource(`/order/?edition=${edition.name}&term=${term}&modules=&services=`,comparisonSource);
+  const order = withComparisonSource(`/order/?edition=${edition.name}&term=${term}&modules=&services=`,comparisonSource,"details");
   const trackOrder=()=>{const source=parseComparisonTag(comparisonSource);if(source)trackComparison("product_order_click",source);};
   return <main className="commerceProduct">
     <PublicHeader/>

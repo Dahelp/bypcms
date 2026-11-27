@@ -5,7 +5,7 @@ import {BackToTop,PublicFooter,PublicHeader} from "../components/PublicChrome";
 import "./order.css";
 import BuildEstimate from "../components/BuildEstimate";
 import {publicServices} from "../modules/data";
-import {parseComparisonTag,trackComparison} from "../../lib/comparison-tracking";
+import {checkoutComparisonSource,parseComparisonTag,trackComparison} from "../../lib/comparison-tracking";
 type Quote={edition:string;term:string;domain?:string;modules:string[];services:string[];items:{name:string;minor:number}[];amount_minor:number;kind:string};
 type Bootstrap={legal:{version:string};customer:{id:number;name:string;email:string}|null;csrf:string;bank_available:boolean;payments_available:boolean;test_mode:boolean;renewal_quote:Quote|null;catalog:{editions:Record<string,{name:string;annual:number;lifetime:number}>;modules:{module_key:string;name:string;minor:number}[];availability:{edition:string;module_key:string;availability:string}[];services:Record<string,[string,number]>}};
 type Draft={edition:string;term:string;modules:string[];services:string[];domain:string;company:string;phone:string;comment:string};
@@ -25,7 +25,43 @@ export default function OrderPage(){
  useEffect(()=>{if(!data)return;if(renewal){void Promise.resolve().then(()=>{setQuote(data.renewal_quote);setQuoteKey(selectionKey);});return;}const controller=new AbortController();const timer=setTimeout(()=>{void fetch("/commerce/index.php?action=quote",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({services_only:draft.edition==="services",edition:draft.edition,term:draft.term,modules:draft.modules,services:draft.services}),signal:controller.signal}).then(async response=>{const json=await checkoutJson(response,t("Сервис оформления недоступен. Повторите загрузку."));if(!response.ok)throw new Error(json.error);setQuote(json.quote);setQuoteKey(selectionKey);setQuoteError("");}).catch(e=>{if(!controller.signal.aborted){setQuote(null);setQuoteError(t(e.message)||t("Не удалось рассчитать заказ"));}});},100);return()=>{clearTimeout(timer);controller.abort();};},[data,draft.edition,draft.term,draft.modules,draft.services,renewal,selectionKey,t]);
  useEffect(()=>{if(!quoteCurrent||!quote||renewal)return;const source=parseComparisonTag(new URLSearchParams(location.search).get("cmp"));if(source)trackComparison("checkout_open",source,true);},[quoteCurrent,quote,renewal]);
  const update=<K extends keyof Draft>(key:K,value:Draft[K])=>setDraft(old=>({...old,[key]:value}));
- async function submit(event:FormEvent){event.preventDefault();if(submitted.current||!data?.customer||!quoteCurrent)return;submitted.current=true;setBusy(true);setError("");try{const response=await fetch("/commerce/index.php?action=create",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRF-Token":data.csrf},body:JSON.stringify({...draft,services_only:draft.edition==="services",legal_version:data.legal.version,accept_terms:terms,accept_privacy:privacy,renewal_license_id:renewal||undefined,operation_id:operation.current}),signal:AbortSignal.timeout(45000)});const json=await response.json();if(!response.ok){if(response.status===401||json.details?.code==="csrf_expired")void load();throw new Error(t(json.error||"")||t("Заказ не подтверждён сервером"));}try{sessionStorage.removeItem(storageKey.current);}catch{}location.assign(`/account/order.php?id=${Number(json.order.id)}`);}catch(e){setError((e instanceof Error?t(e.message):t("Запрос прерван"))+t(". Данные остаются в форме. Повтор отправки использует тот же заказ."));}finally{submitted.current=false;setBusy(false);}}
+ async function submit(event:FormEvent){
+  event.preventDefault();
+  if(submitted.current||!data?.customer||!quoteCurrent)return;
+  submitted.current=true;
+  setBusy(true);
+  setError("");
+  try {
+   const response=await fetch("/commerce/index.php?action=create",{
+    method:"POST",
+    credentials:"same-origin",
+    headers:{"Content-Type":"application/json","X-CSRF-Token":data.csrf},
+    body:JSON.stringify({
+     ...draft,
+     services_only:draft.edition==="services",
+     legal_version:data.legal.version,
+     accept_terms:terms,
+     accept_privacy:privacy,
+     renewal_license_id:renewal||undefined,
+     operation_id:operation.current,
+     comparison_source:checkoutComparisonSource(new URLSearchParams(location.search)),
+    }),
+    signal:AbortSignal.timeout(45000),
+   });
+   const json=await response.json();
+   if(!response.ok){
+    if(response.status===401||json.details?.code==="csrf_expired")void load();
+    throw new Error(t(json.error||"")||t("Заказ не подтверждён сервером"));
+   }
+   try{sessionStorage.removeItem(storageKey.current);}catch{}
+   location.assign(`/account/order.php?id=${Number(json.order.id)}`);
+  }catch(e){
+   setError((e instanceof Error?t(e.message):t("Запрос прерван"))+t(". Данные остаются в форме. Повтор отправки использует тот же заказ."));
+  }finally{
+   submitted.current=false;
+   setBusy(false);
+  }
+ }
  const availableModules=data?.catalog.modules.filter(m=>data.catalog.availability.some(a=>a.edition.toLowerCase()===draft.edition&&a.module_key===m.module_key&&a.availability!=="hidden"))||[];
  const estimateServices=Object.entries(data?.catalog.services||{}).map(([slug,[,amountMinor]])=>({slug,amountMinor,billing:publicServices.find(service=>service.slug===slug)?.billing||"once" as const}));
  const unavailable=draft.modules.filter(key=>!availableModules.some(m=>m.module_key===key));

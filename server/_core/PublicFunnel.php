@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace BYPCMS\Core;
 
-/** Aggregate event counts only: no raw events, identities, IPs, URLs or user agents. */
+/** Combines anonymous traffic counts and aggregate milestones for attributed orders. */
 final class PublicFunnel {
     public const EVENTS = ['comparison_view','details_click','demo_click','order_click','product_order_click','checkout_open'];
 
@@ -13,6 +13,20 @@ final class PublicFunnel {
         $editions=$input['event']==='comparison_view'?['all']:['business','commerce','content'];
         if(!in_array($input['edition'],$editions,true)) throw new \InvalidArgumentException('Unknown edition');
         return $input;
+    }
+
+    public static function orderSource(mixed $input): ?array {
+        if (!is_array($input) || !is_string($input['tag'] ?? null)
+            || !preg_match('/\A(business|commerce|content)\.(annual|lifetime)\.(ru|en)\z/', $input['tag'], $parts)) {
+            return null;
+        }
+        $path = $input['via'] ?? null;
+        return [
+            'edition' => $parts[1],
+            'term' => $parts[2],
+            'locale' => $parts[3],
+            'path' => in_array($path, ['direct', 'details'], true) ? $path : 'unknown',
+        ];
     }
 
     public static function sameOrigin(string $origin,string $configuredUrl):bool {
@@ -41,12 +55,33 @@ final class PublicFunnel {
     private function prune():void {
         $this->db->execute('DELETE FROM byp_public_funnel_daily WHERE event_day < DATE_SUB(UTC_DATE(),INTERVAL 89 DAY)');
     }
+
+    private function orderMilestones(int $days): array {
+        // The order schema is installed lazily. Until the first order request there may be no source table.
+        if (!$this->db->one("SHOW TABLES LIKE 'byp_commerce_order_sources'")) return [];
+
+        // Orders use NOW(). Convert the UTC reporting boundary to the database session's time zone.
+        $start = 'FROM_UNIXTIME(TIMESTAMPDIFF(SECOND, "1970-01-01", DATE_SUB(UTC_DATE(), INTERVAL '.($days - 1).' DAY)))';
+        return $this->db->all(
+            'SELECT "order_saved" AS event, s.edition, s.license_term AS term, s.locale, s.comparison_path AS path, COUNT(*) AS hits
+             FROM byp_commerce_order_sources s JOIN byp_commerce_orders o ON o.order_id=s.order_id
+             WHERE o.created_at >= '.$start.'
+             GROUP BY s.edition, s.license_term, s.locale, s.comparison_path
+             UNION ALL
+             SELECT "payment_confirmed", s.edition, s.license_term, s.locale, s.comparison_path, COUNT(*)
+             FROM byp_commerce_order_sources s JOIN byp_commerce_orders o ON o.order_id=s.order_id
+             WHERE o.mode="live" AND o.paid_at >= '.$start.'
+             GROUP BY s.edition, s.license_term, s.locale, s.comparison_path'
+        );
+    }
+
     public function report(int $days):array {
         if(!in_array($days,[7,30,90],true))throw new \InvalidArgumentException('Выберите период 7, 30 или 90 дней.');
         $this->prune();
         $rows=$this->db->all('SELECT event_name AS event,edition,license_term AS term,locale,SUM(hits) AS hits
             FROM byp_public_funnel_daily WHERE event_day >= DATE_SUB(UTC_DATE(),INTERVAL '.($days-1).' DAY)
             GROUP BY event_name,edition,license_term,locale');
+        $rows = array_merge($rows, $this->orderMilestones($days));
         foreach($rows as &$row)$row['hits']=(int)$row['hits'];unset($row);
         return ['days'=>$days,'timezone'=>'UTC','updated_at'=>gmdate(DATE_ATOM),'rows'=>$rows];
     }

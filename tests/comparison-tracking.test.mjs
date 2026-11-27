@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {comparisonTag,parseComparisonTag,withComparisonSource,comparisonPayload,trackComparison} from '../lib/comparison-tracking.ts';
+import {checkoutComparisonSource,comparisonTag,parseComparisonTag,withComparisonSource,comparisonPayload,trackComparison} from '../lib/comparison-tracking.ts';
 
 test('all attribution choices round-trip without a visitor ID',()=>{
   for(const edition of ['business','commerce','content'])for(const term of ['annual','lifetime'])for(const locale of ['ru','en']){
@@ -10,8 +10,9 @@ test('all attribution choices round-trip without a visitor ID',()=>{
 });
 test('attribution preserves configuration and fragment and never decorates external URLs',()=>{
   const tag='commerce.lifetime.en';
-  const href=withComparisonSource('/en/order/?edition=Commerce&term=lifetime&modules=&services=#details',tag);
+  const href=withComparisonSource('/en/order/?edition=Commerce&term=lifetime&modules=&services=#details',tag,'details');
   const url=new URL(href,'https://bypcms.ru');assert.equal(url.searchParams.get('term'),'lifetime');assert.equal(url.searchParams.get('cmp'),tag);assert.equal(url.hash,'#details');
+  assert.equal(url.searchParams.get('cmp_via'),'details');
   assert.equal(withComparisonSource('https://example.test/order/',tag),'https://example.test/order/');
   assert.equal(withComparisonSource('//example.test/order/',tag),'//example.test/order/');
   assert.equal(withComparisonSource('/order/','bad-tag'),'/order/');
@@ -27,8 +28,14 @@ test('transport is non-blocking, cookie-free, deduplicates page observations and
     globalThis.fetch=(url,options)=>{sent.push({url,...options});return Promise.resolve({ok:true});};
     const context={edition:'business',term:'lifetime',locale:'en'};
     trackComparison('order_click',context);assert.equal(sent.length,0);
+    const sourceQuery=new URLSearchParams('cmp=business.lifetime.en&cmp_via=details');
+    assert.equal(checkoutComparisonSource(sourceQuery),undefined);
     Object.defineProperty(globalThis,'navigator',{configurable:true,value:{globalPrivacyControl:true}});trackComparison('order_click',context);assert.equal(sent.length,0);
+    assert.equal(checkoutComparisonSource(sourceQuery),undefined);
     Object.defineProperty(globalThis,'navigator',{configurable:true,value:{}});
+    assert.deepEqual(checkoutComparisonSource(sourceQuery),{tag:'business.lifetime.en',via:'details'});
+    assert.deepEqual(checkoutComparisonSource(new URLSearchParams('cmp=content.annual.ru')),{tag:'content.annual.ru',via:'unknown'});
+    assert.equal(checkoutComparisonSource(new URLSearchParams('cmp=invalid&cmp_via=direct')),undefined);
     trackComparison('checkout_open',context,true);trackComparison('checkout_open',context,true);assert.equal(sent.length,1);
     trackComparison('order_click',context);trackComparison('order_click',context);assert.equal(sent.length,3);
     assert.equal(sent[0].credentials,'omit');assert.equal(sent[0].referrerPolicy,'no-referrer');assert.equal(sent[0].keepalive,true);

@@ -2,6 +2,7 @@ export type ComparisonEdition = "business" | "commerce" | "content";
 export type ComparisonTerm = "annual" | "lifetime";
 export type ComparisonLocale = "ru" | "en";
 export type ComparisonContext = {edition: ComparisonEdition; term: ComparisonTerm; locale: ComparisonLocale};
+type ComparisonOrderPath = "direct" | "details";
 export type ComparisonEvent = "comparison_view" | "details_click" | "demo_click" | "order_click" | "product_order_click" | "checkout_open";
 const observed = new Set<string>();
 
@@ -14,19 +15,30 @@ export function parseComparisonTag(value: string | null): ComparisonContext | nu
   const [edition, term, locale] = value.split(".");
   return {edition, term, locale} as ComparisonContext;
 }
-export function withComparisonSource(href: string, tag: string | null): string {
+export function withComparisonSource(href: string, tag: string | null, via?: ComparisonOrderPath): string {
   if (!parseComparisonTag(tag)) return href;
   const url = new URL(href, "https://bypcms.ru");
   if (url.origin !== "https://bypcms.ru") return href;
   url.searchParams.set("cmp", tag!);
+  if (via) url.searchParams.set("cmp_via", via);
   return url.pathname + url.search + url.hash;
+}
+function comparisonAllowed(): boolean {
+  return typeof navigator !== "undefined"
+    && navigator.doNotTrack !== "1"
+    && !(navigator as Navigator & {globalPrivacyControl?: boolean}).globalPrivacyControl;
+}
+export function checkoutComparisonSource(query: URLSearchParams) {
+  const tag = query.get("cmp");
+  if (!comparisonAllowed() || !parseComparisonTag(tag)) return undefined;
+  const via = query.get("cmp_via");
+  return {tag, via: via === "direct" || via === "details" ? via : "unknown"};
 }
 export function comparisonPayload(event: ComparisonEvent, context: ComparisonContext | {edition:"all";term:ComparisonTerm;locale:ComparisonLocale}) {
   return {event, edition:context.edition, term:context.term, locale:context.locale};
 }
 export function trackComparison(event: ComparisonEvent, context: ComparisonContext | {edition:"all";term:ComparisonTerm;locale:ComparisonLocale}, once = false): void {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return;
-  if (navigator.doNotTrack === "1" || (navigator as Navigator & {globalPrivacyControl?:boolean}).globalPrivacyControl) return;
+  if (typeof window === "undefined" || !comparisonAllowed()) return;
   const payload = comparisonPayload(event, context);
   const key = JSON.stringify(payload);
   if (once && observed.has(key)) return;

@@ -77,7 +77,12 @@ try {
     if($action==='refund.request'&&$method==='POST')Response::ok(['request'=>$refunds->request((int)($input['id']??0),$customerId,(string)($input['reason']??''))]);
     if($action==='legal.accept'&&$method==='POST'){CommerceLegal::validate($input);$pdo=$db->pdo();$pdo->beginTransaction();try{$order=$commerce->row((int)($input['id']??0),$customerId,true);CommerceLegal::record($db,$customerId,(int)$order['id']);$pdo->commit();Response::ok();}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}}
     if($action==='invoice.accept'&&$method==='POST'){$commerce->invoices->accept((int)($input['id']??0),$customerId,$input);Response::ok(['order'=>$commerce->view((int)$input['id'],$customerId)]);}
-    if($action==='create'&&$method==='POST')Response::ok(['order'=>$commerce->create($customerId,$input)]);
+    if ($action === 'create' && $method === 'POST') {
+        if (($_SERVER['HTTP_DNT'] ?? '') === '1' || ($_SERVER['HTTP_SEC_GPC'] ?? '') === '1') {
+            unset($input['comparison_source']);
+        }
+        Response::ok(['order' => $commerce->create($customerId, $input)]);
+    }
     $id=(int)($input['id']??$_GET['id']??0);
     if($action==='order'&&$method==='GET')Response::ok(['order'=>$commerce->view($id,$customerId),'payments_available'=>$available]);
     if($action==='pay'&&$method==='POST')Response::ok(['order'=>$commerce->pay($id,$customerId,$allowTest),'payments_available'=>$available]);

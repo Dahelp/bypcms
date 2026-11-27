@@ -39,7 +39,7 @@ export default function EditionComparison({term, onTermChange,ready}:{term:Compa
     const context:ComparisonContext={edition:edition.name.toLowerCase() as ComparisonContext["edition"],term,locale};
     const tag=comparisonTag(context);
     const details=withComparisonSource(`/solutions/${context.edition}/?term=${term}`,tag);
-    const order=withComparisonSource(`/order/?edition=${edition.name}&term=${term}&modules=&services=`,tag);
+    const order=withComparisonSource(`/order/?edition=${edition.name}&term=${term}&modules=&services=`,tag,"direct");
     return <>
       <div className="comparisonPrice" role="status" aria-live="polite" aria-atomic="true"><strong>{edition[term].toLocaleString(locale==="en"?"en-US":"ru-RU")} ₽</strong><span>{term==="annual"?tx("за год","per year"):tx("один раз","one time")}</span></div>
       <p className="comparisonLicenseNote">{tx("Лицензия на один сайт. Включённые возможности уже в цене.","A license for one website. Included capabilities are covered by the price.")}</p>

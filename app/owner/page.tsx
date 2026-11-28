@@ -11,7 +11,8 @@ import { panelHref, ownerSectionRoute } from "../components/panel-route";
 import PanelSearch from "../components/PanelSearch";
 import WorkspaceIcon from "../components/WorkspaceIcon";
 import NotificationDropdown from "../components/NotificationDropdown";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import type {OwnerPortfolioRecord as Portfolio} from "./OwnerPortfolio";
 import OwnerLicense from "./OwnerLicense";
 import SalesFunnel from "./SalesFunnel";
 import UpdateSettings from "../components/UpdateSettings";
@@ -28,7 +29,7 @@ type Module={id:number;module_key:string;name:string;category:string;description
 type EditionModule={edition:string;module_key:string;availability:"included"|"optional"|"hidden"};
 type License={id:number;client_id:number;client_name:string;license_hint:string;domain:string;edition:string;license_term:"annual"|"lifetime";purchase_price:number;core_version:string;installed_version:string;entitlements:string;status:string;effective_status?:string;valid_until:string|null;last_seen_at:string|null;key_available?:number;activation_active?:number;installation_id?:string};
 type Notice={entity_type?:string;entity_id?:number;id:number;title:string;message:string;severity:string;is_read:number;created_at:string};
-type Portfolio={id:number;slug:string;title:string;category:string;edition:string;project_year:string;lead:string;description:string;result_text:string;cover_image:string;gallery:string;features:string;modules:string;services:string;project_url:string;status:string;sort_order:number};
+const OwnerPortfolio=lazy(()=>import("./OwnerPortfolio"));
 type OwnerData={build_version?:string;user:User;clients:Client[];tasks:Task[];services:Service[];modules:Module[];edition_modules:EditionModule[];licenses:License[];portfolio:Portfolio[];orders:unknown[];builds:unknown[];notifications:Notice[];settings:Record<string,string>;csrf:string};
 type EditorRoute={type:"client"|"task"|"service"|"license"|"module"|"portfolio";record?:Record<string,unknown>}|null;
 
@@ -111,10 +112,14 @@ export default function Owner(){
   const unread=data?.notifications.filter(n=>!Number(n.is_read)).length||0;
   const compatibility=useMemo(()=>new Map((data?.edition_modules||[]).filter(x=>x.edition===edition).map(x=>[x.module_key,x.availability])),[data,edition]);
   const availableModules=(data?.modules||[]).filter(m=>(compatibility.get(m.module_key)||"hidden")!=="hidden");
-  const included=availableModules.filter(m=>compatibility.get(m.module_key)==="included").map(m=>m.module_key);
-  useEffect(()=>{if(data)setSelectedModules(current=>Array.from(new Set([...included,...current.filter(k=>compatibility.get(k)==="optional")])));},[edition,data]);
-  const moduleTotal=availableModules.filter(m=>selectedModules.includes(m.module_key)&&compatibility.get(m.module_key)==="optional").reduce((sum,m)=>sum+Number(m.price),0);
+  const buildModules=availableModules.filter(m=>compatibility.get(m.module_key)==="included"||selectedModules.includes(m.module_key));
+  useEffect(()=>{if(data)setSelectedModules(current=>current.filter(k=>compatibility.get(k)==="optional"));},[data,compatibility]);
+  const moduleTotal=buildModules.filter(m=>compatibility.get(m.module_key)==="optional").reduce((sum,m)=>sum+Number(m.price),0);
   const editionPrice=editions[edition][licenseTerm];
+  const buildUrl=new URLSearchParams({
+    action:"build.download",edition,term:licenseTerm,
+    modules:buildModules.map(m=>m.module_key).join(","),name:buildName.trim(),
+  });
   const filteredClients=(data?.clients||[]).filter(c=>`${c.name} ${c.company} ${c.email}`.toLowerCase().includes(search.toLowerCase()));
   const revenue=(data?.tasks||[]).reduce((sum,t)=>sum+Number(t.price||0),0);
   const activeLicenses=(data?.licenses||[]).filter(l=>(l.effective_status||l.status)==="active").length;
@@ -170,10 +175,60 @@ export default function Owner(){
         {key:"status",label:"Статус",render:l=><em>{licenseStatuses[l.effective_status||l.status]||l.status}</em>},
       ]} actions={l=>[{label:"Ключ и активация",href:panelHref({section:"licenses",license:l.id})},{label:"Редактировать",href:editorHref("license",l.id)}]}/>}
 
-      {section==="builder"&&<div className="buildLayout"><section className="buildSteps"><div className="buildBlock"><span>01</span><div><small>ПРОЕКТ</small><h2>Редакция определяет базовую комплектацию</h2><label>Название сборки<input value={buildName} onChange={e=>setBuildName(e.target.value)}/></label><div className="editionSelect">{Object.entries(editions).map(([key,value])=><button className={edition===key?"active":""} onClick={()=>setEdition(key)} key={key}><b>{key}</b><small>{value.description}</small><strong>{value[licenseTerm].toLocaleString("ru-RU")} ₽</strong></button>)}</div></div></div>
-        <div className="buildBlock"><span>02</span><div><small>УСЛОВИЯ ЛИЦЕНЗИИ</small><h2>Срок использования и обновлений</h2><div className="termSelect"><button className={licenseTerm==="annual"?"active":""} onClick={()=>setLicenseTerm("annual")}><b>1 год</b><span>Продлевается ежегодно</span><strong>{editions[edition].annual.toLocaleString("ru-RU")} ₽</strong></button><button className={licenseTerm==="lifetime"?"active":""} onClick={()=>setLicenseTerm("lifetime")}><b>Пожизненная</b><span>Без обязательного продления</span><strong>{editions[edition].lifetime.toLocaleString("ru-RU")} ₽</strong></button></div></div></div>
-        <div className="buildBlock"><span>03</span><div><small>СОВМЕСТИМЫЕ МОДУЛИ</small><h2>Для {edition} показаны только подходящие расширения</h2><div className="buildModules">{availableModules.map(m=>{const mode=compatibility.get(m.module_key);return <label className={mode==="included"?"included":""} key={m.module_key}><input type="checkbox" disabled={mode==="included"} checked={selectedModules.includes(m.module_key)} onChange={()=>setSelectedModules(list=>list.includes(m.module_key)?list.filter(x=>x!==m.module_key):[...list,m.module_key])}/><span><b>{m.name}</b><small>{m.description}</small></span><strong>{mode==="included"?"В редакции":`+${Number(m.price).toLocaleString("ru-RU")} ₽`}</strong></label>})}</div></div></div></section>
-        <aside className="buildSummary"><small>СОСТАВ СБОРКИ</small><h2>{buildName}</h2><p>BYPCMS {edition} · {licenseTerm==="annual"?"1 год":"пожизненно"} · Core {data.build_version||"…"}</p><ul>{availableModules.filter(m=>selectedModules.includes(m.module_key)).map(m=><li key={m.module_key}><span>{m.name}<small>{compatibility.get(m.module_key)==="included"?"включён":"дополнительно"}</small></span><b>{compatibility.get(m.module_key)==="included"?"0 ₽":`${Number(m.price).toLocaleString("ru-RU")} ₽`}</b></li>)}</ul><div><span>Лицензия</span><b>{editionPrice.toLocaleString("ru-RU")} ₽</b></div><div><span>Доп. модули</span><b>{moduleTotal.toLocaleString("ru-RU")} ₽</b></div><strong><span>Итого</span>{(editionPrice+moduleTotal).toLocaleString("ru-RU")} ₽</strong><a className="panelLinkButton panelPrimaryLink" href={`/api/index.php?action=build.download&edition=${edition}&term=${licenseTerm}&modules=${selectedModules.join(",")}`}><WorkspaceIcon symbol="builder"/> Собрать ZIP-архив</a></aside></div>}
+      {section==="builder"&&<>
+        <div className="buildPurpose">
+          <p>Подготовьте установочный ZIP с нужной редакцией и модулями. Счёт за лицензию и услуги выставляется из заказа покупателя.</p>
+          <a className="panelLinkButton" href={sectionHref("payments")}>К заказам и оплатам <WorkspaceIcon symbol="→"/></a>
+        </div>
+        <div className="buildLayout">
+          <section className="buildSteps" aria-label="Настройки установочного архива">
+            <div className="buildBlock"><span aria-hidden="true">01</span><div>
+              <h2>Редакция и название сборки</h2>
+              <label>Название сборки<input maxLength={190} value={buildName} onChange={event=>setBuildName(event.target.value)}/></label>
+              <div className="editionSelect">{Object.entries(editions).map(([key,value])=><button type="button"
+                aria-pressed={edition===key} className={edition===key?"active":""} onClick={()=>setEdition(key)} key={key}>
+                <b>{key}</b><small>{value.description}</small><strong>{value[licenseTerm].toLocaleString("ru-RU")} ₽</strong>
+              </button>)}</div>
+            </div></div>
+            <div className="buildBlock"><span aria-hidden="true">02</span><div>
+              <h2>Срок лицензии</h2>
+              <div className="termSelect">
+                <button type="button" aria-pressed={licenseTerm==="annual"} className={licenseTerm==="annual"?"active":""} onClick={()=>setLicenseTerm("annual")}>
+                  <b>1 год</b><span>Продлевается ежегодно</span><strong>{editions[edition].annual.toLocaleString("ru-RU")} ₽</strong>
+                </button>
+                <button type="button" aria-pressed={licenseTerm==="lifetime"} className={licenseTerm==="lifetime"?"active":""} onClick={()=>setLicenseTerm("lifetime")}>
+                  <b>Пожизненная</b><span>Без обязательного продления</span><strong>{editions[edition].lifetime.toLocaleString("ru-RU")} ₽</strong>
+                </button>
+              </div>
+            </div></div>
+            <div className="buildBlock"><span aria-hidden="true">03</span><div>
+              <h2>Модули для {edition}</h2>
+              <div className="buildModules">{availableModules.map(module=>{
+                const included=compatibility.get(module.module_key)==="included";
+                return <label className={included?"included":""} key={module.module_key}>
+                  <input type="checkbox" disabled={included} checked={included||selectedModules.includes(module.module_key)}
+                    onChange={event=>setSelectedModules(list=>event.target.checked?[...list,module.module_key]:list.filter(key=>key!==module.module_key))}/>
+                  <span><b>{module.name}</b><small>{module.description}</small></span>
+                  <strong>{included?"В редакции":`+${Number(module.price).toLocaleString("ru-RU")} ₽`}</strong>
+                </label>;
+              })}</div>
+            </div></div>
+          </section>
+          <aside className="buildSummary" aria-labelledby="build-summary-title">
+            <small>СОСТАВ АРХИВА</small>
+            <h2 id="build-summary-title">{buildName.trim()||"Установочная сборка"}</h2>
+            <p>BYPCMS {edition} · {licenseTerm==="annual"?"1 год":"пожизненно"} · Core {data.build_version||"…"}</p>
+            <ul>{buildModules.map(module=><li key={module.module_key}>
+              <span className="buildSummaryModule"><span>{module.name}</span><small>{compatibility.get(module.module_key)==="included"?"Включён в редакцию":"Дополнительный модуль"}</small></span>
+              <b>{compatibility.get(module.module_key)==="included"?"0 ₽":`${Number(module.price).toLocaleString("ru-RU")} ₽`}</b>
+            </li>)}</ul>
+            <div><span>Лицензия</span><b>{editionPrice.toLocaleString("ru-RU")} ₽</b></div>
+            <div><span>Доп. модули</span><b>{moduleTotal.toLocaleString("ru-RU")} ₽</b></div>
+            <strong role="status"><span>Лицензия и модули</span>{(editionPrice+moduleTotal).toLocaleString("ru-RU")} ₽</strong>
+            <a className="panelLinkButton panelPrimaryLink" href={`/api/index.php?${buildUrl}`}><WorkspaceIcon symbol="builder"/> Скачать установочный ZIP</a>
+          </aside>
+        </div>
+      </>}
 
       {section==="modules"&&<PanelTable bulkActions={moduleBulk} label="Модули" rows={data?.modules||[]} rowId={m=>m.id} rowLabel={m=>m.name} columns={[
         {key:"name",label:"Модуль",render:m=><span className="panelCellText"><a href={editorHref("module",m.id)}>{m.name}</a><small>{m.category} · v{m.current_version}</small><small>{m.description}</small></span>},
@@ -189,11 +244,9 @@ export default function Owner(){
         {key:"status",label:"Статус",render:s=><em>{s.status==="active"?"Активна":"Скрыта"}</em>},
       ]} actions={s=>[{label:"Редактировать",href:editorHref("service",s.id)}]}/>}
 
-      {section==="portfolio"&&<PanelTable bulkActions={portfolioBulk} label="Портфолио" rows={data?.portfolio||[]} rowId={p=>p.id} rowLabel={p=>p.title} columns={[
-        {key:"title",label:"Проект",render:p=><span className="panelCellText"><a href={editorHref("portfolio",p.id)}>{p.title}</a><small>{p.category} · {p.project_year}</small><small>{p.lead}</small></span>},
-        {key:"edition",label:"Редакция",render:p=>p.edition},
-        {key:"status",label:"Статус",render:p=><em>{p.status==="published"?"Опубликован":p.status==="archived"?"В архиве":"Черновик"}</em>},
-      ]} actions={p=>[{label:"Редактировать",href:editorHref("portfolio",p.id)},...(p.status==="published"?[{label:"Просмотр",href:`/portfolio/${encodeURIComponent(p.slug)}/`,newTab:true}]:[])]} empty="Добавьте первый проект. Он появится в публичном портфолио после публикации."/>}
+      {section==="portfolio"&&<Suspense fallback={<p role="status">Загружаем портфолио…</p>}>
+        <OwnerPortfolio records={data.portfolio||[]} editHref={id=>editorHref("portfolio",id)} bulkActions={portfolioBulk}/>
+      </Suspense>}
 
       {section==="notifications"&&<article className="notificationCenter"><header><div><small>ЦЕНТР СОБЫТИЙ</small><h2>Оповещения</h2></div><button onClick={async()=>{await save("owner.notification.read",{id:0})}}>Отметить все прочитанными</button></header>{(data?.notifications||[]).map(n=><article className={`notificationEvent ${Number(n.is_read)?"read":""}`} key={n.id}><a href={n.entity_type==="purchase"?`${sectionHref("payments")}&order=${n.entity_id}`:n.entity_type==="mail"?sectionHref("mail"):sectionHref("notifications")}><span><b>{n.title}</b><small>{n.message}</small></span></a><button onClick={async()=>{await request("owner.notification.read",{method:"POST",body:JSON.stringify({id:n.id})});await load()}}>Прочитано · <time>{new Date(n.created_at).toLocaleString("ru-RU")}</time></button></article>)}{!data?.notifications.length&&<div className="emptyState">Новых событий нет. Они создаются сервером из сроков лицензий, задач и системных операций.</div>}</article>}
 

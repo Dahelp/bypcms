@@ -152,7 +152,9 @@ export default function OrderPage(){
       <p className="checkoutNotice">{!renewal&&<>{t("Отправка кодов временно недоступна.")}{" "}</>}{t("Чтобы сохранить заказ,")}{" "}
        <Link href={`/account/?next=${encodeURIComponent(next)}`}>{t("войдите или зарегистрируйтесь")}</Link>{t(". Заполненные данные сохраняются в этой вкладке.")}</p>)}
      <button className="checkoutPrimary" disabled={busy||!data.customer||!quoteCurrent||!terms||!privacy} aria-describedby="order-submit-help">{busy?t("Сохраняем…"):quote?.kind==="inquiry"?t("Отправить заявку"):t("Сохранить заказ")}</button>
-     <p className="checkoutHelp checkoutAfterSubmit" id="order-submit-help">{t("После отправки откроется заказ в личном кабинете. Деньги на этом шаге не списываются.")}</p>
+     <p className="checkoutHelp checkoutAfterSubmit" id="order-submit-help">{!data.customer&&data.checkout_email_available&&!renewal
+      ?t("Сохранение станет доступно после подтверждения email и принятия условий.")
+      :t("После отправки откроется заказ в личном кабинете. Деньги на этом шаге не списываются.")}</p>
      <a className="checkoutStepsLink" href="#order-next">{t("Что будет дальше")}</a>
     </div>
    </form>}

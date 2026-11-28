@@ -562,6 +562,11 @@ try {
         $requestedEdition = $_GET['edition'] ?? 'Business';
         if (!is_string($requestedEdition) || !isset($editionNames[strtolower($requestedEdition)])) Response::error('Выберите редакцию Content, Business или Commerce.', 422);
         $edition = $editionNames[strtolower($requestedEdition)];
+        $requestedName = $_GET['name'] ?? '';
+        if (!is_string($requestedName) || mb_strlen(trim($requestedName)) > 190 || preg_match('/[\x00-\x1f\x7f]/', $requestedName)) {
+            Response::error('Укажите название сборки длиной до 190 символов.', 422);
+        }
+        $buildName = trim($requestedName);
         if (isset($_GET['modules']) && !is_string($_GET['modules'])) Response::error('Некорректный список модулей сборки.', 422);
         if (isset($_GET['term']) && (!is_string($_GET['term']) || !in_array($_GET['term'], ['annual','lifetime'], true))) Response::error('Выберите годовую или бессрочную лицензию.', 422);
         $licenseTerm = (string)($_GET['term'] ?? '') === 'lifetime' ? 'lifetime' : 'annual';
@@ -623,7 +628,7 @@ try {
         $db->execute(
             'INSERT INTO byp_builds (build_key,name,edition,core_version,modules,services,total,archive_path,status,created_at,updated_at)
              VALUES (:key,:name,:edition,:core,:modules,"[]",:total,:archive,"ready",NOW(),NOW())',
-            ['key'=>$buildKey,'name'=>$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>$packageVersion,
+            ['key'=>$buildKey,'name'=>$buildName!==''?$buildName:$buildId.'-'.$licenseTerm,'edition'=>$edition,'core'=>$packageVersion,
              'modules'=>json_encode($selected,JSON_UNESCAPED_UNICODE),'total'=>(float)($corePrices[$edition] ?? 24900)+$moduleTotal,'archive'=>$buildId.'.zip']
         );
         byp_audit($db, $user, 'build.download', 'build', null, ['edition' => $edition, 'modules' => $selected]);

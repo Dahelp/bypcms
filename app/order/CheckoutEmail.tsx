@@ -147,8 +147,8 @@ export default function CheckoutEmail(props: Props) {
     setInvalid(false);
   }
 
-  return <fieldset className="checkoutEmail" aria-busy={busy !== null}>
-    <legend>{t("Подтвердите email")}</legend>
+  return <section className="checkoutEmail" aria-labelledby="checkout-email-title" aria-busy={busy !== null}>
+    <h3 id="checkout-email-title">{t("Подтвердите email")}</h3>
     {pending ? <>
       <p className="checkoutHelp" id="checkout-email-help" role="status">
         {t("Код запрошен для")} <strong>{pending.email}</strong>. {t("Проверьте входящие и папку «Спам». Код действует 10 минут.")}
@@ -190,5 +190,5 @@ export default function CheckoutEmail(props: Props) {
     <LocaleLink className="checkoutEmailAccount" href={`/account/?next=${encodeURIComponent(props.returnUrl)}`}>
       {t("Войти по паролю")}
     </LocaleLink>
-  </fieldset>;
+  </section>;
 }

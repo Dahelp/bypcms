@@ -53,12 +53,24 @@
 .ownerApp .ownerContent{padding:42px 42px 58px}
 .ownerApp .ownerHeading{margin-bottom:30px}
 .ownerApp .buildLayout{grid-template-columns:minmax(0,1fr) 380px;gap:22px}
+.buildPurpose{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 18px;margin-bottom:18px;padding:14px 18px;border:1px solid #d8e2d7;border-radius:9px;background:#eef4ec}
+.buildPurpose p{flex:1 1 340px;min-width:0;margin:0;color:#394b41;line-height:1.55;font-size:14px}
+.buildPurpose a{min-height:44px}
 .ownerApp .buildSteps{gap:20px}.ownerApp .buildBlock{padding:28px;gap:18px}
+.ownerApp .buildBlock>div{min-width:0}
+.ownerApp .buildBlock input:not([type]){width:100%;min-width:0}
 .ownerApp .buildBlock h2{margin:8px 0 22px}
 .ownerApp .buildBlock>span{width:36px;height:36px}
 .ownerApp .editionSelect{gap:12px;margin-top:12px}.ownerApp .editionSelect button{padding:18px 14px;min-height:122px}
 .ownerApp .buildModules{gap:12px;margin-top:12px}.ownerApp .buildModules label{padding:17px;min-height:104px;gap:12px}
 .ownerApp .buildSummary{padding:28px}.ownerApp .buildSummary li,.ownerApp .buildSummary>div,.ownerApp .buildSummary>strong{padding:15px 0}
+.ownerApp .buildSummary h2,.ownerApp .buildModules label span{overflow-wrap:anywhere;min-width:0}
+.buildSummary li{gap:12px;align-items:start}
+.buildSummaryModule{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.buildSummary .buildSummaryModule small{color:#b5b9ae;line-height:1.4}
+.buildSummary li>b{white-space:nowrap}
+.ownerApp .buildSummary>strong{align-items:baseline;gap:10px;flex-wrap:wrap}
+.ownerApp .buildSummary>a{min-height:44px;max-width:100%;text-align:center;white-space:normal}
 .ownerApp .servicesManager>div{grid-template-columns:minmax(360px,1fr) 220px 120px 150px;gap:16px;min-height:78px}
 .ownerApp .servicesManager>div>button{min-height:44px;padding:0 16px;white-space:nowrap}
 .ownerApp .ownerEditorForm :is(input:not([type=checkbox]):not([type=radio]),select){height:44px;min-height:44px;padding:10px 12px!important;line-height:1.4!important}.ownerApp .ownerEditorForm textarea{min-height:110px}
@@ -74,3 +86,8 @@
 .portfolioUpload{margin-top:20px;padding:20px;background:#f3f4ef;border:1px solid #dfe1da;border-radius:9px}.portfolioUpload h3{margin:7px 0!important}.portfolioUpload p{color:#6f746a;line-height:1.55}.portfolioUpload>div{display:grid;grid-template-columns:1fr 1fr;gap:12px}.portfolioUpload label{display:grid;gap:8px;background:#fff;border:1px solid #d9dbd4;border-radius:7px;padding:14px}.portfolioUpload input[type=file]{padding:8px!important;min-height:48px}.portfolioUpload>b{display:block;color:#5e8620;margin-top:12px}@media(max-width:700px){.portfolioUpload>div{grid-template-columns:1fr}}
 /* Keep the overview's own table scroller from widening the document. */
 .ownerDashboard.lower>*{min-width:0}
+.ownerPortfolioCatalog{display:grid;gap:24px;min-width:0}
+.ownerPortfolioCatalog>section{min-width:0}
+.ownerPortfolioCatalog h2{margin:0 0 10px;font-size:20px}
+.ownerPortfolioCatalog>section>p{margin:0 0 14px;color:#52645a;line-height:1.55}
+.ownerPortfolioOverview{display:flex;align-items:center;flex-wrap:wrap;gap:10px 18px;justify-content:space-between;padding:12px 16px;border:1px solid #d8e2d7;border-radius:9px;background:#eef4ec}

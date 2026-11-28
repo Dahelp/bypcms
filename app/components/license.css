@@ -24,3 +24,16 @@
 .commerceMailCenter>.licenseButtons{display:flex;flex-flow:row wrap;width:100%;gap:12px;align-items:stretch}.commerceMailCenter>.licenseButtons>a,.commerceMailCenter>.licenseButtons>button{box-sizing:border-box;flex:1 1 180px;min-width:160px;max-width:100%;padding:12px 14px;border:1px solid #b8c7b7;border-radius:7px;background:#f1f5ef;color:#26362b;font:inherit;line-height:1.45;white-space:normal;word-break:normal;overflow-wrap:break-word;text-align:center;text-decoration:none;min-height:44px}.commerceMailCenter>.licenseButtons>button:disabled{opacity:.5;cursor:not-allowed}@media(max-width:600px){.commerceMailCenter>.licenseButtons{display:grid;grid-template-columns:minmax(0,1fr)}.commerceMailCenter>.licenseButtons>a,.commerceMailCenter>.licenseButtons>button{width:100%;min-width:0;flex:none;overflow-wrap:break-word}}
 
 .licenseWorkspace input[type=checkbox]{width:18px;height:18px;min-width:18px;max-width:18px;padding:0;margin-inline-end:8px;vertical-align:middle;flex:none}
+.commerceOrderGuide{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:10px 18px}
+.commerceOrderGuide p{flex:1 1 300px;min-width:0;margin:0}
+.commerceOrderGuide a{display:inline-flex;min-height:44px;align-items:center;text-underline-offset:3px}
+.commerceInvoiceEstimate{display:grid;gap:10px;margin:18px 0;padding:14px;border-radius:8px;background:#f4f6f1;max-width:700px}
+.commerceInvoiceEstimate>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 14px}
+.commerceInvoiceEstimate dd{margin:0;font-variant-numeric:tabular-nums}
+.commerceInvoiceEstimate>div:last-child{border-top:1px solid #d8e0d4;padding-top:10px}
+.commerceFilterActions{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.commerceFilter .commerceFilterReset{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 16px;border:1px solid #b8c7b7;border-radius:7px;background:#fff;color:#34523b;text-decoration:none}
+.commerceFilter .commerceFilterReset:hover{background:#eaf3e5}
+.commerceFilterActions button{cursor:pointer}
+.commerceFilter :is(.commerceFilterReset,button):focus-visible{outline:2px solid #50685d;outline-offset:3px}
+@media(max-width:600px){.commerceFilter label{flex-basis:100%;min-width:0}.commerceFilterActions{width:100%}.commerceFilterActions>*{flex:1}}
